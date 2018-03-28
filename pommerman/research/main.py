@@ -17,7 +17,7 @@ import utils
 from arguments import get_args
 from envs import make_env
 from model import PommeResnetPolicy, PommeCNNPolicySmall
-    
+
 import ppo_agent
 from subproc_vec_env import SubprocVecEnvRender
 
@@ -100,7 +100,7 @@ def main():
             for i in range(args.num_processes)]
     if args.render:
         envs = SubprocVecEnvRender(envs)
-    else: 
+    else:
         envs = SubprocVecEnv(envs)
 
     for agent in training_agents:
