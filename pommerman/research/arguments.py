@@ -29,7 +29,7 @@ def get_args():
                         help='random seed (default: 1)')
     parser.add_argument('--num-processes', type=int, default=6, # TODO: Change back to 16.
                         help='how many training CPU processes to use (default: 16)')
-    parser.add_argument('--num-steps', type=int, default=3, # TODO: Change back to more.
+    parser.add_argument('--num-steps', type=int, default=100, # TODO: Change back to more.
                         help='number of forward steps in A2C (default: 5)')
     parser.add_argument('--num-layers', type=int, default=13,
                         help='number of layers in the Resnet')
@@ -53,9 +53,9 @@ def get_args():
                         help='number of frames to train (default: 10e6)')
     parser.add_argument('--env-name', default='Pommerman',
                         help='environment to train on (default: Pommerman) other options: PongNoFrameskip-v4)')
-    parser.add_argument('--log_dir', default='/home/roberta/pomme_logs/stats',
+    parser.add_argument('--log_dir', default='/tmp/gym/',
                         help='directory to save agent logs (default: /tmp/gym)')
-    parser.add_argument('--save-dir', default='/home/roberta/pomme_logs/trained_models',
+    parser.add_argument('--save-dir', default='../trained_models',
                         help='directory to save agent logs (default: ./trained_models/)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
@@ -78,6 +78,8 @@ def get_args():
                         help='how to train agents: simple, homogenous, heterogenous.')
     parser.add_argument('--num-channels', type=int, default=256,
                         help='number of channels in the convolutional layers')
+    parser.add_argument('--render', default=False, action='store_true',
+                        help='whether to render the first process.')
     # TODO: Remove this. It's always 13.
     parser.add_argument('--board_size', type=int, default=13,
                         help='size of the board')
