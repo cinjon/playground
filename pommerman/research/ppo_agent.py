@@ -50,7 +50,7 @@ class PPOAgent(BaseAgent):
                                 volatile=True)
         states = Variable(self._rollout.states[step, num_agent], volatile=True)
         masks = Variable(self._rollout.masks[step, num_agent], volatile=True)
-        if is_act:
+        if use_act:
             return self._actor_critic.act(observations, states, masks)
         else:
             return self._actor_critic(observations, states, masks)[0].data
