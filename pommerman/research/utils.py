@@ -45,44 +45,9 @@ def orthogonal(tensor, gain=1):
     return tensor
 
 
-# initialize training stats
-def init_stats(args):
-    stats = {
-             'num_updates'    : [],
-             'num_steps'    : [],
-             'mean_reward'  : [[] for i in range(args.nagents)],
-             'median_reward'  : [[] for i in range(args.nagents)],
-             'min_reward'  : [[] for i in range(args.nagents)],
-             'max_reward'  : [[] for i in range(args.nagents)],
-             'policy_loss'   : [[] for i in range(args.nagents)],
-             'value_loss' : [[] for i in range(args.nagents)],
-             'entropy_loss' : [[] for i in range(args.nagents)],
-             }
-
-    return stats
-
 # save a dictionary with all the logs
 def save_dict(fname, d):
     f = h5py.File(fname, "w")
     for k, v in d.items():
         f.create_dataset(k, data=v)
     f.close()
-
-
-# log training stats
-def log_stats(args, stats, num_updates, num_steps, mean_reward, median_reward, min_reward, max_reward, policy_loss, value_loss, entropy_loss):
-
-    stats['num_updates'].append(num_updates)
-    stats['num_steps'].append(num_steps)
-
-    for i in range(args.nagents):
-        stats['mean_reward'][i].append(mean_reward[i])
-        stats['median_reward'][i].append(median_reward[i])
-        stats['min_reward'][i].append(min_reward[i])
-        stats['max_reward'][i].append(max_reward[i])
-
-        stats['policy_loss'][i].append(policy_loss[i])
-        stats['value_loss'][i].append(value_loss[i])
-        stats['entropy_loss'][i].append(entropy_loss[i])
-
-    return stats
