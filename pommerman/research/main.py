@@ -13,20 +13,21 @@ from torch.autograd import Variable
 from arguments import get_args
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
-from baselines.common.vec_env.vec_normalize import VecNormalize
 from envs import make_env
-from model import CNNPolicy, MLPPolicy, PommeCNNPolicy, PommeResnetPolicy, PommeCNNPolicySmall
+from model import CNNPolicy, MLPPolicy, PommeCNNPolicy, PommeResnetPolicy, \
+    PommeCNNPolicySmall
 import ppo_agent
+from subproc_vec_env import SubprocVecEnvRender
 from visualize import visdom_plot
 
 import utils
 
 args = get_args()
 
-# num_updates = number of samples collected for one round of updates = number of updates in one round
-# num_steps = horizon = number of steps in a rollout
-# num_processes = number of parallel processes/workers that run the environment and collect data
-# number of samples you use for a round of updates = number of collected samples to update each time = horizon * num_workers = num_steps_rollout * num_parallel_processes
+# num_updates = number of samples collected in one round of updates.
+# num_steps = number of steps in a rollout (horizon)
+# num_processes = number of parallel processes/workers collecting data.
+# number of samples used for a round of updates = horizon * num_workers = num_steps_rollout * num_parallel_processes
 num_updates = int(args.num_frames) // args.num_steps // args.num_processes
 print("NUM UPDATES {} num frames {} num steps {} num processes {}".format(num_updates, args.num_frames, args.num_steps, args.num_processes), "\n")
 
@@ -42,7 +43,8 @@ except OSError:
 
 def main():
     print("#######")
-    print("WARNING: All rewards are clipped or normalized so you need to use a monitor (see envs.py) or visdom plot to get true rewards")
+    print("WARNING: All rewards are clipped or normalized.")
+    print("Use a monitor (see envs.py) or visdom plot to get true rewards.")
     print("#######")
 
     os.environ['OMP_NUM_THREADS'] = '1'
@@ -96,7 +98,11 @@ def main():
 
     # NOTE: Does this work correctly? Will the threads operate independently?
     envs = [make_env(args, config, i, training_agents) for i in range(args.num_processes)]
-    envs = SubprocVecEnv(envs) if args.num_processes > 1 else DummyVecEnv(envs)
+    if args.render:
+        envs = SubprocVecEnvRender(envs)
+    else: 
+        envs = SubprocVecEnv(envs)
+
     # TODO: Figure out how to render this for testing purposes. The following link may help:
     # https://github.com/MG2033/A2C/blob/master/envs/subproc_vec_env.py
 
@@ -126,6 +132,9 @@ def main():
     stats = utils.init_stats(args)
     start = time.time()
     for j in range(num_updates):
+        for agent in training_agents:
+            agent.eval()
+
         for step in range(args.num_steps):
             value_agents = []
             action_agents = []
@@ -155,6 +164,8 @@ def main():
                         cpu_actions_agents[num_process].append(cpu_actions[num_process])
 
             obs, reward, done, info = envs.step(cpu_actions_agents)
+            if args.render:
+                envs.render()
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
             episode_rewards += reward
 
@@ -167,10 +178,10 @@ def main():
             elif args.how_train == 'homogenous':
                 masks = torch.FloatTensor([
                     [0.0]*num_training_per_episode if done_ else [1.0]*num_training_per_episode
-                    for done_ in done]).transpose(0,1)
+                    for done_ in done]).transpose(0,1).unsqueeze(2)
 
-
-            final_rewards *= masks                   # nagents x nprocesses x 1
+            print("REWARD / DONE / MASKS: ", reward, done, masks.squeeze())
+            final_rewards *= masks
             final_rewards += (1 - masks) * episode_rewards
             episode_rewards *= masks
             if args.cuda:
@@ -180,8 +191,7 @@ def main():
             if args.how_train == 'simple':
                 masks_all = masks.transpose(0,1).unsqueeze(2)
             elif args.how_train == 'homogenous':
-                masks_all = masks.unsqueeze(2)
-
+                masks_all = masks
 
             current_obs *= masks_all.unsqueeze(2).unsqueeze(2)
             update_current_obs(obs)
@@ -209,6 +219,9 @@ def main():
         final_action_losses = []
         final_value_losses = []
         final_dist_entropies = []
+
+        for agent in training_agents:
+            agent.train()
 
         for num_agent, agent in enumerate(training_agents):
             for _ in range(args.ppo_epoch):

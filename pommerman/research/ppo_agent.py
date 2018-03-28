@@ -29,6 +29,12 @@ class PPOAgent(BaseAgent):
         """This agent has its own way of inducing actions."""
         return None
 
+    def eval(self):
+        self._actor_critic.eval()
+
+    def train(self):
+        self._actor_critic.train()
+
     def act_pytorch(self, step, num_agent=0):
         """Uses the actor_critic to act.
 
