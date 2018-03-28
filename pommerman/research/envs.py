@@ -89,10 +89,8 @@ class WrapPomme(gym.ObservationWrapper):
     @staticmethod
     def _featurize3D(obs):
         """Create 3D Feature Maps for Pommerman.
-
         Args:
           obs: The observation input. Should be for a single agent.
-
         Returns:
           A 3D Feature Map where each feature is of a 13x13 board. The features are:
           - (15) Items in Pommerman's utility.Item enum.
@@ -163,9 +161,7 @@ class WrapPomme(gym.ObservationWrapper):
 class MultiAgentFrameStack(gym.Wrapper):
     def __init__(self, env, k):
         """Stack k last frames.
-
         Returns lazy array, which is much more memory efficient.
-
         See Also
         --------
         baselines.common.atari_wrappers.LazyFrames
@@ -197,9 +193,7 @@ class LazyFrames(object):
         """This object ensures that common frames between the observations are only stored once.
         It exists purely to optimize memory usage which can be huge for DQN's 1M frames replay
         buffers.
-
         This object should only be converted to numpy array before being passed to the model.
-
         You'd not believe how complex the previous solution was."""
         self._frames = frames
         self._out = None
@@ -221,5 +215,3 @@ class LazyFrames(object):
 
     def __getitem__(self, i):
         return self._force()[i]
-
-

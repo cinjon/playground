@@ -22,6 +22,9 @@ class PPOAgent(BaseAgent):
     def get_model(self):
         return self._actor_critic
 
+    def get_optimizer(self):
+        return self._optimizer
+
     def act(self, obs, action_space):
         """This agent has its own way of inducing actions."""
         return None

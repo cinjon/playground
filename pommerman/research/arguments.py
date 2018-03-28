@@ -53,9 +53,9 @@ def get_args():
                         help='number of frames to train (default: 10e6)')
     parser.add_argument('--env-name', default='Pommerman',
                         help='environment to train on (default: Pommerman) other options: PongNoFrameskip-v4)')
-    parser.add_argument('--log-dir', default='/tmp/gym/',
+    parser.add_argument('--log_dir', default='/home/roberta/pomme_logs/stats',
                         help='directory to save agent logs (default: /tmp/gym)')
-    parser.add_argument('--save-dir', default='../trained_models/',
+    parser.add_argument('--save-dir', default='/home/roberta/pomme_logs/trained_models',
                         help='directory to save agent logs (default: ./trained_models/)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
@@ -74,13 +74,19 @@ def get_args():
                         help='comma delineated paths to where the nagent # of agents are saved.')
     parser.add_argument('--game-state-file', type=str, default='',
                         help='a game state file from which to load.')
-    parser.add_argument('--how-train', type=str, default='homogenous',
+    parser.add_argument('--how-train', type=str, default='simple',
                         help='how to train agents: simple, homogenous, heterogenous.')
     parser.add_argument('--num-channels', type=int, default=256,
                         help='number of channels in the convolutional layers')
     # TODO: Remove this. It's always 13.
     parser.add_argument('--board_size', type=int, default=13,
                         help='size of the board')
+
+    parser.add_argument('--server', type=str, default='http://216.165.70.24',
+                        help='how to train agents: simple, homogenous, heterogenous.')
+
+    parser.add_argument('--num-steps-eval', type=int, default=1000,
+                        help='number of steps to run for evaluation')
 
     args = parser.parse_args()
 
