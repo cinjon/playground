@@ -92,15 +92,7 @@ class PommeCNNPolicy(FFPolicy):
         self.critic_linear = nn.Linear(512, 1)
         self.actor_linear = nn.Linear(512, 1)
 
-        if action_space.__class__.__name__ == "Discrete":
-            num_outputs = action_space.n
-            self.dist = Categorical(512, num_outputs)
-        elif action_space.__class__.__name__ == "Box":
-            num_outputs = action_space.shape[0]
-            self.dist = DiagGaussian(512, num_outputs)
-        else:
-            raise NotImplementedError
-
+        self.dist = Categorical(512, action_space.n)
         self.train()
         self.reset_parameters()
 
@@ -178,8 +170,8 @@ class PommeCNNPolicy(FFPolicy):
 
         return self.critic_linear(x), x, states
 
-# XXX: this is similar to AlphaGoLee or the dual-conv in AlphaGoZero
-# XXX: do we need batchnorm? what's the min number of layers for this to work?
+# NOTE: this is similar to AlphaGoLee or the dual-conv in AlphaGoZero
+# TODO: do we need batchnorm? what's the min number of layers for this to work?
 class PommeCNNPolicySmall(FFPolicy):
     def __init__(self, num_inputs, action_space, args):
         super(PommeCNNPolicySmall, self).__init__()
@@ -196,7 +188,7 @@ class PommeCNNPolicySmall(FFPolicy):
         self.bn4 = nn.BatchNorm2d(args.num_channels)
 
 
-        # XXX: or should it go straight to 512?
+        # TODO: should it go straight to 512?
         self.fc1 = nn.Linear(args.num_channels*(args.board_size)*(args.board_size), 1024)
         self.fc_bn1 = nn.BatchNorm1d(1024)
 
@@ -206,15 +198,7 @@ class PommeCNNPolicySmall(FFPolicy):
         self.critic_linear = nn.Linear(512, 1)
         self.actor_linear = nn.Linear(512, 1)
 
-        if action_space.__class__.__name__ == "Discrete":
-            num_outputs = action_space.n
-            self.dist = Categorical(512, num_outputs)
-        elif action_space.__class__.__name__ == "Box":
-            num_outputs = action_space.shape[0]
-            self.dist = DiagGaussian(512, num_outputs)
-        else:
-            raise NotImplementedError
-
+        self.dist = Categorical(512, action_space.n)
         self.train()
         self.reset_parameters()
 
@@ -235,10 +219,8 @@ class PommeCNNPolicySmall(FFPolicy):
         self.conv3.weight.data.mul_(relu_gain)
         self.conv4.weight.data.mul_(relu_gain)
 
-
         self.fc1.weight.data.mul_(relu_gain)
         self.fc2.weight.data.mul_(relu_gain)
-
 
         if hasattr(self, 'gru'):
             orthogonal(self.gru.weight_ih.data)
@@ -248,7 +230,6 @@ class PommeCNNPolicySmall(FFPolicy):
 
         if self.dist.__class__.__name__ == "DiagGaussian":
             self.dist.fc_mean.weight.data.mul_(0.01)
-
 
     def forward(self, inputs, states, masks):
         x = F.relu(self.bn1(self.conv1(inputs)))    # np x nc x bs x bs = 2x256x13x13
@@ -272,7 +253,6 @@ class PommeCNNPolicySmall(FFPolicy):
                     hx = states = self.gru(x[i], states * masks[i])
                     outputs.append(hx)
                 x = torch.cat(outputs, 0)
-
 
         return self.critic_linear(x), x, states
 
@@ -353,14 +333,7 @@ class ResNet(FFPolicy):
         self.value_relu2 = nn.ReLU()
         self.value_linear2 = nn.Linear(args.num_channels, 1)
 
-        if action_space.__class__.__name__ == "Discrete":
-            num_outputs = action_space.n
-            self.dist = Categorical(2*(args.board_size)*(args.board_size), num_outputs)
-        elif action_space.__class__.__name__ == "Box":
-            num_outputs = action_space.shape[0]
-            self.dist = DiagGaussian(2*(args.board_size)*(args.board_size), num_outputs)
-        else:
-            raise NotImplementedError
+        self.dist = Categorical(2*(args.board_size)*(args.board_size), action_space.n)
 
         # self.avgpool = nn.AvgPool2d(7, stride=1)
         # self.fc = nn.Linear(512 * block.expansion, num_outputs)
@@ -490,15 +463,7 @@ class CNNPolicy(FFPolicy):
             self.gru = nn.GRUCell(512, 512)
 
         self.critic_linear = nn.Linear(512, 1)
-
-        if action_space.__class__.__name__ == "Discrete":
-            num_outputs = action_space.n
-            self.dist = Categorical(512, num_outputs)
-        elif action_space.__class__.__name__ == "Box":
-            num_outputs = action_space.shape[0]
-            self.dist = DiagGaussian(512, num_outputs)
-        else:
-            raise NotImplementedError
+        self.dist = Categorical(512, action_space.n, num_outputs)
 
         self.train()
         self.reset_parameters()
@@ -555,66 +520,3 @@ class CNNPolicy(FFPolicy):
                 x = torch.cat(outputs, 0)
 
         return self.critic_linear(x), x, states
-
-
-
-class MLPPolicy(FFPolicy):
-    def __init__(self, num_inputs, action_space):
-        super(MLPPolicy, self).__init__()
-
-        self.action_space = action_space
-
-        self.a_fc1 = nn.Linear(num_inputs, 64)
-        self.a_fc2 = nn.Linear(64, 64)
-
-        self.v_fc1 = nn.Linear(num_inputs, 64)
-        self.v_fc2 = nn.Linear(64, 64)
-        self.v_fc3 = nn.Linear(64, 1)
-
-        if action_space.__class__.__name__ == "Discrete":
-            num_outputs = action_space.n
-            self.dist = Categorical(64, num_outputs)
-        elif action_space.__class__.__name__ == "Box":
-            num_outputs = action_space.shape[0]
-            self.dist = DiagGaussian(64, num_outputs)
-        else:
-            raise NotImplementedError
-
-        self.train()
-        self.reset_parameters()
-
-    @property
-    def state_size(self):
-        return 1
-
-    def reset_parameters(self):
-        self.apply(weights_init_mlp)
-
-        """
-        tanh_gain = nn.init.calculate_gain('tanh')
-        self.a_fc1.weight.data.mul_(tanh_gain)
-        self.a_fc2.weight.data.mul_(tanh_gain)
-        self.v_fc1.weight.data.mul_(tanh_gain)
-        self.v_fc2.weight.data.mul_(tanh_gain)
-        """
-
-        if self.dist.__class__.__name__ == "DiagGaussian":
-            self.dist.fc_mean.weight.data.mul_(0.01)
-
-    def forward(self, inputs, states, masks):
-        x = self.v_fc1(inputs)
-        x = F.tanh(x)
-
-        x = self.v_fc2(x)
-        x = F.tanh(x)
-
-        x = self.v_fc3(x)
-        value = x
-
-        x = self.a_fc1(inputs)
-        x = F.tanh(x)
-
-        x = self.a_fc2(x)
-        x = F.tanh(x)
-
-        return value, x, states

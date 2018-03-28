@@ -4,23 +4,23 @@ import os
 import time
 import sys
 
-import gym
-from pommerman import configs
-import numpy as np
-import torch
-from torch.autograd import Variable
-
-from arguments import get_args
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
+import gym
+import numpy as np
+from pommerman import configs
+from tensorboardX import SummaryWriter
+import torch
+from torch.autograd import Variable
+import utils
+
+from arguments import get_args
 from envs import make_env
-from model import CNNPolicy, MLPPolicy, PommeCNNPolicy, PommeResnetPolicy, \
-    PommeCNNPolicySmall
+from model import PommeResnetPolicy, PommeCNNPolicySmall
+    
 import ppo_agent
 from subproc_vec_env import SubprocVecEnvRender
-from visualize import visdom_plot
 
-import utils
 
 args = get_args()
 
@@ -34,6 +34,7 @@ print("NUM UPDATES {} num frames {} num steps {} num processes {}".format(num_up
 torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
+
 try:
     os.makedirs(args.log_dir)
 except OSError:
@@ -49,11 +50,6 @@ def main():
 
     os.environ['OMP_NUM_THREADS'] = '1'
 
-    if args.vis:
-        from visdom import Visdom
-        viz = Visdom(port=args.port)
-        win = None
-
     # Instantiate the environment
     config = getattr(configs, args.config)()
 
@@ -62,13 +58,12 @@ def main():
     envs_shape = dummy_env.observation_space.shape[1:]
     obs_shape = (envs_shape[0], *envs_shape[1:])
     action_space = dummy_env.action_space
-    if len(envs_shape) == 3:
-        if args.model == 'convnet':
-            actor_critic = lambda saved_model: PommeCNNPolicySmall(obs_shape[0], action_space, args)
-        elif args.model == 'resnet':
-            actor_critic = lambda saved_model: PommeResnetPolicy(obs_shape[0], action_space, args)
-    else:
-        actor_critic = lambda saved_model: MLPPolicy(obs_shape[0], action_space)
+    if args.model == 'convnet':
+        actor_critic = lambda saved_model: PommeCNNPolicySmall(
+            obs_shape[0], action_space, args)
+    elif args.model == 'resnet':
+        actor_critic = lambda saved_model: PommeResnetPolicy(
+            obs_shape[0], action_space, args)
 
     # We need to get the agent = config.agent(agent_id, config.game_type) and then
     # pass that agent into the agent.PPOAgent
@@ -96,15 +91,17 @@ def main():
         print("Heterogenous training is not implemented yet.")
         return
 
+    suffix = "train.ht-{}.cfg-{}.m-{}.event".format(
+        args.how_train, args.config, args.model)
+    writer = SummaryWriter(os.path.join(args.log_dir, suffix))
+
     # NOTE: Does this work correctly? Will the threads operate independently?
-    envs = [make_env(args, config, i, training_agents) for i in range(args.num_processes)]
+    envs = [make_env(args, config, i, training_agents)
+            for i in range(args.num_processes)]
     if args.render:
         envs = SubprocVecEnvRender(envs)
     else: 
         envs = SubprocVecEnv(envs)
-
-    # TODO: Figure out how to render this for testing purposes. The following link may help:
-    # https://github.com/MG2033/A2C/blob/master/envs/subproc_vec_env.py
 
     for agent in training_agents:
         agent.initialize(args, obs_shape, action_space, num_training_per_episode)
@@ -113,8 +110,11 @@ def main():
     def update_current_obs(obs):
         current_obs = torch.from_numpy(obs).float()
 
-    obs = envs.reset()
-    update_current_obs(obs)
+    def torch_numpy_stack(value):
+        return torch.from_numpy(np.stack([x.data for x in value])).float()
+
+    obs = update_current_obs(envs.reset())
+
     if args.how_train == 'simple':
         training_agents[0].update_rollouts(obs=current_obs, timestep=0)
     elif args.how_train == 'homogenous':
@@ -129,11 +129,12 @@ def main():
         for agent in training_agents:
             agent.cuda()
 
-    stats = utils.init_stats(args)
+    # TODO: Set the total_steps count when you load the model.
     start = time.time()
+
     for j in range(num_updates):
         for agent in training_agents:
-            agent.eval()
+            agent.set_eval()
 
         for step in range(args.num_steps):
             value_agents = []
@@ -144,7 +145,7 @@ def main():
             cpu_actions_agents = []
 
             if args.how_train == 'simple':
-                value, action, action_log_prob, states = training_agents[0].act_pytorch(step, 0)
+                value, action, action_log_prob, states = training_agents[0].run(step, 0, use_act=True)
                 value_agents.append(value)
                 action_agents.append(action)
                 action_log_prob_agents.append(action_log_prob)
@@ -154,7 +155,7 @@ def main():
             elif args.how_train == 'homogenous':
                 cpu_actions_agents = [[] for _ in range(args.num_processes)]
                 for i in range(4):
-                    value, action, action_log_prob, states = training_agents[0].act_pytorch(step, i)
+                    value, action, action_log_prob, states = training_agents[0].run(step=step, num_agent=i, use_act=True)
                     value_agents.append(value)
                     action_agents.append(action)
                     action_log_prob_agents.append(action_log_prob)
@@ -169,8 +170,6 @@ def main():
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
             episode_rewards += reward
 
-
-            # import pdb; pdb.set_trace()
             if args.how_train == 'simple':
                 masks = torch.FloatTensor([
                     [0.0]*num_training_per_episode if done_ else [1.0]*num_training_per_episode
@@ -180,7 +179,7 @@ def main():
                     [0.0]*num_training_per_episode if done_ else [1.0]*num_training_per_episode
                     for done_ in done]).transpose(0,1).unsqueeze(2)
 
-            print("REWARD / DONE / MASKS: ", reward, done, masks.squeeze())
+            # print("REWARD / DONE / MASKS: ", reward, done, masks.squeeze())
             final_rewards *= masks
             final_rewards += (1 - masks) * episode_rewards
             episode_rewards *= masks
@@ -196,24 +195,24 @@ def main():
             current_obs *= masks_all.unsqueeze(2).unsqueeze(2)
             update_current_obs(obs)
 
-            states_all = torch.from_numpy(np.stack([x.data for x in states_agents])).float()
-            action_all = torch.from_numpy(np.stack([x.data for x in action_agents])).float()
-            action_log_prob_all = torch.from_numpy(np.stack([x.data for x in action_log_prob_agents])).float()
-            value_all = torch.from_numpy(np.stack([x.data for x in value_agents])).float()
+            states_all = torch_numpy_stack(states_agents)
+            action_all = torch_numpy_stack(action_agents)
+            action_log_prob_all = torch_numpy_stack(action_log_prob_agents)
+            value_all = torch_numpy_stack(value_agents)
 
-            if args.how_train in ['simple', 'homogenous']:
-                training_agents[0].insert_rollouts(
-                    step, current_obs, states_all, action_all, action_log_prob_all,
-                    value_all, reward_all, masks_all)
+            training_agents[0].insert_rollouts(
+                step, current_obs, states_all, action_all, action_log_prob_all,
+                value_all, reward_all, masks_all)
 
         next_value_agents = []
         if args.how_train == 'simple':
             agent = training_agents[0]
-            next_value_agents.append(agent.run_actor_critic(-1, 0))
+            next_value_agents.append(agent.run(step=-1, num_agent=0))
             advantages = [agent.compute_advantages(next_value_agents, args.use_gae, args.gamma, args.tau)]
         elif args.how_train == 'homogenous':
             agent = training_agents[0]
-            next_value_agents = [agent.run_actor_critic(-1, num_agent) for num_agent in range(4)]
+            next_value_agents = [agent.run(step=-1, num_agent=num_agent)
+                                 for num_agent in range(4)]
             advantages = [agent.compute_advantages(next_value_agents, args.use_gae, args.gamma, args.tau)]
 
         final_action_losses = []
@@ -221,7 +220,7 @@ def main():
         final_dist_entropies = []
 
         for agent in training_agents:
-            agent.train()
+            agent.set_train()
 
         for num_agent, agent in enumerate(training_agents):
             for _ in range(args.ppo_epoch):
@@ -253,6 +252,9 @@ def main():
 
             agent.after_update()
 
+        # TODO: This is relative to the loaded model if exists.
+        total_steps = (j + 1) * args.num_processes * args.num_steps
+
         #####
         # Save model.
         #####
@@ -268,57 +270,57 @@ def main():
             for num_agent, agent in enumerate(training_agents):
                 save_model = agent.get_model()
                 save_optimizer = agent.get_optimizer()
-                torch.save(
-                {
+                save_dict = {
                     'epoch': j,
                     'arch': args.model,
                     'state_dict': save_model.state_dict(),
                     'optimizer' : save_optimizer.state_dict(),
-
-                },
-                os.path.join(save_path, "train={}-config={}-model={}-agent={}.pt".format(args.how_train, args.config, args.model, num_agent)))
-
+                    'total_steps': total_steps,
+                }
+                save_dict['args'] = vars(args)
+                suffix = "train.ht-{}.cfg-{}.m-{}.num-{}.epoch-{}.steps-{}.pt" \
+                         .format(args.how_train, args.config, args.model,
+                                 num_agent, j, total_steps)
+                torch.save(save_dict, os.path.join(save_path, suffix))
 
         #####
-        # Log to console.
+        # Log to console and to Tensorboard.
         #####
         if j % args.log_interval == 0:
             end = time.time()
-            total_num_steps = (j + 1) * args.num_processes * args.num_steps
+            total_steps = (j + 1) * args.num_processes * args.num_steps
+            mean_dist_entropy = np.mean([
+                dist_entropy.data[0] for dist_entropy in final_dist_entropies])
+            mean_value_loss = np.mean([
+                value_loss.data[0] for value_loss in final_value_losses])
+            mean_action_loss = np.mean([
+                action_loss.data[0] for action_loss in final_action_losses])
             print("Updates {}, num timesteps {}, FPS {}, mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}, avg entropy {:.5f}, avg value loss {:.5f}, avg policy loss {:.5f}".
-                format(j, total_num_steps,
-                       int(total_num_steps / (end - start)),
+                format(j, total_steps,
+                       int(total_steps / (end - start)),
                        final_rewards.mean(),
                        final_rewards.median(),
                        final_rewards.min(),
                        final_rewards.max(),
-                       np.mean([dist_entropy.data[0] for dist_entropy in final_dist_entropies]),
-                       np.mean([value_loss.data[0] for value_loss in final_value_losses]),
-                       np.mean([action_loss.data[0] for action_loss in final_action_losses])))
+                       mean_dist_entropy,
+                       mean_value_loss,
+                       mean_action_loss))
 
-            # save stats to h5 file
-            # TODO: need to fix this error
-            # stats = utils.log_stats(args, stats, j, int(total_num_steps / (end - start)), \
-            #     final_rewards.mean(), final_rewards.median(), final_rewards.min(), final_rewards.max(), \
-            #     np.mean([action_loss.data[0] for action_loss in final_action_losses]), \
-            #     np.mean([value_loss.data[0] for value_loss in final_value_losses]), \
-            #     np.mean([dist_entropy.data[0] for dist_entropy in final_dist_entropies]))
-            #
-            # log_path = os.path.join(args.log_dir)
-            # filename_stats = '%s/stats.h5' % log_path
-            # utils.save_dict(filename_stats, stats)
-
-
-
-        #####
-        # Log to Visdom.
-        #####
-        if args.vis and j % args.vis_interval == 0:
-            try:
-                # Sometimes monitor doesn't properly flush the outputs
-                win = visdom_plot(viz, win, args.log_dir, args.env_name, 'ppo')
-            except IOError:
-                pass
+            # TODO: Update this when we get model loading working.
+            writer.add_scalar('updates', j, total_steps)
+            writer.add_scalar('steps_per_second', j, total_steps)
+            writer.add_scalars('rewards', {
+                'mean': final_rewards.mean(),
+                'median': final_rewards.median(),
+                'min': final_rewards.min(),
+                'max': final_rewards.max(),
+            }, total_steps)
+            writer.add_scalars('track', {
+                'mean_dist_entropy': mean_dist_entropy,
+                'mean_value_loss': mean_value_loss,
+                'mean_action_loss': mean_action_loss,
+            }, total_steps)
+    writer.close()
 
 if __name__ == "__main__":
     main()

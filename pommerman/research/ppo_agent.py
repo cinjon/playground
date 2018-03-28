@@ -29,38 +29,38 @@ class PPOAgent(BaseAgent):
         """This agent has its own way of inducing actions."""
         return None
 
-    def eval(self):
+    def set_eval(self):
         self._actor_critic.eval()
 
-    def train(self):
+    def set_train(self):
         self._actor_critic.train()
 
-    def act_pytorch(self, step, num_agent=0):
-        """Uses the actor_critic to act.
+    def run(self, step, num_agent=0, use_act=False):
+        """Uses the actor_critic to take action.
 
         Args:
           step: The int timestep that we are acting.
-          num_agent: The agent id that we are acting. This is non zero when this agent has copies.
+          num_agent: Agent id that's running. Non-zero when agent has copies.
+          is_act: Whether to call act or just run the actor_critic.
 
         Returns:
           See the actor_critic's act function in model.py.
         """
-        return self._actor_critic.act(
-            Variable(self._rollout.observations[step, num_agent], volatile=True),
-            Variable(self._rollout.states[step, num_agent], volatile=True),
-            Variable(self._rollout.masks[step, num_agent], volatile=True)
-        )
-
-    def run_actor_critic(self, step, num_agent=0):
-        return self._actor_critic(
-            Variable(self._rollout.observations[step][num_agent], volatile=True),
-            Variable(self._rollout.states[step][num_agent], volatile=True),
-            Variable(self._rollout.masks[step][num_agent], volatile=True))[0].data
+        observations = Variable(self._rollout.observations[step, num_agent],
+                                volatile=True)
+        states = Variable(self._rollout.states[step, num_agent], volatile=True)
+        masks = Variable(self._rollout.masks[step, num_agent], volatile=True)
+        if is_act:
+            return self._actor_critic.act(observations, states, masks)
+        else:
+            return self._actor_critic(observations, states, masks)[0].data
 
     def evaluate_actions(self, observations, states, masks, actions):
-        return self._actor_critic.evaluate_actions(observations, states, masks, actions)
+        return self._actor_critic.evaluate_actions(observations, states, masks,
+                                                   actions)
 
-    def optimize(self, value_loss, action_loss, dist_entropy, entropy_coef, max_grad_norm):
+    def optimize(self, value_loss, action_loss, dist_entropy, entropy_coef,
+                 max_grad_norm):
         self._optimizer.zero_grad()
         (value_loss + action_loss - dist_entropy * entropy_coef).backward()
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
@@ -68,13 +68,17 @@ class PPOAgent(BaseAgent):
 
     def compute_advantages(self, next_value_agents, use_gae, gamma, tau):
         for num_agent, next_value in enumerate(next_value_agents):
-            self._rollout.compute_returns(next_value, use_gae, gamma, tau, num_agent)
+            self._rollout.compute_returns(next_value, use_gae, gamma, tau,
+                                          num_agent)
         advantages = self._rollout.compute_advantages()
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
+        diff = (advantages - advantages.mean()) 
+        advantages = diff / (advantages.std() + 1e-5)
         return advantages
 
-    def initialize(self, args, obs_shape, action_space, num_training_per_episode):
-        self._optimizer = optim.Adam(self._actor_critic.parameters(), args.lr, eps=args.eps)
+    def initialize(self, args, obs_shape, action_space,
+                   num_training_per_episode):
+        self._optimizer = optim.Adam(self._actor_critic.parameters(), args.lr,
+                                     eps=args.eps)
         self._rollout = RolloutStorage(
             args.num_steps, args.num_processes, obs_shape, action_space,
             self._actor_critic.state_size, num_training_per_episode
@@ -83,9 +87,10 @@ class PPOAgent(BaseAgent):
     def update_rollouts(self, obs, timestep):
         self._rollout.observations[timestep, :, :, :, :, :].copy_(obs)
 
-    def insert_rollouts(self, step, current_obs, states, action, action_log_prob,
-                        value, reward, mask):
-        self._rollout.insert(step, current_obs, states, action, action_log_prob, value, reward, mask)
+    def insert_rollouts(self, step, current_obs, states, action,
+                        action_log_prob, value, reward, mask):
+        self._rollout.insert(step, current_obs, states, action,
+                             action_log_prob, value, reward, mask)
 
     def feed_forward_generator(self, advantage, args):
         return self._rollout.feed_forward_generator(advantage, args)
