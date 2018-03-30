@@ -63,6 +63,9 @@ def get_args():
                         help='disables visdom visualization')
     parser.add_argument('--port', type=int, default=8097,
                         help='port to run the server on (8097)')
+    parser.add_argument('--run-name', default='',
+                        help='save this run with this name. must be set')
+
 
     # specific to Pommerman
     parser.add_argument('--config', type=str, default='ffa_v0',

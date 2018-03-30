@@ -360,12 +360,17 @@ class ForwardModel(object):
         """
         steps = []
         for _ in num_times:
-            obs = self.get_observations(board, agents, bombs, is_partially_observable, agent_view_size)
-            actions = self.act(agents, obs, action_space, is_communicative=is_communicative)
-            board, agents, bombs, items, flames = self.step(actions, board, agents, bombs, items, flames)
-            next_obs = self.get_observations(board, agents, bombs, is_partially_observable, agent_view_size)
+            obs = self.get_observations(
+                board, agents, bombs, is_partially_observable, agent_view_size)
+            actions = self.act(agents, obs, action_space,
+                               is_communicative=is_communicative)
+            board, agents, bombs, items, flames = self.step(
+                actions, board, agents, bombs, items, flames)
+            next_obs = self.get_observations(
+                board, agents, bombs, is_partially_observable, agent_view_size)
             reward = self.get_rewards(agents, game_type, step_count, max_steps)
-            done = self.get_done(agents, game_type, step_count, max_steps, training_agents)
+            done = self.get_done(agents, game_type, step_count, max_steps,
+                                 training_agents)
             info = self.get_info(done, rewards, game_type, agents)
 
             steps.append({
@@ -421,8 +426,11 @@ class ForwardModel(object):
                 ret.append(act_ex_communication(agent))
         return ret
 
-    @staticmethod
-    def step(actions, curr_board, curr_agents, curr_bombs, curr_items, curr_flames):
+    def step(self, actions, curr_board, curr_agents, curr_bombs, curr_items,
+             curr_flames):
+        # We track what the agents each do in this dict.
+        self.step_info = defaultdict(list)
+
         board_size = len(curr_board)
 
         # Tick the flames. Replace any dead ones with passages. If there is an item there, then reveal that item.
@@ -458,6 +466,35 @@ class ForwardModel(object):
         def has_position_conflict(counter):
             return any([len(agent_ids) > 1 for next_position, agent_ids in counter.items() if next_position])
 
+        def dist_nearest_enemy(agent):
+            agent_position = agent.position
+            target_position = None
+            distance = None
+            enemies = agent.enemies
+            seen = set()
+            Q = [agent_position]
+            while Q:
+                position = Q.pop(0)
+                if not position_on_board(curr_board, position):
+                    continue
+
+                if position in seen:
+                    continue
+                seen.add(position)
+
+                if position_is_enemy(curr_board, position, enemies):
+                    target_position = position
+                    break
+
+                x, y = position
+                Q.extend([(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
+
+            if target_position is not None:
+                xt, yt = target_position
+                xa, ya = agent_position
+                distance = abs(yt - ya) + abs(xt - xa)
+            return distance
+
         curr_positions = [agent.position for agent in curr_agents]
         next_positions = [agent.position for agent in curr_agents]
         for agent, action in zip(curr_agents, actions):
@@ -470,6 +507,10 @@ class ForwardModel(object):
                     bomb = agent.maybe_lay_bomb()
                     if bomb:
                         curr_bombs.append(bomb)
+                        dist_to_enemy = dist_nearest_enemy(agent)
+                        if dist_to_enemy:
+                            self.step_info[agent.agent_id].append(
+                                'bomb:%d' % dist_to_enemy)
                 elif is_valid_direction(curr_board, position, action):
                     next_position = agent.get_next_position(action)
 
@@ -507,6 +548,10 @@ class ForwardModel(object):
 
             if position_is_powerup(curr_board, agent.position):
                 agent.pick_up(Item(curr_board[agent.position]))
+                if Item(curr_board[agent.position]) == Item.Skull:
+                    self.step_info[agent.agent_id].append('bad_item')
+                else:
+                    self.step_info[agent.agent_id].append('good_item')
                 curr_board[agent.position] = Item.Passage.value
 
         # Explode bombs.
@@ -548,6 +593,7 @@ class ForwardModel(object):
         for agent in curr_agents:
             if agent.in_range(exploded_map):
                 agent.die()
+                self.step_info[agent.agent_id].append('died:')
         exploded_map = np.array(exploded_map)
 
         # Update the board
@@ -555,7 +601,8 @@ class ForwardModel(object):
             curr_board[bomb.position] = Item.Bomb.value
 
         for agent in curr_agents:
-            curr_board[np.where(curr_board == agent_value(agent.agent_id))] = Item.Passage.value
+            position = np.where(curr_board == agent_value(agent.agent_id))
+            curr_board[position] = Item.Passage.value
             if agent.is_alive:
                 curr_board[agent.position] = agent_value(agent.agent_id)
 
@@ -660,38 +707,54 @@ class ForwardModel(object):
             elif done:
                 return {
                     'result': Result.Win,
-                    'winners': [num for num, reward in enumerate(rewards) if reward == 1]
+                    'winners': [num for num, reward in enumerate(rewards) \
+                                if reward == 1],
                 }
             else:
-                return {'result': Result.Incomplete}
+                return {
+                    'result': Result.Incomplete,
+                }
         elif done:
             if rewards == [1]*4:
-                return {'result': Result.Tie}
+                return {
+                    'result': Result.Tie,
+                }
             else:
                 return {
                     'result': Result.Win,
-                    'winners': [num for num, reward in enumerate(rewards) if reward == 1]
+                    'winners': [num for num, reward in enumerate(rewards) \
+                                if reward == 1],
                 }
         else:
-            return {'result': Result.Incomplete}
+            return {
+                'result': Result.Incomplete,
+            }
 
     @staticmethod
     def get_rewards(agents, game_type, step_count, max_steps):
-        alive_agents = [num for num, agent in enumerate(agents) if agent.is_alive]
+        def any_lst_equal(lst, values):
+            return any([lst == v for v in values])
+
+        alive_agents = [num for num, agent in enumerate(agents) \
+                        if agent.is_alive]
         if game_type == GameType.FFA:
-            ret = [-1]*4
             if len(alive_agents) == 1 or step_count >= max_steps:
-                for num in alive_agents:
-                    ret[num] = 1
+                # Game is over. All of the alive agents get reward.
+                return [2*int(agent.is_alive) - 1 for agent in agents]
             else:
-                for num in alive_agents:
-                    ret[num] = 0
-            return ret
-        elif alive_agents == [0, 2] or alive_agents == [0] or alive_agents == [2]:
-            return [1, -1, 1, -1]
-        elif alive_agents == [1, 3] or alive_agents == [1] or alive_agents == [3]:
-            return [-1, 1, -1, 1]
-        elif step_count >= max_steps:
-            return [1]*4
+                # Game running: 0 for alive, -1 for dead.
+                return [int(agent.is_alive) - 1 for agent in agents]
         else:
-            return [0]*4
+            # We are playing a team game.
+            if any_lst_equal(alive_agents, [[0, 2], [0], [2]]):
+                # Team [0, 2] wins.
+                return [1, -1, 1, -1]
+            elif any_lst_equal(alive_agents, [[1, 3], [1], [3]]):
+                # Team [1, 3] wins.
+                return [-1, 1, -1, 1]
+            elif step_count >= max_steps:
+                # Game is over by max_steps. All agents tie.
+                return [1]*4
+            else:
+                # No team has yet won or lost.
+                return [0]*4

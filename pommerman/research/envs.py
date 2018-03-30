@@ -45,7 +45,6 @@ def make_env(args, config, rank, training_agents=[]):
             raise
 
         env = WrapPomme(env, args.how_train)
-        # TODO: Add the FrameStack in.
         env = MultiAgentFrameStack(env, args.num_stack)
         return env
     return _thunk
@@ -81,7 +80,8 @@ class WrapPomme(gym.ObservationWrapper):
             all_actions = actions
 
         observation, reward, done, info = self.env.step(all_actions)
-        return self.observation(observation), self._filter(reward), done, info
+        return self.observation(observation), self._filter(reward), \
+            self._filter(done), info
 
     def reset(self, **kwargs):
         return self.observation(self.env.reset())

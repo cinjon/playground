@@ -1,3 +1,4 @@
+from collections import defaultdict
 import copy
 import glob
 import os
@@ -49,6 +50,7 @@ def main():
     print("#######")
 
     os.environ['OMP_NUM_THREADS'] = '1'
+    assert(args.run_name)
 
     # Instantiate the environment
     config = getattr(configs, args.config)()
@@ -93,8 +95,8 @@ def main():
         print("Heterogenous training is not implemented yet.")
         return
 
-    suffix = "train.ht-{}.cfg-{}.m-{}.event".format(
-        args.how_train, args.config, args.model)
+    suffix = "{}.train.ht-{}.cfg-{}.m-{}.event".format(
+        args.run_name, args.how_train, args.config, args.model)
     writer = SummaryWriter(os.path.join(args.log_dir, suffix))
 
     # NOTE: Does this work correctly? Will the threads operate independently?
@@ -125,6 +127,7 @@ def main():
     # These variables are used to compute average rewards for all processes.
     episode_rewards = torch.zeros([num_training_per_episode, args.num_processes, 1])
     final_rewards = torch.zeros([num_training_per_episode, args.num_processes, 1])
+    accumulated_stats = defaultdict(int)
 
     if args.cuda:
         current_obs = current_obs.cuda()
@@ -167,8 +170,19 @@ def main():
                         cpu_actions_agents[num_process].append(cpu_actions[num_process])
 
             obs, reward, done, info = envs.step(cpu_actions_agents)
+
+            # TODO: Change this when we use heterogenous.
+            for i in info:
+                for lst in i.get('step_info', {}).values():
+                    for l in lst:
+                        if l == 'died':
+                            accumulated_stats['dead'].append(l.split(':')[1])
+                        accumulated_stats[l] += 1
+                        if 'bomb' in l:
+                            accumulated_stats['bomb'] += 1
+
             if args.render:
-                envs.render()
+                envs.render(q)
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
             episode_rewards += reward
 
@@ -176,7 +190,7 @@ def main():
             if args.how_train == 'simple':
                 if num_training_per_episode == 1:
                     masks = torch.FloatTensor([
-                    [0.0]*num_training_per_episode if done_ else [1.0]*num_training_per_episode
+                        [0.0]*num_training_per_episode if done_ else [1.0]*num_training_per_episode
                     for done_ in done])
                 else:
                     masks = torch.FloatTensor(
@@ -185,7 +199,6 @@ def main():
             elif args.how_train == 'homogenous':
                 masks = torch.FloatTensor(
                     [[[0.0] if done_[i] else [1.0] for i in range(len(done_))] for done_ in done]).transpose(0,1).unsqueeze(2)
-
 
             # print("REWARD / DONE / MASKS: ", reward, done, masks.squeeze())
             final_rewards *= masks
@@ -289,9 +302,9 @@ def main():
                     'total_steps': total_steps,
                 }
                 save_dict['args'] = vars(args)
-                suffix = "train.ht-{}.cfg-{}.m-{}.num-{}.epoch-{}.steps-{}.pt" \
-                         .format(args.how_train, args.config, args.model,
-                                 num_agent, j, total_steps)
+                suffix = "{}.train.ht-{}.cfg-{}.m-{}.num-{}.epoch-{}.steps-{}.pt" \
+                         .format(args.run_name, args.how_train, args.config,
+                                 args.model, num_agent, j, total_steps)
                 torch.save(save_dict, os.path.join(save_path, suffix))
 
         #####
@@ -301,20 +314,27 @@ def main():
             end = time.time()
             num_steps_sec = (end - start)
             total_steps = (j + 1) * args.num_processes * args.num_steps
+            steps_per_sec = int(total_steps / (end - start))
 
             mean_dist_entropy = np.mean([
                 dist_entropy.data[0] for dist_entropy in final_dist_entropies])
-            var_dist_entropy = np.std([
+            std_dist_entropy = np.std([
                 dist_entropy.data[0] for dist_entropy in final_dist_entropies])
 
             mean_value_loss = np.mean([
                 value_loss.data[0] for value_loss in final_value_losses])
             mean_action_loss = np.mean([
                 action_loss.data[0] for action_loss in final_action_losses])
+            std_value_loss = np.std([
+                value_loss.data[0] for value_loss in final_value_losses])
+            std_action_loss = np.std([
+                action_loss.data[0] for action_loss in final_action_losses])
 
-            print("Updates {}, num timesteps {}, FPS {}, mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}, avg entropy {:.5f}, avg value loss {:.5f}, avg policy loss {:.5f}".
+            print("Updates {}, num timesteps {}, FPS {}, mean/median reward "
+                  "{:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}, avg entropy "
+                  "{:.5f}, avg value loss {:.5f}, avg policy loss {:.5f}".
                 format(j, total_steps,
-                       int(total_steps / (end - start)),
+                       steps_per_sec,
                        final_rewards.mean(),
                        final_rewards.median(),
                        final_rewards.min(),
@@ -323,25 +343,13 @@ def main():
                        mean_value_loss,
                        mean_action_loss))
 
-
-
-            # TODO: Update this when we get model loading working.
-            writer.add_scalar('updates', j, total_steps)
-            writer.add_scalar('steps_per_second', j, int(total_steps / (end - start)))
-            writer.add_scalars('rewards', {
-                'mean': final_rewards.mean(),
-                'median': final_rewards.median(),
-                'min': final_rewards.min(),
-                'max': final_rewards.max(),
-                'var': final_rewards.std(),
-            }, total_steps)
-
+            # TODO: Update all of this when we get model loading working.
 
             # TODO: make these work so that you can show mean +/- variance on the same plot
             # writer.add_scalar('entropy', {
             # 'mean_dist_entropy' : mean_dist_entropy,
-            # 'var_max_dist_entropy': mean_dist_entropy + var_dist_entropy,
-            # 'var_min_dist_entropy': mean_dist_entropy - var_dist_entropy,
+            # 'var_max_dist_entropy': mean_dist_entropy + std_dist_entropy,
+            # 'var_min_dist_entropy': mean_dist_entropy - std_dist_entropy,
             # }, total_steps)
 
             # writer.add_scalar('reward', {
@@ -350,24 +358,44 @@ def main():
             # 'var_min_reward': final_rewards.mean() - final_rewards.std(),
             # }, total_steps)
 
-            # np.asscalar(np.asarray(x))
             writer.add_scalars('entropy', {
                 'mean': mean_dist_entropy,
-                'var': var_dist_entropy,
+                'var': std_dist_entropy,
             }, total_steps)
 
-            writer.add_scalars('value-loss', {
-                'mean': mean_value_loss,
-            }, total_steps)
-
-            writer.add_scalars('action-loss', {
+            writer.add_scalars('action_loss', {
                 'mean': mean_action_loss,
+                'var': std_action_loss,
             }, total_steps)
 
-            # writer.add_scalars('mean_dist_entropy', np.asscalar(np.asarray(mean_dist_entropy)), total_steps)
-            # writer.add_scalars('var_dist_entropy', var_dist_entropy, total_steps)
-            # writer.add_scalars('mean_value_loss', mean_value_loss, total_steps)
-            # writer.add_scalars('mean_action_loss', mean_action_loss, total_steps)
+            writer.add_scalars('value_loss', {
+                'mean': mean_value_loss,
+                'var': std_value_loss,
+            }, total_steps)
+
+            writer.add_scalars('rewards', {
+                'mean': final_rewards.mean(),
+                'std': final_rewards.std(),
+                'median': final_rewards.median(),
+            }, total_steps)
+
+            writer.add_scalar('updates', j, total_steps)
+            writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
+                              
+            for title, count in accumulated_stats.items():
+                if title == 'dead':
+                    continue
+                writer.add_scalar(title, 1.0 * count / total_steps,
+                                  total_steps)
+
+            writer.add_scalars('dying_step', {
+                'mean': np.mean(accumulated_stats['dead']),
+                'std': np.std(accumulated_stats['dead']),
+            }, total_steps)
+            writer.add_scalar(
+                'percent_dying',
+                1.0 * len(accumulated_stats['dead']) / total_steps,
+                total_steps)
 
     writer.close()
 
