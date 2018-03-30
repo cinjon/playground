@@ -619,23 +619,35 @@ class ForwardModel(object):
         return observations
 
     @staticmethod
-    def get_done(agents, step_count, max_steps, game_type, training_agents):
+    def get_done(agents, step_count, max_steps, game_type, training_agents,
+                 all_agents=False):
         alive = [agent for agent in agents if agent.is_alive]
         alive_ids = sorted([agent.agent_id for agent in alive])
         if step_count >= max_steps:
-            return True
+            # The game is done. Return True.
+            return [True]*4 if all_agents else True
         elif game_type == GameType.FFA:
-            if training_agents is not None and all([agent not in alive_ids
-                                                    for agent in training_agents]):
-                return True
-            return len(alive) <= 1
+            if training_agents is not None and all([
+                    agent not in alive_ids for agent in training_agents]):
+                ret = []
+                for agent in agents:
+                    if agent.agent_id not in training_agents:
+                        ret.append(True)
+                    else:
+                        ret.append(agent.agent_id not in alive_ids)
+
+                return ret if all_agents else all(ret)
+            else:
+                is_done = len(alive) <= 1
+                return is_done if not all_agents else [is_done]*4
         elif any([
                 len(alive_ids) <= 1,
                 alive_ids == [0, 2],
                 alive_ids == [1, 3],
         ]):
-            return True
-        return False
+            # The game is done. Return True.
+            return [True]*4 if all_agents else True
+        return [not agent.is_alive for agent in agents]
 
     @staticmethod
     def get_info(done, rewards, game_type, agents):
