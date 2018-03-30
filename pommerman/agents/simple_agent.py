@@ -11,7 +11,8 @@ class SimpleAgent(BaseAgent):
     """This is a baseline agent. After you can beat it, submit your agent to compete."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(SimpleAgent, self).__init__(*args, **kwargs)
+
         # Keep track of recently visited uninteresting positions so that we don't keep visiting the same places.
         self._recently_visited_positions = []
         self._recently_visited_length = 6

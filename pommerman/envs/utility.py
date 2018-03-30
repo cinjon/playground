@@ -2,6 +2,7 @@ from collections import defaultdict
 from enum import Enum
 import itertools
 import random
+import time
 
 import numpy as np
 
@@ -60,7 +61,7 @@ class Action(Enum):
     Left = 3
     Right = 4
     Bomb = 5
-    Pause = 6 # This pauses the game for 5 seconds.
+    Pause = 6 # This pauses the game for 5 minutes.
 
 
 class Result(Enum):
@@ -222,10 +223,10 @@ def is_valid_direction(board, position, direction, invalid_values=None):
 
     if Action(direction) == Action.Up:
         return row - 1 >= 0 and board[row-1][col] not in invalid_values
-    
+
     if Action(direction) == Action.Down:
         return row + 1 < len(board) and board[row+1][col] not in invalid_values
-    
+
     if Action(direction) == Action.Left:
         return col - 1 >= 0 and board[row][col-1] not in invalid_values
 

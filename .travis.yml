@@ -8,7 +8,8 @@ script:
 
 deploy:
   provider: pypi
-  user: $PYPI_USERNAME
-  password: $PYPI_PASSWORD
+  user: "cinjon"
+  password:
+    secure: "WigaDIWWgBGVQ2H2rx7dhLGivPDxLOOjvI+6OPoVgT1Q3/ydloeu9zZWcjEzgP1q9zbajKMFOOdOmO2d/agZpgBY2vDxDfSiPYsasxnxY1ADNP3zpcHO4FMRa6+GZWPKFGjibNTcUgoTsNRxIfPBPGQZpKH33sAnekwlkQIEtOYRFf6gU+4dtn+X0FaoKmwimChnVbiEhPw9YU65/9+3hVsJAtm6m8jxVSr5grN6kQPIK4ItZ2TgRPbTYXAi/t623Gx762emok6UofgdNoobYSmbozFtgG5PC1WcDOnA8nBEyJQOlkXRQvrTQ9THDGa0qhtb6kfNz0zbHe4uQ08QhHZ2EGp1MLnB/pmOhDLS/XKtoPI1mehYApz30ZAsTd+fIwYLUf5eGmiBN5lcJ+unSaY8HwNUD0ZR6YsXLTHJY3LuC9wAUbjlsj/3CkVV7hi/5kzUpg4mkYNw80cffHavWXC1eAw1qC/L6ryjFr1jq2irzIxWKbVEnkpMqGlVom0FrfupsUoSKwPlxEx12QwIzM6qLOKr4CRZzml1sMjsKWF4KpayLCRkWHeMOQh7Tu8P7VhJ7OD/HByrSGb01Sc/KQq89u1xCOb8TEvDvRFXgQZ+i4MIW+uGoW+d66wPwK91m1QwFwmKVNXl4xx9o4K1mf0gOFw9P9RPxgTehAqQPq8="
   on:
     tags: true

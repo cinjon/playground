@@ -204,12 +204,12 @@ class Pomme(gym.Env):
             self.close()
             return
 
-        human_factor = utility.HUMAN_FACTOR
         frames = self._render_frames()
         if mode == 'rgb_array':
             return frames[0]
 
         from PIL import Image
+        human_factor = utility.HUMAN_FACTOR
 
         all_img = resize(frames[0], (self._board_size*human_factor, self._board_size*human_factor), interp='nearest')
         other_imgs = [
@@ -223,7 +223,17 @@ class Pomme(gym.Env):
         if self._viewer is None:
             from gym.envs.classic_control import rendering
             self._viewer = rendering.SimpleImageViewer()
-        self._viewer.imshow(img)
+            self._viewer.imshow(img)
+
+            # Register all agents which need human input with Pyglet.
+            # This needs to be done here as the first `imshow` creates the window.
+            # Using `push_handlers` allows for easily creating agents that use other
+            # Pyglet inputs such as joystick, for example.
+            for agent in self._agents:
+                if agent.has_user_input():
+                    self._viewer.window.push_handlers(agent)
+        else:
+            self._viewer.imshow(img)
 
         if record_pngs_dir:
             Image.fromarray(img).save(os.path.join(record_pngs_dir, '%d.png' % self._step_count))
@@ -231,12 +241,6 @@ class Pomme(gym.Env):
             info = self.get_json_info()
             with open(os.path.join(record_json_dir, '%d.json' % self._step_count), 'w') as f:
                 f.write(json.dumps(info, sort_keys=True, indent=4))
-
-        for agent in self._agents:
-            if agent.has_key_input():
-                self._viewer.window.on_key_press = agent.on_key_press
-                self._viewer.window.on_key_release = agent.on_key_release
-                break
 
         time.sleep(1.0 / self._render_fps)
 

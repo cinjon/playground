@@ -13,46 +13,6 @@ import ruamel.yaml as yaml
 from .envs import utility
 
 
-class KeyInput(Enum):
-    NULL = 0
-    UP = 1
-    DOWN = 2
-    LEFT = 3
-    RIGHT = 4
-    SPACE = 5
-
-KEY_INPUT = {'curr': 0}
-def get_key_control(ty):
-    """Key Control for use with the player controlling the character.
-
-    Args:
-      ty: The string declaring which set of keys you want to use. Options: ["arrows"].
-
-    Returns:
-      on_key_press: The key press action.
-      on_key_release: The key release action.
-    """
-    from pyglet.window import key
-
-    def on_key_press(k, mod):
-        global KEY_INPUT
-        if ty == 'arrows':
-            KEY_INPUT['curr'] = {
-                key.UP: 1,
-                key.DOWN: 2,
-                key.LEFT: 3,
-                key.RIGHT: 4,
-                key.SPACE: 5,
-                key.A: 6 # In Pommerman, this will freeze the game.
-            }.get(k, 0)
-
-    def on_key_release(k, mod):
-        global KEY_INPUT
-        KEY_INPUT['curr'] = 0
-
-    return on_key_press, on_key_release
-
-
 def random_string(num_chars):
     return ''.join(random.choice(string.ascii_lowercase) for _ in range(num_chars))
 

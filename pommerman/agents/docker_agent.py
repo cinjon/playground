@@ -4,19 +4,25 @@ import os
 import threading
 import requests
 import docker
-import numpy as np
-from gym import spaces
 
 from . import BaseAgent
 from .. import utility
+from .. import characters
 
 
 class DockerAgent(BaseAgent):
     """The Docker Agent that Connects to a Docker container where the character runs."""
-    def __init__(self, agent, docker_image, docker_client, server, port, env_vars=None, **kwargs):
-        self._agent = agent
+    def __init__(self,
+                 docker_image,
+                 port,
+                 server='http://localhost',
+                 character=characters.Bomber,
+                 docker_client=None,
+                 env_vars=None):
+        super(DockerAgent, self).__init__(character)
+
         self._docker_image = docker_image
-        self._docker_client = docker_client
+        self._docker_client = docker_client or docker.from_env()
         self._server = server
         self._port = port
         self._container = None

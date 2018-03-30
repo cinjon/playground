@@ -18,7 +18,7 @@ def ffa_v0():
         'max_steps': envs.utility.MAX_STEPS,
         'render_fps': envs.utility.RENDER_FPS,
     }
-    agent = characters.Agent
+    agent = characters.Bomber
     return locals()
 
 
@@ -38,7 +38,7 @@ def ffa_v0_fast():
         'max_steps': envs.utility.MAX_STEPS,
         'render_fps': 1000,
     }
-    agent = characters.Agent
+    agent = characters.Bomber
     return locals()
 
 
@@ -59,7 +59,7 @@ def ffa_v1():
         'max_steps': envs.utility.MAX_STEPS,
         'render_fps': envs.utility.RENDER_FPS,
     }
-    agent = characters.Agent
+    agent = characters.Bomber
     return locals()
 
 
@@ -79,7 +79,27 @@ def team_v0():
         'max_steps': envs.utility.MAX_STEPS,
         'render_fps': envs.utility.RENDER_FPS,
     }
-    agent = characters.Agent
+    agent = characters.Bomber
+    return locals()
+
+
+def team_v0_fast():
+    """Start up a team config with the default settings."""
+    env = envs.v0.Pomme
+    game_type = envs.utility.GameType.Team
+    env_entry_point = 'pommerman.envs.v0:Pomme'
+    env_id = 'PommeTeamFast-v0'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': envs.utility.BOARD_SIZE,
+        'agent_view_size': envs.utility.AGENT_VIEW_SIZE,
+        'num_rigid': envs.utility.NUM_RIGID,
+        'num_wood': envs.utility.NUM_WOOD,
+        'num_items': envs.utility.NUM_ITEMS,
+        'max_steps': envs.utility.MAX_STEPS,
+        'render_fps': 2000,
+    }
+    agent = characters.Bomber
     return locals()
 
 
@@ -122,5 +142,5 @@ def radio_v2():
         'radio_num_words': envs.utility.RADIO_NUM_WORDS,
         'render_fps': envs.utility.RENDER_FPS,
     }
-    agent = characters.Agent
+    agent = characters.Bomber
     return locals()

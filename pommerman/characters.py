@@ -5,7 +5,7 @@ import random
 from .envs import utility
 
 
-class Agent(object):
+class Bomber(object):
     """Container to keep the agent state."""
 
     def __init__(self, agent_id=None, game_type=None):

@@ -20,18 +20,25 @@ import time
 import argparse
 import numpy as np
 
+from .. import helpers
 from .. import make
 
 
 def run(args, num_times=1, seed=None):
     config = args.config
-    agents_string = args.agents
     record_pngs_dir = args.record_pngs_dir
     record_json_dir = args.record_json_dir
     agent_env_vars = args.agent_env_vars
     game_state_file = args.game_state_file
 
-    env = make(config, agents_string, agent_env_vars, game_state_file)
+    # TODO: After https://github.com/MultiAgentLearning/playground/pull/40
+    #       this is still missing the docker_env_dict parsing for the agents.
+    agents = [
+        helpers._make_agent_from_string(agent_string, agent_id+1000)
+        for agent_id, agent_string in enumerate(args.agents.split(','))
+    ]
+
+    env = make(config, agents, game_state_file)
 
     if args.record_pngs_dir:
         assert not os.path.isdir(args.record_pngs_dir)

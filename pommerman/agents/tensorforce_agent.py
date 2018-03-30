@@ -6,8 +6,8 @@ from . import BaseAgent
 
 class TensorForceAgent(BaseAgent):
     """The TensorForceAgent. Acts through the algorith, not here."""
-    def __init__(self, agent, algorithm):
-        self._agent = agent
+    def __init__(self, character, algorithm):
+        self._character = character
         self.algorithm = algorithm
 
     def act(self, obs, action_space):

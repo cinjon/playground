@@ -44,6 +44,11 @@ An example with one player, two random agents, and one test agent:
 $ pom_battle --agents=player::arrows,test::agents.SimpleAgent,random::null,random::null --config=ffa_v0
 ```
 
+A two-player, two-agent game:
+```
+$ pom_battle --agents=player::arrows,player::wasd,test::agents.SimpleAgent,test::agents.SimpleAgent --config=ffa_v0
+```
+
 ### Closing the environment
 You can close the virtual environment using this command
 ```$ deactivate```
