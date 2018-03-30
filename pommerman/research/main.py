@@ -172,14 +172,20 @@ def main():
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
             episode_rewards += reward
 
+            # NOTE: if how-train simple always has num_training_per_episode = 1 then we don't need the conditions below
             if args.how_train == 'simple':
-                masks = torch.FloatTensor([
+                if num_training_per_episode == 1:
+                    masks = torch.FloatTensor([
                     [0.0]*num_training_per_episode if done_ else [1.0]*num_training_per_episode
                     for done_ in done])
+                else:
+                    masks = torch.FloatTensor(
+                        [[[0.0] if done_[i] else [1.0] for i in range(len(done_))] for done_ in done])
+
             elif args.how_train == 'homogenous':
-                masks = torch.FloatTensor([
-                    [0.0]*num_training_per_episode if done_ else [1.0]*num_training_per_episode
-                    for done_ in done]).transpose(0,1).unsqueeze(2)
+                masks = torch.FloatTensor(
+                    [[[0.0] if done_[i] else [1.0] for i in range(len(done_))] for done_ in done]).transpose(0,1).unsqueeze(2)
+
 
             # print("REWARD / DONE / MASKS: ", reward, done, masks.squeeze())
             final_rewards *= masks
@@ -194,7 +200,10 @@ def main():
             elif args.how_train == 'homogenous':
                 masks_all = masks
 
-            current_obs *= masks_all.unsqueeze(2).unsqueeze(2)
+            if args.how_train == 'simple':
+                current_obs *= masks_all.unsqueeze(2).unsqueeze(2)
+            elif args.how_train == 'homogenous':
+                current_obs *= masks_all.unsqueeze(2)
             update_current_obs(obs)
 
             states_all = torch_numpy_stack(states_agents)
@@ -290,13 +299,19 @@ def main():
         #####
         if j % args.log_interval == 0:
             end = time.time()
+            num_steps_sec = (end - start)
             total_steps = (j + 1) * args.num_processes * args.num_steps
+
             mean_dist_entropy = np.mean([
                 dist_entropy.data[0] for dist_entropy in final_dist_entropies])
+            var_dist_entropy = np.std([
+                dist_entropy.data[0] for dist_entropy in final_dist_entropies])
+
             mean_value_loss = np.mean([
                 value_loss.data[0] for value_loss in final_value_losses])
             mean_action_loss = np.mean([
                 action_loss.data[0] for action_loss in final_action_losses])
+
             print("Updates {}, num timesteps {}, FPS {}, mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}, avg entropy {:.5f}, avg value loss {:.5f}, avg policy loss {:.5f}".
                 format(j, total_steps,
                        int(total_steps / (end - start)),
@@ -308,20 +323,52 @@ def main():
                        mean_value_loss,
                        mean_action_loss))
 
+
+
             # TODO: Update this when we get model loading working.
             writer.add_scalar('updates', j, total_steps)
-            writer.add_scalar('steps_per_second', j, total_steps)
+            writer.add_scalar('steps_per_second', j, int(total_steps / (end - start)))
             writer.add_scalars('rewards', {
                 'mean': final_rewards.mean(),
                 'median': final_rewards.median(),
                 'min': final_rewards.min(),
                 'max': final_rewards.max(),
+                'var': final_rewards.std(),
             }, total_steps)
-            writer.add_scalars('track', {
-                'mean_dist_entropy': mean_dist_entropy,
-                'mean_value_loss': mean_value_loss,
-                'mean_action_loss': mean_action_loss,
+
+
+            # TODO: make these work so that you can show mean +/- variance on the same plot
+            # writer.add_scalar('entropy', {
+            # 'mean_dist_entropy' : mean_dist_entropy,
+            # 'var_max_dist_entropy': mean_dist_entropy + var_dist_entropy,
+            # 'var_min_dist_entropy': mean_dist_entropy - var_dist_entropy,
+            # }, total_steps)
+
+            # writer.add_scalar('reward', {
+            # 'mean_reward': final_rewards.mean(),
+            # 'var_max_reward': final_rewards.mean() + final_rewards.std(),
+            # 'var_min_reward': final_rewards.mean() - final_rewards.std(),
+            # }, total_steps)
+
+            # np.asscalar(np.asarray(x))
+            writer.add_scalars('entropy', {
+                'mean': mean_dist_entropy,
+                'var': var_dist_entropy,
             }, total_steps)
+
+            writer.add_scalars('value-loss', {
+                'mean': mean_value_loss,
+            }, total_steps)
+
+            writer.add_scalars('action-loss', {
+                'mean': mean_action_loss,
+            }, total_steps)
+
+            # writer.add_scalars('mean_dist_entropy', np.asscalar(np.asarray(mean_dist_entropy)), total_steps)
+            # writer.add_scalars('var_dist_entropy', var_dist_entropy, total_steps)
+            # writer.add_scalars('mean_value_loss', mean_value_loss, total_steps)
+            # writer.add_scalars('mean_action_loss', mean_action_loss, total_steps)
+
     writer.close()
 
 if __name__ == "__main__":
