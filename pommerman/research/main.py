@@ -54,7 +54,9 @@ def main():
     config = getattr(configs, args.config)()
 
     # We make this in order to get the shapes.
-    dummy_env = make_env(args, config, -1, [config['agent'](game_type=config['game_type'])])()
+    dummy_agent = config['agent'](game_type=config['game_type'])
+    dummy_agent = ppo_agent.PPOAgent(dummy_agent, None)
+    dummy_env = make_env(args, config, -1, [dummy_agent])()
     envs_shape = dummy_env.observation_space.shape[1:]
     obs_shape = (envs_shape[0], *envs_shape[1:])
     action_space = dummy_env.action_space

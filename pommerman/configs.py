@@ -38,7 +38,7 @@ def ffa_v3():
         'max_steps': envs.utility.MAX_STEPS,
         'render_fps': envs.utility.RENDER_FPS,
     }
-    agent = characters.Agent
+    agent = characters.Bomber
     return locals()
 
 

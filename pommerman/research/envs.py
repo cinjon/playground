@@ -9,7 +9,7 @@ import numpy as np
 from pommerman.agents import SimpleAgent
 
 
-def make_env(args, config, rank, training_agents):
+def make_env(args, config, rank, training_agents=[]):
     def _thunk():
         game_type = config['game_type']
         agent_type = config['agent']

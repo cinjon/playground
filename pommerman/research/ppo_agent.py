@@ -11,9 +11,9 @@ from storage import RolloutStorage
 
 class PPOAgent(BaseAgent):
     """The TensorForceAgent. Acts through the algorith, not here."""
-    def __init__(self, agent, actor_critic):
+    def __init__(self, character, actor_critic):
         self._actor_critic = actor_critic
-        self._agent = agent
+        self._character = character
 
     def cuda(self):
         self._actor_critic.cuda()
