@@ -30,7 +30,8 @@ args = get_args()
 # num_processes = number of parallel processes/workers collecting data.
 # number of samples used for a round of updates = horizon * num_workers = num_steps_rollout * num_parallel_processes
 num_updates = int(args.num_frames) // args.num_steps // args.num_processes
-print("NUM UPDATES {} num frames {} num steps {} num processes {}".format(num_updates, args.num_frames, args.num_steps, args.num_processes), "\n")
+print("NUM UPDATES {} num frames {} num steps {} num processes {}".format(
+    num_updates, args.num_frames, args.num_steps, args.num_processes), "\n")
 
 torch.manual_seed(args.seed)
 if args.cuda:
@@ -69,11 +70,12 @@ def main():
         actor_critic = lambda saved_model: PommeResnetPolicy(
             obs_shape[0], action_space, args)
 
-    # We need to get the agent = config.agent(agent_id, config.game_type) and then
-    # pass that agent into the agent.PPOAgent
+    # We need to get the agent = config.agent(agent_id, config.game_type) and
+    # then pass that agent into the agent.PPOAgent
     training_agents = []
     saved_models = args.saved_models
-    saved_models = saved_models.split(',') if saved_models else [None]*args.nagents
+    saved_models = saved_models.split(',') if saved_models \
+                   else [None]*args.nagents
     assert(len(saved_models)) == args.nagents
     for saved_model in saved_models:
         # TODO: implement the model loading.
@@ -84,18 +86,19 @@ def main():
 
     if args.how_train == 'simple':
         # Simple trains a single agent against three SimpleAgents.
-        assert(args.nagents == 1), "Simple training should have a single agent."
+        assert(args.nagents == 1), "Simple training should have one agent."
         num_training_per_episode = 1
     elif args.how_train == 'homogenous':
         # Homogenous trains a single agent against itself (self-play).
-        assert(args.nagents == 1), "Homogenous toraining should have a single agent."
+        assert(args.nagents == 1), "Homogenous training should have one agent."
         num_training_per_episode = 4
     elif args.how_train == 'heterogenous':
-        assert(args.nagents > 1), "Heterogenous training should have more than one agent."
+        s = "Heterogenous training should have multiple agents."
+        assert(args.nagents > 1), s
         print("Heterogenous training is not implemented yet.")
         return
 
-    suffix = "{}.train.ht-{}.cfg-{}.m-{}.event".format(
+    suffix = "{}.train.ht-{}.cfg-{}.m-{}".format(
         args.run_name, args.how_train, args.config, args.model)
     writer = SummaryWriter(os.path.join(args.log_dir, suffix))
 
@@ -108,9 +111,11 @@ def main():
         envs = SubprocVecEnv(envs)
 
     for agent in training_agents:
-        agent.initialize(args, obs_shape, action_space, num_training_per_episode)
+        agent.initialize(args, obs_shape, action_space,
+                         num_training_per_episode)
 
-    current_obs = torch.zeros(num_training_per_episode, args.num_processes, *obs_shape)
+    current_obs = torch.zeros(num_training_per_episode, args.num_processes,
+                              *obs_shape)
     def update_current_obs(obs):
         current_obs = torch.from_numpy(obs).float()
 
@@ -125,9 +130,12 @@ def main():
         training_agents[0].update_rollouts(obs=current_obs, timestep=0)
 
     # These variables are used to compute average rewards for all processes.
-    episode_rewards = torch.zeros([num_training_per_episode, args.num_processes, 1])
-    final_rewards = torch.zeros([num_training_per_episode, args.num_processes, 1])
-    accumulated_stats = defaultdict(int)
+    episode_rewards = torch.zeros([num_training_per_episode,
+                                   args.num_processes, 1])
+    final_rewards = torch.zeros([num_training_per_episode,
+                                 args.num_processes, 1])
+    count_stats = defaultdict(int)
+    array_stats = defaultdict(list)
 
     if args.cuda:
         current_obs = current_obs.cuda()
@@ -150,7 +158,8 @@ def main():
             cpu_actions_agents = []
 
             if args.how_train == 'simple':
-                value, action, action_log_prob, states = training_agents[0].run(step, 0, use_act=True)
+                result = training_agents[0].run(step, 0, use_act=True)
+                value, action, action_log_prob, states = result
                 value_agents.append(value)
                 action_agents.append(action)
                 action_log_prob_agents.append(action_log_prob)
@@ -160,14 +169,17 @@ def main():
             elif args.how_train == 'homogenous':
                 cpu_actions_agents = [[] for _ in range(args.num_processes)]
                 for i in range(4):
-                    value, action, action_log_prob, states = training_agents[0].run(step=step, num_agent=i, use_act=True)
+                    result = training_agents[0].run(step=step, num_agent=i,
+                                                    use_act=True)
+                    value, action, action_log_prob, states = result
                     value_agents.append(value)
                     action_agents.append(action)
                     action_log_prob_agents.append(action_log_prob)
                     states_agents.append(states)
                     cpu_actions = action.data.squeeze(1).cpu().numpy()
                     for num_process in range(args.num_processes):
-                        cpu_actions_agents[num_process].append(cpu_actions[num_process])
+                        cpu_actions_agents[num_process].append(
+                            cpu_actions[num_process])
 
             obs, reward, done, info = envs.step(cpu_actions_agents)
 
@@ -175,30 +187,36 @@ def main():
             for i in info:
                 for lst in i.get('step_info', {}).values():
                     for l in lst:
-                        if l == 'died':
-                            accumulated_stats['dead'].append(l.split(':')[1])
-                        accumulated_stats[l] += 1
-                        if 'bomb' in l:
-                            accumulated_stats['bomb'] += 1
+                        if l.startswith('dead') or l.startswith('rank'):
+                            key, count = l.split(':')
+                            array_stats[key].append(int(count))
+                        else:
+                            count_stats[l] += 1
+                            if 'bomb' in l:
+                                count_stats['bomb'] += 1
 
             if args.render:
                 envs.render(q)
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
             episode_rewards += reward
 
-            # NOTE: if how-train simple always has num_training_per_episode = 1 then we don't need the conditions below
+            # NOTE: if how-train simple always has num_training_per_episode = 1
+            # then we don't need the conditions below
             if args.how_train == 'simple':
                 if num_training_per_episode == 1:
                     masks = torch.FloatTensor([
-                        [0.0]*num_training_per_episode if done_ else [1.0]*num_training_per_episode
+                        [0.0]*num_training_per_episode if done_ \
+                        else [1.0]*num_training_per_episode
                     for done_ in done])
                 else:
                     masks = torch.FloatTensor(
-                        [[[0.0] if done_[i] else [1.0] for i in range(len(done_))] for done_ in done])
+                        [[[0.0] if done_[i] else [1.0]
+                          for i in range(len(done_))] for done_ in done])
 
             elif args.how_train == 'homogenous':
                 masks = torch.FloatTensor(
-                    [[[0.0] if done_[i] else [1.0] for i in range(len(done_))] for done_ in done]).transpose(0,1).unsqueeze(2)
+                    [[[0.0] if done_[i] else [1.0] for i in range(len(done_))]
+                     for done_ in done]).transpose(0,1).unsqueeze(2)
 
             # print("REWARD / DONE / MASKS: ", reward, done, masks.squeeze())
             final_rewards *= masks
@@ -232,12 +250,16 @@ def main():
         if args.how_train == 'simple':
             agent = training_agents[0]
             next_value_agents.append(agent.run(step=-1, num_agent=0))
-            advantages = [agent.compute_advantages(next_value_agents, args.use_gae, args.gamma, args.tau)]
+            advantages = [
+                agent.compute_advantages(next_value_agents, args.use_gae, args.gamma, args.tau)
+            ]
         elif args.how_train == 'homogenous':
             agent = training_agents[0]
             next_value_agents = [agent.run(step=-1, num_agent=num_agent)
                                  for num_agent in range(4)]
-            advantages = [agent.compute_advantages(next_value_agents, args.use_gae, args.gamma, args.tau)]
+            advantages = [
+                agent.compute_advantages(next_value_agents, args.use_gae, args.gamma, args.tau)
+            ]
 
         final_action_losses = []
         final_value_losses = []
@@ -248,27 +270,36 @@ def main():
 
         for num_agent, agent in enumerate(training_agents):
             for _ in range(args.ppo_epoch):
-                data_generator = agent.feed_forward_generator(advantages[num_agent], args)
+                data_generator = agent.feed_forward_generator(
+                    advantages[num_agent], args)
 
                 for sample in data_generator:
                     observations_batch, states_batch, actions_batch, \
-                        return_batch, masks_batch, old_action_log_probs_batch, \
-                        adv_targ = sample
+                        return_batch, masks_batch, \
+                        old_action_log_probs_batch, adv_targ = sample
 
                     # Reshape to do in a single forward pass for all steps
-                    values, action_log_probs, dist_entropy, states = agent.evaluate_actions(
+                    result = agent.evaluate_actions(
                         Variable(observations_batch),
                         Variable(states_batch),
                         Variable(masks_batch),
                         Variable(actions_batch))
+                    values, action_log_probs, dist_entropy, states = result
 
                     adv_targ = Variable(adv_targ)
-                    ratio = torch.exp(action_log_probs - Variable(old_action_log_probs_batch))
+                    ratio = action_log_probs
+                    ratio -= Variable(old_action_log_probs_batch)
+                    ratio = torch.exp(ratio)
+                        
                     surr1 = ratio * adv_targ
-                    surr2 = torch.clamp(ratio, 1.0 - args.clip_param, 1.0 + args.clip_param) * adv_targ
+                    surr2 = torch.clamp(
+                        ratio, 1.0 - args.clip_param, 1.0 + args.clip_param)
+                    surr2 *= adv_targ
                     action_loss = -torch.min(surr1, surr2).mean()
-                    value_loss = (Variable(return_batch) - values).pow(2).mean()
-                    agent.optimize(value_loss, action_loss, dist_entropy, args.entropy_coef, args.max_grad_norm)
+                    value_loss = (Variable(return_batch) - values) \
+                                 .pow(2).mean()
+                    agent.optimize(value_loss, action_loss, dist_entropy,
+                                   args.entropy_coef, args.max_grad_norm)
 
             final_action_losses.append(action_loss)
             final_value_losses.append(value_loss)
@@ -343,9 +374,10 @@ def main():
                        mean_value_loss,
                        mean_action_loss))
 
-            # TODO: Update all of this when we get model loading working.
+            # TODO: Update all of this to include the right step when we get
+            # model loading working.
 
-            # TODO: make these work so that you can show mean +/- variance on the same plot
+            # TODO: show mean +/- variance on the same plot
             # writer.add_scalar('entropy', {
             # 'mean_dist_entropy' : mean_dist_entropy,
             # 'var_max_dist_entropy': mean_dist_entropy + std_dist_entropy,
@@ -382,20 +414,34 @@ def main():
             writer.add_scalar('updates', j, total_steps)
             writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
                               
-            for title, count in accumulated_stats.items():
-                if title == 'dead':
+            for title, count in count_stats.items():
+                if title.startswith('bomb:'):
                     continue
                 writer.add_scalar(title, 1.0 * count / total_steps,
                                   total_steps)
 
-            writer.add_scalars('dying_step', {
-                'mean': np.mean(accumulated_stats['dead']),
-                'std': np.std(accumulated_stats['dead']),
-            }, total_steps)
-            writer.add_scalar(
-                'percent_dying',
-                1.0 * len(accumulated_stats['dead']) / total_steps,
-                total_steps)
+            wat = {
+                key.split(':')[1]: 1.0 * count / total_steps
+                for key, count in count_stats.items() \
+                if key.startswith('bomb:')
+            }
+            writer.add_scalars('bomb_distances', wat, total_steps)
+
+            if array_stats['rank']:                
+                writer.add_scalars('rank', {
+                    'mean': np.mean(array_stats['rank']),
+                    'std': np.std(array_stats['rank']),
+                }, total_steps)
+
+            if array_stats['dead']:
+                writer.add_scalars('dying_step', {
+                    'mean': np.mean(array_stats['dead']),
+                    'std': np.std(array_stats['dead']),
+                }, total_steps)
+                writer.add_scalar(
+                    'percent_dying',
+                    1.0 * len(array_stats['dead']) / total_steps,
+                    total_steps)
 
     writer.close()
 

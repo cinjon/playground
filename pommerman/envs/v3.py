@@ -35,24 +35,26 @@ class Pomme(PommeV0):
         reward = self._get_rewards()
         info = self._get_info(done, reward)
 
-        died_agents = []
+        alive_count = len([agent for agent in self._agents if agent.is_alive])
+        dead_agents = []
         step_info = {}
         for id_ in self.training_agents:
             if id_ not in self.model.step_info:
                 continue
             step_info[id_] = []
             for result in self.model.step_info[id_]:
-                if result == 'died':
-                    step_info[id_].append('died:%d' % self._step_count)
-                    died_agents.append(id_)
+                if result == 'dead':
+                    step_info[id_].append('dead:%d' % self._step_count)
+                    step_info[id_].append('rank:%d' % alive_count)
+                    dead_agents.append(id_)
                 else:
                     step_info[id_].append(result)
                 
         info['step_info'] = step_info
 
         for agent_id, info_ in step_info.items():
-            if agent_id not in died_agents:
-                reward[agent_id] += 0.1 * len(died_agents)
+            if agent_id not in dead_agents:
+                reward[agent_id] += 0.1 * len(dead_agents)
 
             for result in info_:
                 if result == 'bad_item':

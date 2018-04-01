@@ -136,7 +136,6 @@ class WrapPomme(gym.ObservationWrapper):
         # Teammate feature map.
         teammate = None
         if obs["teammate"] is not None:
-            # TODO: Change this to reflect AgentDummy
             teammate = np.ones((map_size, map_size)).astype(np.float32) * obs["teammate"].value
             teammate = teammate.reshape(1, map_size, map_size)
 

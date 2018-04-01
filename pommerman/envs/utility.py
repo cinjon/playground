@@ -593,7 +593,7 @@ class ForwardModel(object):
         for agent in curr_agents:
             if agent.in_range(exploded_map):
                 agent.die()
-                self.step_info[agent.agent_id].append('died:')
+                self.step_info[agent.agent_id].append('dead')
         exploded_map = np.array(exploded_map)
 
         # Update the board
