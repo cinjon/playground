@@ -5,7 +5,6 @@ import os
 import time
 import sys
 
-from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 import gym
 import numpy as np
@@ -123,7 +122,6 @@ def main():
         return torch.from_numpy(np.stack([x.data for x in value])).float()
 
     obs = update_current_obs(envs.reset())
-
     if args.how_train == 'simple':
         training_agents[0].update_rollouts(obs=current_obs, timestep=0)
     elif args.how_train == 'homogenous':
@@ -205,7 +203,7 @@ def main():
                                 count_stats['bomb'] += 1
 
             if args.render:
-                envs.render(q)
+                envs.render()
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
             episode_rewards += reward
 
@@ -264,14 +262,16 @@ def main():
             agent = training_agents[0]
             next_value_agents.append(agent.run(step=-1, num_agent=0))
             advantages = [
-                agent.compute_advantages(next_value_agents, args.use_gae, args.gamma, args.tau)
+                agent.compute_advantages(next_value_agents, args.use_gae,
+                                         args.gamma, args.tau)
             ]
         elif args.how_train == 'homogenous':
             agent = training_agents[0]
             next_value_agents = [agent.run(step=-1, num_agent=num_agent)
                                  for num_agent in range(4)]
             advantages = [
-                agent.compute_advantages(next_value_agents, args.use_gae, args.gamma, args.tau)
+                agent.compute_advantages(next_value_agents, args.use_gae,
+                                         args.gamma, args.tau)
             ]
 
         for agent in training_agents:
