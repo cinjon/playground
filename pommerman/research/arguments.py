@@ -66,7 +66,6 @@ def get_args():
     parser.add_argument('--run-name', default='',
                         help='save this run with this name. must be set')
 
-
     # specific to Pommerman
     parser.add_argument('--config', type=str, default='ffa_v3',
                         help='game configuration: ffa_v0 | ffa_v0_fast '
@@ -86,6 +85,13 @@ def get_args():
                         help='whether to render the first process.')
     parser.add_argument('--board_size', type=int, default=13,
                         help='size of the board')
+    parser.add_argument('--cims-address', type=str, default='',
+                        help='cims address, e.g. resnick@access.cims.nyu.edu. '
+                        'if empty, then assumed that we are using local.')
+    parser.add_argument('--cims-password', type=str, default='',
+                        help='cims password to copy over the model.')
+    parser.add_argument('--cims-save-model-local', type=str, default='',
+                        help='directory where to save a cims model locally.')
     parser.add_argument('--num-steps-eval', type=int, default=1000,
                         help='number of steps to run for evaluation')
 

@@ -29,6 +29,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             break
         elif cmd == 'get_spaces':
             remote.send((env.observation_space, env.action_space))
+        elif cmd == 'get_render_fps':
+            remote.send((env.render_fps))
         elif cmd == 'render':
             remote.send((env.render('rgb_array')))
         else:
@@ -61,6 +63,9 @@ class SubprocVecEnvRender(SubprocVecEnv):
         observation_space, action_space = self.remotes[0].recv()
         VecEnv.__init__(self, len(env_fns), observation_space, action_space)
 
+        self.remotes[0].send(('get_render_fps', None))
+        self._render_fps = self.remotes[0].recv()
+
     def render(self):
         self.remotes[0].send(('render', None))
         frame = self.remotes[0].recv()
@@ -73,7 +78,7 @@ class SubprocVecEnvRender(SubprocVecEnv):
         if self._viewer is None:
             self._viewer = rendering.SimpleImageViewer()
         self._viewer.imshow(img)
-        time.sleep(1.0 / 10)
+        time.sleep(1.0 / self._render_fps)
 
     def reset(self):
         if self._viewer is not None:

@@ -62,6 +62,7 @@ class WrapPomme(gym.ObservationWrapper):
             [len(self.env.training_agents), obs_shape[0], obs_shape[1], obs_shape[2]],
             dtype=np.float32
         )
+        self.render_fps = env._render_fps
 
     def _filter(self, arr):
         # TODO: Is arr always an np.array If so, can make this better.
@@ -170,6 +171,7 @@ class MultiAgentFrameStack(gym.Wrapper):
         self.frames = deque([], maxlen=k)
         shp = env.observation_space.shape
         self.observation_space = spaces.Box(low=0, high=255, shape=(shp[0], shp[1] * k, shp[2], shp[3]), dtype=np.uint8)
+        self.render_fps = env.render_fps
 
     def reset(self):
         ob = self.env.reset()
