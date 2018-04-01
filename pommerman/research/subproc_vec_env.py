@@ -14,7 +14,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
         cmd, data = remote.recv()
         if cmd == 'step':
             ob, reward, done, info = env.step(data)
-            if done:
+            # NOTE: added .all() so that it also works for homogenous
+            if done.all():
                 ob = env.reset()
             remote.send((ob, reward, done, info))
         elif cmd == 'reset':

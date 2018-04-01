@@ -10,11 +10,11 @@ if not os.path.exists("slurm_logs"):
 if not os.path.exists("slurm_scripts"):
     os.makedirs("slurm_scripts")
 
-basename = "simple"
+basename = "new"
 
 grids = [
      {
-        "seed" : [1,2,3,4,5],
+        "seed" : [1,2,3,4],
      }
 ]
 
@@ -48,7 +48,7 @@ for job in jobs:
         if flag in varying_keys:
             jobname = jobname + "_" + flag + str(job[flag])
 
-    jobcommand = "OMP_NUM_THREADS=1 python main.py --num-processes 16 --how-train simple --save-dir /home/raileanu/pomme_logs/trained_models --save-interval 1000" + flagstring
+    jobcommand = "OMP_NUM_THREADS=1 python main.py --num-processes 16 --config ffa_v3 --how-train simple --save-dir /home/raileanu/pomme_logs/trained_models --log-interval 10 --save-interval 1000 --run-name new-stats" + flagstring
 
     print(jobcommand)
 

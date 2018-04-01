@@ -68,7 +68,7 @@ def get_args():
 
 
     # specific to Pommerman
-    parser.add_argument('--config', type=str, default='ffa_v0',
+    parser.add_argument('--config', type=str, default='ffa_v3',
                         help='game configuration: ffa_v0 | ffa_v0_fast '
                         ' | ffa_v1 | team_v0 | radio_v2 (ffa_v0)')
     parser.add_argument('--nagents', type=int, default=1,

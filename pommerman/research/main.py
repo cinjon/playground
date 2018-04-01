@@ -98,8 +98,8 @@ def main():
         print("Heterogenous training is not implemented yet.")
         return
 
-    suffix = "{}.train.ht-{}.cfg-{}.m-{}".format(
-        args.run_name, args.how_train, args.config, args.model)
+    suffix = "{}.train.ht-{}.cfg-{}.m-{}.seed-{}.event".format(
+        args.run_name, args.how_train, args.config, args.model, args.seed)
     writer = SummaryWriter(os.path.join(args.log_dir, suffix))
 
     # NOTE: Does this work correctly? Will the threads operate independently?
@@ -134,6 +134,10 @@ def main():
                                    args.num_processes, 1])
     final_rewards = torch.zeros([num_training_per_episode,
                                  args.num_processes, 1])
+
+    final_dist_entropies = torch.zeros([num_training_per_episode,
+                                 args.num_processes, 1])
+
     count_stats = defaultdict(int)
     array_stats = defaultdict(list)
 
@@ -144,6 +148,11 @@ def main():
 
     # TODO: Set the total_steps count when you load the model.
     start = time.time()
+
+    num_episodes = 0
+    final_action_losses = [[] for agent in range(len(training_agents))]
+    final_value_losses =  [[] for agent in range(len(training_agents))]
+    final_dist_entropies = [[] for agent in range(len(training_agents))]
 
     for j in range(num_updates):
         for agent in training_agents:
@@ -203,6 +212,8 @@ def main():
             # NOTE: if how-train simple always has num_training_per_episode = 1
             # then we don't need the conditions below
             if args.how_train == 'simple':
+                num_episodes += sum([1 if done_ else 0 for done_ in done])
+
                 if num_training_per_episode == 1:
                     masks = torch.FloatTensor([
                         [0.0]*num_training_per_episode if done_ \
@@ -214,6 +225,8 @@ def main():
                           for i in range(len(done_))] for done_ in done])
 
             elif args.how_train == 'homogenous':
+                num_episodes += sum([1 if done_.all() else 0 for done_ in done])
+
                 masks = torch.FloatTensor(
                     [[[0.0] if done_[i] else [1.0] for i in range(len(done_))]
                      for done_ in done]).transpose(0,1).unsqueeze(2)
@@ -261,10 +274,6 @@ def main():
                 agent.compute_advantages(next_value_agents, args.use_gae, args.gamma, args.tau)
             ]
 
-        final_action_losses = []
-        final_value_losses = []
-        final_dist_entropies = []
-
         for agent in training_agents:
             agent.set_train()
 
@@ -290,7 +299,7 @@ def main():
                     ratio = action_log_probs
                     ratio -= Variable(old_action_log_probs_batch)
                     ratio = torch.exp(ratio)
-                        
+
                     surr1 = ratio * adv_targ
                     surr2 = torch.clamp(
                         ratio, 1.0 - args.clip_param, 1.0 + args.clip_param)
@@ -301,9 +310,9 @@ def main():
                     agent.optimize(value_loss, action_loss, dist_entropy,
                                    args.entropy_coef, args.max_grad_norm)
 
-            final_action_losses.append(action_loss)
-            final_value_losses.append(value_loss)
-            final_dist_entropies.append(dist_entropy)
+                    final_action_losses[num_agent].append(action_loss.data[0])
+                    final_value_losses[num_agent].append(value_loss.data[0])
+                    final_dist_entropies[num_agent].append(dist_entropy.data[0])
 
             agent.after_update()
 
@@ -333,9 +342,9 @@ def main():
                     'total_steps': total_steps,
                 }
                 save_dict['args'] = vars(args)
-                suffix = "{}.train.ht-{}.cfg-{}.m-{}.num-{}.epoch-{}.steps-{}.pt" \
+                suffix = "{}.train.ht-{}.cfg-{}.m-{}.num-{}.epoch-{}.steps-{}.seed-{}.pt" \
                          .format(args.run_name, args.how_train, args.config,
-                                 args.model, num_agent, j, total_steps)
+                                 args.model, num_agent, j, total_steps, args.seed)
                 torch.save(save_dict, os.path.join(save_path, suffix))
 
         #####
@@ -345,27 +354,33 @@ def main():
             end = time.time()
             num_steps_sec = (end - start)
             total_steps = (j + 1) * args.num_processes * args.num_steps
+
             steps_per_sec = int(total_steps / (end - start))
+            if j == 0:
+                updates_per_sec = int(args.log_interval / (end - start))
+            episodes_per_sec = int(num_episodes / (end - start))
 
             mean_dist_entropy = np.mean([
-                dist_entropy.data[0] for dist_entropy in final_dist_entropies])
+                dist_entropy for dist_entropy in final_dist_entropies])
             std_dist_entropy = np.std([
-                dist_entropy.data[0] for dist_entropy in final_dist_entropies])
+                dist_entropy for dist_entropy in final_dist_entropies])
 
             mean_value_loss = np.mean([
-                value_loss.data[0] for value_loss in final_value_losses])
-            mean_action_loss = np.mean([
-                action_loss.data[0] for action_loss in final_action_losses])
+                value_loss for value_loss in final_value_losses])
             std_value_loss = np.std([
-                value_loss.data[0] for value_loss in final_value_losses])
-            std_action_loss = np.std([
-                action_loss.data[0] for action_loss in final_action_losses])
+                value_loss for value_loss in final_value_losses])
 
-            print("Updates {}, num timesteps {}, FPS {}, mean/median reward "
+            mean_action_loss = np.mean([
+                action_loss for action_loss in final_action_losses])
+            std_action_loss = np.std([
+                action_loss for action_loss in final_action_losses])
+
+            print("Updates {}, num episodes {}, num timesteps {}, FPS {}, updates per sec {}, mean/median reward "
                   "{:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}, avg entropy "
                   "{:.5f}, avg value loss {:.5f}, avg policy loss {:.5f}".
-                format(j, total_steps,
+                format(j, num_episodes, total_steps,
                        steps_per_sec,
+                       updates_per_sec,
                        final_rewards.mean(),
                        final_rewards.median(),
                        final_rewards.min(),
@@ -393,55 +408,64 @@ def main():
             writer.add_scalars('entropy', {
                 'mean': mean_dist_entropy,
                 'var': std_dist_entropy,
-            }, total_steps)
+            }, num_episodes)
 
             writer.add_scalars('action_loss', {
                 'mean': mean_action_loss,
                 'var': std_action_loss,
-            }, total_steps)
+            }, num_episodes)
 
             writer.add_scalars('value_loss', {
                 'mean': mean_value_loss,
                 'var': std_value_loss,
-            }, total_steps)
+            }, num_episodes)
 
             writer.add_scalars('rewards', {
                 'mean': final_rewards.mean(),
                 'std': final_rewards.std(),
                 'median': final_rewards.median(),
-            }, total_steps)
+            }, num_episodes)
 
-            writer.add_scalar('updates', j, total_steps)
-            writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
-                              
+            writer.add_scalar('updates', j, num_episodes)
+            writer.add_scalar('steps_per_sec', steps_per_sec, num_episodes)
+            writer.add_scalar('episodes_per_sec', episodes_per_sec, num_episodes)
+
             for title, count in count_stats.items():
                 if title.startswith('bomb:'):
                     continue
-                writer.add_scalar(title, 1.0 * count / total_steps,
-                                  total_steps)
+                writer.add_scalar(title, 1.0 * count / num_episodes,
+                                  num_episodes)
 
             wat = {
-                key.split(':')[1]: 1.0 * count / total_steps
+                key.split(':')[1]: 1.0 * count / num_episodes
                 for key, count in count_stats.items() \
                 if key.startswith('bomb:')
             }
-            writer.add_scalars('bomb_distances', wat, total_steps)
+            writer.add_scalars('bomb_distances', wat, num_episodes)
 
-            if array_stats['rank']:                
+            if array_stats['rank']:
                 writer.add_scalars('rank', {
                     'mean': np.mean(array_stats['rank']),
                     'std': np.std(array_stats['rank']),
-                }, total_steps)
+                }, num_episodes)
 
             if array_stats['dead']:
                 writer.add_scalars('dying_step', {
                     'mean': np.mean(array_stats['dead']),
                     'std': np.std(array_stats['dead']),
-                }, total_steps)
+                }, num_episodes)
                 writer.add_scalar(
-                    'percent_dying',
-                    1.0 * len(array_stats['dead']) / total_steps,
-                    total_steps)
+                    'percent_dying_per_ep',
+                    1.0 * len(array_stats['dead']) / num_episodes,
+                    num_episodes)
+
+            # always reset these stats so that means in the plots are per the last log_interval
+            final_action_losses = [[] for agent in range(len(training_agents))]
+            final_value_losses =  [[] for agent in range(len(training_agents))]
+            final_dist_entropies = [[] for agent in range(len(training_agents))]
+            count_stats = defaultdict(int)
+            array_stats = defaultdict(list)
+            final_rewards = torch.zeros([num_training_per_episode, args.num_processes, 1])
 
     writer.close()
 
