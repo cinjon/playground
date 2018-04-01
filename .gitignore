@@ -175,3 +175,6 @@ local
 ####################
 a/static/js/build/*
 a/static/css/*
+
+# Project specific #
+pommerman/research/baselines
