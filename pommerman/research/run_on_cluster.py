@@ -61,7 +61,7 @@ args = [
     "--num-processes %s" % num_procs,
     "--how-train simple",
     "--save-interval 1000",
-    "--log-interval 5",
+    "--log-interval 100",
     "--config ffa_v3",
     "--num-channels %s" % num_channels,
     "--lr %s" % learning_rate,

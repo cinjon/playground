@@ -29,7 +29,7 @@ print("uses cuda: ", args.cuda)
 # num_updates = number of samples collected in one round of updates.
 # num_steps = number of steps in a rollout (horizon)
 # num_processes = number of parallel processes/workers collecting data.
-# number of samples used for a round of updates = num_steps * num_processes
+# number of samples used for a round of updates = horizon * num_workers = num_steps_rollout * num_parallel_processes
 num_updates = int(args.num_frames) // args.num_steps // args.num_processes
 print("NUM UPDATES {} num frames {} num steps {} num processes {}".format(
     num_updates, args.num_frames, args.num_steps, args.num_processes), "\n")
@@ -353,16 +353,16 @@ def main():
         #####
         # Log to console and to Tensorboard.
         #####
-        if j % args.log_interval == 0:
+        if running_num_episodes > args.log_interval:
             end = time.time()
             num_steps_sec = (end - start)
             total_steps = (j + 1) * args.num_processes * args.num_steps
             num_episodes += running_num_episodes
 
-            steps_per_sec = int(total_steps / (end - start))
+            steps_per_sec = 1.0 * total_steps / (end - start)
             if j == 0:
                 updates_per_sec = int(args.log_interval / (end - start))
-            episodes_per_sec = int(num_episodes / (end - start))
+            episodes_per_sec =  1.0 * num_episodes / (end - start)
 
             mean_dist_entropy = np.mean([
                 dist_entropy for dist_entropy in final_dist_entropies])
