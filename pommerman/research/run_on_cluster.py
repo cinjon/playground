@@ -10,7 +10,7 @@ if not os.path.exists("slurm_logs"):
 if not os.path.exists("slurm_scripts"):
     os.makedirs("slurm_scripts")
 
-basename = "new"
+basename = "pomme"
 
 grids = [
      {
@@ -48,7 +48,7 @@ for job in jobs:
         if flag in varying_keys:
             jobname = jobname + "_" + flag + str(job[flag])
 
-    jobcommand = "OMP_NUM_THREADS=1 python main.py --num-processes 16 --config ffa_v3 --how-train simple --save-dir /home/raileanu/pomme_logs/trained_models --log-interval 10 --save-interval 1000 --run-name new-stats" + flagstring
+    jobcommand = "OMP_NUM_THREADS=1 python main.py --num-processes 8 --config ffa_v3 --how-train simple --save-dir /home/raileanu/pomme_logs/trained_models --log-interval 10 --save-interval 1000 --run-name on-gpu" + flagstring
 
     print(jobcommand)
 
@@ -66,7 +66,7 @@ for job in jobs:
 
     if not dry_run:
         os.system((
-            "sbatch --qos batch -N 1 -c 16 --mem=64000 "
+            "sbatch --qos batch --gres=gpu:1 --nodes=1 --cpus-per-task=8 --mem=32000 "
             "--time=48:00:00 slurm_scripts/" + jobname + ".slurm &"))
 
         # if we want more than 1 node per job with num-processes 48

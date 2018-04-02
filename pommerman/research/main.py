@@ -24,6 +24,8 @@ from subproc_vec_env import SubprocVecEnvRender
 
 args = get_args()
 
+print("uses cuda: ", args.cuda)
+
 # num_updates = number of samples collected in one round of updates.
 # num_steps = number of steps in a rollout (horizon)
 # num_processes = number of parallel processes/workers collecting data.
@@ -148,6 +150,7 @@ def main():
     start = time.time()
 
     num_episodes = 0
+    running_num_episodes = 0
     final_action_losses = [[] for agent in range(len(training_agents))]
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
@@ -210,7 +213,7 @@ def main():
             # NOTE: if how-train simple always has num_training_per_episode = 1
             # then we don't need the conditions below
             if args.how_train == 'simple':
-                num_episodes += sum([1 if done_ else 0 for done_ in done])
+                running_num_episodes += sum([1 if done_ else 0 for done_ in done])
 
                 if num_training_per_episode == 1:
                     masks = torch.FloatTensor([
@@ -223,7 +226,7 @@ def main():
                           for i in range(len(done_))] for done_ in done])
 
             elif args.how_train == 'homogenous':
-                num_episodes += sum([1 if done_.all() else 0 for done_ in done])
+                running_num_episodes += sum([1 if done_.all() else 0 for done_ in done])
 
                 masks = torch.FloatTensor(
                     [[[0.0] if done_[i] else [1.0] for i in range(len(done_))]
@@ -354,6 +357,7 @@ def main():
             end = time.time()
             num_steps_sec = (end - start)
             total_steps = (j + 1) * args.num_processes * args.num_steps
+            num_episodes += running_num_episodes
 
             steps_per_sec = int(total_steps / (end - start))
             if j == 0:
@@ -433,11 +437,11 @@ def main():
             for title, count in count_stats.items():
                 if title.startswith('bomb:'):
                     continue
-                writer.add_scalar(title, 1.0 * count / num_episodes,
+                writer.add_scalar(title, 1.0 * count / running_num_episodes,
                                   num_episodes)
 
             wat = {
-                key.split(':')[1]: 1.0 * count / num_episodes
+                key.split(':')[1]: 1.0 * count / running_num_episodes
                 for key, count in count_stats.items() \
                 if key.startswith('bomb:')
             }
@@ -456,7 +460,7 @@ def main():
                 }, num_episodes)
                 writer.add_scalar(
                     'percent_dying_per_ep',
-                    1.0 * len(array_stats['dead']) / num_episodes,
+                    1.0 * len(array_stats['dead']) / running_num_episodes,
                     num_episodes)
 
             # always reset these stats so that means in the plots are per the last log_interval
@@ -466,6 +470,7 @@ def main():
             count_stats = defaultdict(int)
             array_stats = defaultdict(list)
             final_rewards = torch.zeros([num_training_per_episode, args.num_processes, 1])
+            running_num_episodes = 0
 
     writer.close()
 
