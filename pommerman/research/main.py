@@ -29,7 +29,7 @@ print("uses cuda: ", args.cuda)
 # num_updates = number of samples collected in one round of updates.
 # num_steps = number of steps in a rollout (horizon)
 # num_processes = number of parallel processes/workers collecting data.
-# number of samples used for a round of updates = horizon * num_workers = num_steps_rollout * num_parallel_processes
+# number of samples used for a round of updates = num_steps * num_processes
 num_updates = int(args.num_frames) // args.num_steps // args.num_processes
 print("NUM UPDATES {} num frames {} num steps {} num processes {}".format(
     num_updates, args.num_frames, args.num_steps, args.num_processes), "\n")

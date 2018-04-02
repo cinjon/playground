@@ -1,20 +1,43 @@
+"""Run on the cluster.
+
+NOTE: See local_config.template.py for a local_config template.
+
+Example: python run_on_cluster.py <run-name> <num-procs> <num-channels> \
+  <learning-rate>
+"""
 import os
 import sys
 import itertools
+import local_config
+
+directory = local_config.cluster_directory
+email = local_config.email
+
+slurm_logs = os.path.join(directory, "slurm_logs")
+slurm_scripts = os.path.join(directory, "slurm_scripts")
+
+run_name = sys.argv[1]
+num_procs = sys.argv[2]
+num_channels = sys.argv[3]
+learning_rate = sys.argv[4]
 
 dry_run = '--dry-run' in sys.argv
+if dry_run:
+    print("NOT starting jobs:")
+else:
+    print("Starting jobs:")
+    if not os.path.exists(slurm_logs):
+        os.makedirs(slurm_logs)
+    if not os.path.exists(slurm_scripts):
+        os.makedirs(slurm_scripts)
 
-if not os.path.exists("slurm_logs"):
-    os.makedirs("slurm_logs")
 
-if not os.path.exists("slurm_scripts"):
-    os.makedirs("slurm_scripts")
-
-basename = "pomme"
+basename = "pman_%s_nc%s_np%s_lr%s" % (run_name, num_channels, num_procs,
+                                       learning_rate)
 
 grids = [
      {
-        "seed" : [1,2,3,4],
+        "seed" : [1],
      }
 ]
 
@@ -23,14 +46,8 @@ for grid in grids:
     individual_options = [[{key: value} for value in values]
                           for key, values in grid.items()]
     product_options = list(itertools.product(*individual_options))
-    jobs += [{k: v for d in option_set for k, v in d.items()}
-             for option_set in product_options]
-
-if dry_run:
-    print("NOT starting jobs:")
-else:
-    print("Starting jobs:")
-
+    jobs.extend([{k: v for d in option_set for k, v in d.items()}
+                 for option_set in product_options])
 
 merged_grid = {}
 for grid in grids:
@@ -40,36 +57,48 @@ for grid in grids:
 
 varying_keys = {key for key in merged_grid if len(merged_grid[key]) > 1}
 
+args = [
+    "--num-processes %s" % num_procs,
+    "--how-train simple",
+    "--save-interval 1000",
+    "--log-interval 5",
+    "--config ffa_v3",
+    "--num-channels %s" % num_channels,
+    "--lr %s" % learning_rate,
+    "--save-dir %s" % os.path.join(directory, "models"),
+    "--log-dir %s" % os.path.join(directory, "logs")
+]
+
 for job in jobs:
     jobname = basename
+
     flagstring = ""
     for flag in job:
-        flagstring = flagstring + " --" + flag + " " + str(job[flag])
+        flagstring += " --%s %s" % (flag, str(job[flag]))
         if flag in varying_keys:
-            jobname = jobname + "_" + flag + str(job[flag])
+            jobname += "_%s%s" % (flag, str(job[flag]))
 
-    jobcommand = "OMP_NUM_THREADS=1 python main.py --num-processes 8 --config ffa_v3 --how-train simple --save-dir /home/raileanu/pomme_logs/trained_models --log-interval 10 --save-interval 1000 --run-name on-gpu" + flagstring
-
+    job_args = args + ["--run-name %s" % jobname]
+    jobcommand = "OMP_NUM_THREADS=1 python main.py %s%s" % (
+        " ".join(job_args), flagstring)
     print(jobcommand)
 
-    with open('slurm_scripts/' + jobname + '.slurm', 'w') as slurmfile:
-        slurmfile.write("#!/bin/bash\n")
-        slurmfile.write("#SBATCH --job-name" + "=" + jobname + "\n")
-        slurmfile.write("#SBATCH --output=slurm_logs/" + jobname + ".out\n")
-        slurmfile.write("#SBATCH --error=slurm_logs/" + jobname + ".err\n")
-        slurmfile.write("#SBATCH --qos=batch" + "\n")
-        slurmfile.write("#SBATCH --mail-type=END,FAIL" + "\n")
-        slurmfile.write("#SBATCH --mail-user=raileanu@cs.nyu.edu" + "\n")
-        slurmfile.write("module purge" + "\n")
-        slurmfile.write(jobcommand + "\n")
-
-
     if not dry_run:
-        os.system((
-            "sbatch --qos batch --gres=gpu:1 --nodes=1 --cpus-per-task=8 --mem=32000 "
-            "--time=48:00:00 slurm_scripts/" + jobname + ".slurm &"))
+        slurmfile = os.path.join(slurm_scripts, jobname + '.slurm')
+        with open(slurmfile, 'w') as f:
+            f.write("#!/bin/bash\n")
+            f.write("#SBATCH --job-name" + "=" + jobname + "\n")
+            f.write("#SBATCH --output=%s\n" % os.path.join(slurm_logs, jobname + ".out"))
+            f.write("#SBATCH --error=%s\n" % os.path.join(slurm_logs, jobname + ".err"))
+            f.write("#SBATCH --qos=batch" + "\n")
+            f.write("#SBATCH --mail-type=END,FAIL" + "\n")
+            f.write("#SBATCH --mail-user=%s\n" % email)
+            f.write("module purge" + "\n")
+            local_config.write_extra_sbatch_commands(f)
+            f.write(jobcommand + "\n")
 
-        # if we want more than 1 node per job with num-processes 48
-        # os.system((
-        #     "sbatch --qos batch -N 3 -c 16 --mem=256000 "
-        #     "--time=48:00:00 slurm_scripts/" + jobname + ".slurm &"))
+        s = "sbatch --qos batch --gres=gpu:1 --nodes=1 "
+        s += "--cpus-per-task=%s " % num_procs
+        s += "--mem=64000 --time=48:00:00 %s &" % os.path.join(
+            slurm_scripts, jobname + ".slurm")
+        os.system(s)
