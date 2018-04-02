@@ -99,7 +99,7 @@ def main():
         print("Heterogenous training is not implemented yet.")
         return
 
-    suffix = "{}.train.ht-{}.cfg-{}.m-{}.seed-{}.event".format(
+    suffix = "{}.train.ht-{}.cfg-{}.m-{}.seed-{}".format(
         args.run_name, args.how_train, args.config, args.model, args.seed)
     writer = SummaryWriter(os.path.join(args.log_dir, suffix))
 
@@ -148,6 +148,7 @@ def main():
 
     # TODO: Set the total_steps count when you load the model.
     start = time.time()
+    time_counts = defaultdict(list)
 
     num_episodes = 0
     running_num_episodes = 0
@@ -155,11 +156,13 @@ def main():
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
 
-    for j in range(num_updates):
+    for j in range(num_updates):            
         for agent in training_agents:
             agent.set_eval()
 
         for step in range(args.num_steps):
+            step_time = time.time()
+
             value_agents = []
             action_agents = []
             action_log_prob_agents = []
@@ -168,7 +171,10 @@ def main():
             cpu_actions_agents = []
 
             if args.how_train == 'simple':
+                _s = time.time()
                 result = training_agents[0].run(step, 0, use_act=True)
+                time_counts['run_time'].append(time.time() - _s)
+
                 value, action, action_log_prob, states = result
                 value_agents.append(value)
                 action_agents.append(action)
@@ -191,7 +197,9 @@ def main():
                         cpu_actions_agents[num_process].append(
                             cpu_actions[num_process])
 
+            _s = time.time()
             obs, reward, done, info = envs.step(cpu_actions_agents)
+            time_counts['env_step_time'].append(time.time() - _s)
 
             # TODO: Change this when we use heterogenous.
             for i in info:
@@ -213,18 +221,12 @@ def main():
             # NOTE: if how-train simple always has num_training_per_episode = 1
             # then we don't need the conditions below
             if args.how_train == 'simple':
-                running_num_episodes += sum([1 if done_ else 0 for done_ in done])
-
-                if num_training_per_episode == 1:
-                    masks = torch.FloatTensor([
-                        [0.0]*num_training_per_episode if done_ \
-                        else [1.0]*num_training_per_episode
-                    for done_ in done])
-                else:
-                    masks = torch.FloatTensor(
-                        [[[0.0] if done_[i] else [1.0]
-                          for i in range(len(done_))] for done_ in done])
-
+                running_num_episodes += sum([1 if done_ else 0
+                                             for done_ in done])
+                masks = torch.FloatTensor([
+                    [0.0]*num_training_per_episode if done_ \
+                    else [1.0]*num_training_per_episode
+                for done_ in done])
             elif args.how_train == 'homogenous':
                 running_num_episodes += sum([1 if done_.all() else 0 for done_ in done])
 
@@ -260,14 +262,19 @@ def main():
                 step, current_obs, states_all, action_all, action_log_prob_all,
                 value_all, reward_all, masks_all)
 
+            time_counts['step_time'].append(time.time() - step_time)
+            
         next_value_agents = []
         if args.how_train == 'simple':
             agent = training_agents[0]
+
+            _s = time.time()
             next_value_agents.append(agent.run(step=-1, num_agent=0))
             advantages = [
                 agent.compute_advantages(next_value_agents, args.use_gae,
                                          args.gamma, args.tau)
             ]
+            time_counts['adv_time'].append(time.time() - _s)
         elif args.how_train == 'homogenous':
             agent = training_agents[0]
             next_value_agents = [agent.run(step=-1, num_agent=num_agent)
@@ -282,6 +289,8 @@ def main():
 
         for num_agent, agent in enumerate(training_agents):
             for _ in range(args.ppo_epoch):
+                ppo_time = time.time()
+
                 data_generator = agent.feed_forward_generator(
                     advantages[num_agent], args)
 
@@ -291,11 +300,13 @@ def main():
                         old_action_log_probs_batch, adv_targ = sample
 
                     # Reshape to do in a single forward pass for all steps
+                    _s = time.time()
                     result = agent.evaluate_actions(
                         Variable(observations_batch),
                         Variable(states_batch),
                         Variable(masks_batch),
                         Variable(actions_batch))
+                    time_counts['evaluate_time'].append(time.time() - _s)
                     values, action_log_probs, dist_entropy, states = result
 
                     adv_targ = Variable(adv_targ)
@@ -310,14 +321,23 @@ def main():
                     action_loss = -torch.min(surr1, surr2).mean()
                     value_loss = (Variable(return_batch) - values) \
                                  .pow(2).mean()
+                    _s = time.time()
                     agent.optimize(value_loss, action_loss, dist_entropy,
                                    args.entropy_coef, args.max_grad_norm)
+                    time_counts['optimize_time'].append(time.time() - _s)
 
                     final_action_losses[num_agent].append(action_loss.data[0])
                     final_value_losses[num_agent].append(value_loss.data[0])
                     final_dist_entropies[num_agent].append(dist_entropy.data[0])
 
+                time_counts['ppo_time'].append(time.time() - ppo_time)
             agent.after_update()
+
+        for title, counts in time_counts.items():
+            print("%s (%d): mean = %.3f, std = %.3f, total = %.3f." % (
+                title, len(counts), np.mean(counts), np.std(counts),
+                sum(counts)
+            ))
 
         # TODO: This is relative to the loaded model if exists.
         total_steps = (j + 1) * args.num_processes * args.num_steps
@@ -325,7 +345,7 @@ def main():
         #####
         # Save model.
         #####
-        if j % args.save_interval == 0 and args.save_dir != "":
+        if False and j % args.save_interval == 0 and args.save_dir != "":
             save_path = os.path.join(args.save_dir)
             try:
                 os.makedirs(save_path)
@@ -353,7 +373,7 @@ def main():
         #####
         # Log to console and to Tensorboard.
         #####
-        if running_num_episodes > args.log_interval:
+        if False and running_num_episodes > args.log_interval:
             end = time.time()
             num_steps_sec = (end - start)
             total_steps = (j + 1) * args.num_processes * args.num_steps
@@ -440,12 +460,11 @@ def main():
                 writer.add_scalar(title, 1.0 * count / running_num_episodes,
                                   num_episodes)
 
-            wat = {
+            writer.add_scalars('bomb_distances', {
                 key.split(':')[1]: 1.0 * count / running_num_episodes
                 for key, count in count_stats.items() \
                 if key.startswith('bomb:')
-            }
-            writer.add_scalars('bomb_distances', wat, num_episodes)
+            }, num_episodes)
 
             if array_stats['rank']:
                 writer.add_scalars('rank', {
