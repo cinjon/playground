@@ -49,151 +49,25 @@ class FFPolicy(nn.Module):
         return value, action_log_probs, dist_entropy, states
 
 
-# XXX: this is similar to AlphaGoLee or the dual-conv in AlphaGoZero
-# XXX: do we need batchnorm? what's the min number of layers for this to work?
-class PommeCNNPolicy(FFPolicy):
-    def __init__(self, num_inputs, action_space, args):
-        super(PommeCNNPolicy, self).__init__()
-        self.args = args
-
-        self.conv1 = nn.Conv2d(num_inputs, args.num_channels, 5, stride=1, padding=4)
-        self.conv2 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv5 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv6 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv7 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv8 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv9 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv10 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv11 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv12 = nn.Conv2d(args.num_channels, args.num_channels, 3)
-
-        self.bn1 = nn.BatchNorm2d(args.num_channels)
-        self.bn2 = nn.BatchNorm2d(args.num_channels)
-        self.bn3 = nn.BatchNorm2d(args.num_channels)
-        self.bn4 = nn.BatchNorm2d(args.num_channels)
-        self.bn5 = nn.BatchNorm2d(args.num_channels)
-        self.bn6 = nn.BatchNorm2d(args.num_channels)
-        self.bn7 = nn.BatchNorm2d(args.num_channels)
-        self.bn8 = nn.BatchNorm2d(args.num_channels)
-        self.bn9 = nn.BatchNorm2d(args.num_channels)
-        self.bn10 = nn.BatchNorm2d(args.num_channels)
-        self.bn11 = nn.BatchNorm2d(args.num_channels)
-        self.bn12 = nn.BatchNorm2d(args.num_channels)
-
-        # XXX: or should it go straight to 512?
-        self.fc1 = nn.Linear(args.num_channels*(args.board_size + 2)*(args.board_size + 2), 1024)
-        self.fc_bn1 = nn.BatchNorm1d(1024)
-
-        self.fc2 = nn.Linear(1024, 512)
-        self.fc_bn2 = nn.BatchNorm1d(512)
-
-        self.critic_linear = nn.Linear(512, 1)
-        self.actor_linear = nn.Linear(512, 1)
-
-        self.dist = Categorical(512, action_space.n)
-        self.train()
-        self.reset_parameters()
-
-    @property
-    def state_size(self):
-        if hasattr(self, 'gru'):
-            return 512
-        else:
-            return 1
-
-    def reset_parameters(self):
-        self.apply(weights_init)
-
-        relu_gain = nn.init.calculate_gain('relu')
-
-        self.conv1.weight.data.mul_(relu_gain)
-        self.conv2.weight.data.mul_(relu_gain)
-        self.conv3.weight.data.mul_(relu_gain)
-        self.conv4.weight.data.mul_(relu_gain)
-        self.conv5.weight.data.mul_(relu_gain)
-        self.conv6.weight.data.mul_(relu_gain)
-        self.conv7.weight.data.mul_(relu_gain)
-        self.conv8.weight.data.mul_(relu_gain)
-        self.conv9.weight.data.mul_(relu_gain)
-        self.conv10.weight.data.mul_(relu_gain)
-        self.conv11.weight.data.mul_(relu_gain)
-        self.conv12.weight.data.mul_(relu_gain)
-
-        self.fc1.weight.data.mul_(relu_gain)
-        self.fc2.weight.data.mul_(relu_gain)
-
-
-        if hasattr(self, 'gru'):
-            orthogonal(self.gru.weight_ih.data)
-            orthogonal(self.gru.weight_hh.data)
-            self.gru.bias_ih.data.fill_(0)
-            self.gru.bias_hh.data.fill_(0)
-
-        if self.dist.__class__.__name__ == "DiagGaussian":
-            self.dist.fc_mean.weight.data.mul_(0.01)
-
-
-    def forward(self, inputs, states, masks):
-        x = F.relu(self.bn1(self.conv1(inputs)))
-
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = F.relu(self.bn4(self.conv4(x)))
-        x = F.relu(self.bn5(self.conv5(x)))
-        x = F.relu(self.bn6(self.conv6(x)))
-        x = F.relu(self.bn7(self.conv7(x)))
-        x = F.relu(self.bn8(self.conv8(x)))
-        x = F.relu(self.bn9(self.conv9(x)))
-        x = F.relu(self.bn10(self.conv10(x)))
-        x = F.relu(self.bn11(self.conv11(x)))
-        x = F.relu(self.bn12(self.conv12(x)))
-
-        x = x.view(-1, self.args.num_channels*(self.args.board_size + 2)*(self.args.board_size + 2))
-
-        x = F.relu(self.fc_bn1(self.fc1(x)))
-        x = F.relu(self.fc_bn2(self.fc2(x)))
-
-        if hasattr(self, 'gru'):
-            if inputs.size(0) == states.size(0):
-                x = states = self.gru(x, states * masks)
-            else:
-                x = x.view(-1, states.size(0), x.size(1))
-                masks = masks.view(-1, states.size(0), 1)
-                outputs = []
-                for i in range(x.size(0)):
-                    hx = states = self.gru(x[i], states * masks[i])
-                    outputs.append(hx)
-                x = torch.cat(outputs, 0)
-
-
-        return self.critic_linear(x), x, states
-
-# NOTE: this is similar to AlphaGoLee or the dual-conv in AlphaGoZero
-# TODO: do we need batchnorm? what's the min number of layers for this to work?
+# TODO: what's the min number of layers for this to work?
 class PommeCNNPolicySmall(FFPolicy):
     def __init__(self, num_inputs, action_space, args):
         super(PommeCNNPolicySmall, self).__init__()
         self.args = args
 
-        self.conv1 = nn.Conv2d(num_inputs, args.num_channels, 3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-
-        self.bn1 = nn.BatchNorm2d(args.num_channels)
-        self.bn2 = nn.BatchNorm2d(args.num_channels)
-        self.bn3 = nn.BatchNorm2d(args.num_channels)
-        self.bn4 = nn.BatchNorm2d(args.num_channels)
-
+        self.conv1 = nn.Conv2d(num_inputs, args.num_channels, 3, stride=1,
+                               padding=1)
+        self.conv2 = nn.Conv2d(args.num_channels, args.num_channels, 3,
+                               stride=1, padding=1)
+        self.conv3 = nn.Conv2d(args.num_channels, args.num_channels, 3,
+                               stride=1, padding=1)
+        self.conv4 = nn.Conv2d(args.num_channels, args.num_channels, 3,
+                               stride=1, padding=1)
 
         # TODO: should it go straight to 512?
-        self.fc1 = nn.Linear(args.num_channels*(args.board_size)*(args.board_size), 1024)
-        self.fc_bn1 = nn.BatchNorm1d(1024)
-
+        self.fc1 = nn.Linear(
+            args.num_channels*(args.board_size)*(args.board_size), 1024)
         self.fc2 = nn.Linear(1024, 512)
-        self.fc_bn2 = nn.BatchNorm1d(512)
 
         self.critic_linear = nn.Linear(512, 1)
         self.actor_linear = nn.Linear(512, 1)
@@ -204,10 +78,7 @@ class PommeCNNPolicySmall(FFPolicy):
 
     @property
     def state_size(self):
-        if hasattr(self, 'gru'):
-            return 512
-        else:
-            return 1
+        return 1
 
     def reset_parameters(self):
         self.apply(weights_init)
@@ -222,38 +93,20 @@ class PommeCNNPolicySmall(FFPolicy):
         self.fc1.weight.data.mul_(relu_gain)
         self.fc2.weight.data.mul_(relu_gain)
 
-        if hasattr(self, 'gru'):
-            orthogonal(self.gru.weight_ih.data)
-            orthogonal(self.gru.weight_hh.data)
-            self.gru.bias_ih.data.fill_(0)
-            self.gru.bias_hh.data.fill_(0)
-
         if self.dist.__class__.__name__ == "DiagGaussian":
             self.dist.fc_mean.weight.data.mul_(0.01)
 
     def forward(self, inputs, states, masks):
-        x = F.relu(self.bn1(self.conv1(inputs)))    # np x nc x bs x bs = 2x256x13x13
-        x = F.relu(self.bn2(self.conv2(x)))         # 2x256x13x13
-        x = F.relu(self.bn3(self.conv3(x)))         # 2x256x13x13
-        x = F.relu(self.bn4(self.conv4(x)))         # 2x256x13x13
+        x = F.relu(self.conv1(inputs)) # 2x256x13x13
+        x = F.relu(self.conv2(x)) # 2x256x13x13
+        x = F.relu(self.conv3(x)) # 2x256x13x13
+        x = F.relu(self.conv4(x)) # 2x256x13x13
 
-        x = x.view(-1, self.args.num_channels*(self.args.board_size)*(self.args.board_size))
-
-        x = F.relu(self.fc_bn1(self.fc1(x)))
-        x = F.relu(self.fc_bn2(self.fc2(x)))
-
-        if hasattr(self, 'gru'):
-            if inputs.size(0) == states.size(0):
-                x = states = self.gru(x, states * masks)
-            else:
-                x = x.view(-1, states.size(0), x.size(1))
-                masks = masks.view(-1, states.size(0), 1)
-                outputs = []
-                for i in range(x.size(0)):
-                    hx = states = self.gru(x[i], states * masks[i])
-                    outputs.append(hx)
-                x = torch.cat(outputs, 0)
-
+        board_size = self.args.board_size
+        num_channels = self.args.num_channels
+        x = x.view(-1, num_channels * (board_size)*(board_size))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         return self.critic_linear(x), x, states
 
 
@@ -446,77 +299,9 @@ class ResNet(FFPolicy):
 
 
 def PommeResnetPolicy(num_inputs, action_space, args):
-    model = ResNet(BasicBlock, [2 for i in range(args.num_layers)], num_inputs, action_space, args)
+    model = ResNet(BasicBlock,
+                   [2 for i in range(args.num_layers)],
+                   num_inputs,
+                   action_space,
+                   args)
     return model
-
-
-class CNNPolicy(FFPolicy):
-    def __init__(self, num_inputs, action_space, use_gru):
-        super(CNNPolicy, self).__init__()
-        self.conv1 = nn.Conv2d(num_inputs, 32, 8, stride=4)
-        self.conv2 = nn.Conv2d(32, 64, 4, stride=2)
-        self.conv3 = nn.Conv2d(64, 32, 3, stride=1)
-
-        self.linear1 = nn.Linear(32 * 7 * 7, 512)
-
-        if use_gru:
-            self.gru = nn.GRUCell(512, 512)
-
-        self.critic_linear = nn.Linear(512, 1)
-        self.dist = Categorical(512, action_space.n, num_outputs)
-
-        self.train()
-        self.reset_parameters()
-
-    @property
-    def state_size(self):
-        if hasattr(self, 'gru'):
-            return 512
-        else:
-            return 1
-
-    def reset_parameters(self):
-        self.apply(weights_init)
-
-        relu_gain = nn.init.calculate_gain('relu')
-        self.conv1.weight.data.mul_(relu_gain)
-        self.conv2.weight.data.mul_(relu_gain)
-        self.conv3.weight.data.mul_(relu_gain)
-        self.linear1.weight.data.mul_(relu_gain)
-
-        if hasattr(self, 'gru'):
-            orthogonal(self.gru.weight_ih.data)
-            orthogonal(self.gru.weight_hh.data)
-            self.gru.bias_ih.data.fill_(0)
-            self.gru.bias_hh.data.fill_(0)
-
-        if self.dist.__class__.__name__ == "DiagGaussian":
-            self.dist.fc_mean.weight.data.mul_(0.01)
-
-    def forward(self, inputs, states, masks):
-        x = self.conv1(inputs / 255.0)
-        x = F.relu(x)
-
-        x = self.conv2(x)
-        x = F.relu(x)
-
-        x = self.conv3(x)
-        x = F.relu(x)
-
-        x = x.view(-1, 32 * 7 * 7)
-        x = self.linear1(x)
-        x = F.relu(x)
-
-        if hasattr(self, 'gru'):
-            if inputs.size(0) == states.size(0):
-                x = states = self.gru(x, states * masks)
-            else:
-                x = x.view(-1, states.size(0), x.size(1))
-                masks = masks.view(-1, states.size(0), 1)
-                outputs = []
-                for i in range(x.size(0)):
-                    hx = states = self.gru(x[i], states * masks[i])
-                    outputs.append(hx)
-                x = torch.cat(outputs, 0)
-
-        return self.critic_linear(x), x, states
