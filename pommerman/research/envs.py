@@ -70,7 +70,8 @@ class WrapPomme(gym.ObservationWrapper):
 
     def observation(self, observation):
         filtered = self._filter(observation)
-        return np.array([self._featurize3D(obs) for obs in filtered])
+        # TODO: Consider removing the original featurize3D in favor of v2.
+        return np.array([self._featurize3D_v2(obs) for obs in filtered])
 
     def step(self, actions):
         if self._how_train == 'simple':
@@ -88,12 +89,97 @@ class WrapPomme(gym.ObservationWrapper):
         return self.observation(self.env.reset())
 
     @staticmethod
+    def _featurize3D_v2(obs):
+        """Create 3D Feature Maps for Pommerman.
+        Args:
+          obs: The observation input. Should be for a single agent.
+
+        Returns:
+          A 3D Feature Map where each map is bsXbs. The 19 features are:
+          - (2) Bomb blast strength and Bomb life.
+          - (4) Agent position, ammo, blast strength, can_kick.
+          - (2) Whether has teammate, teammate's position
+          - (3) Enemies's position.
+          - (8) Positions for:
+                Passage/Rigid/Wood/Flames/ExtraBomb/IncrRange/Kick/Skull 
+        """
+        map_size = len(obs["board"])
+
+        # feature maps with ints for bomb blast strength and life.
+        bomb_blast_strength = obs["bomb_blast_strength"] \
+                              .astype(np.float32) \
+                              .reshape(1, map_size, map_size)
+        bomb_life = obs["bomb_life"].astype(np.float32) \
+                                    .reshape(1, map_size, map_size)
+
+        # position of self.
+        position = np.zeros((map_size, map_size)).astype(np.float32)
+        position[obs["position"][0], obs["position"][1]] = 1
+        position = position.reshape(1, map_size, map_size)
+
+        # ammo of self agent: constant feature map.
+        ammo = np.ones((map_size, map_size)).astype(np.float32) * obs["ammo"]
+        ammo = ammo.reshape(1, map_size, map_size)
+
+        # blast strength of self agent: constant feature map
+        blast_strength = np.ones((map_size, map_size)).astype(np.float32)
+        blast_strength *= obs["blast_strength"]
+        blast_strength = blast_strength.reshape(1, map_size, map_size)
+
+        # whether the agent can kick: constant feature map of 1 or 0.
+        can_kick = np.ones((map_size, map_size)).astype(np.float32)
+        can_kick *= float(obs["can_kick"])
+        can_kick = can_kick.reshape(1, map_size, map_size)
+
+        # TODO: Merge pommerman.utility and pommerman.envs.utility!
+        # if obs["teammate"] == utility.Item.AgentDummy:
+        if obs["teammate"].value == 10:
+            has_teammate = np.zeros((map_size, map_size)) \
+                             .astype(np.float32) \
+                             .reshape(1, map_size, map_size)
+            teammate = None
+        else:
+            has_teammate = np.ones((map_size, map_size)) \
+                             .astype(np.float32) \
+                             .reshape(1, map_size, map_size)
+            teammate = np.zeros((map_size, map_size)).astype(np.float32)
+            teammate[np.where(obs["board"] == obs["teammate"].value)] = 1
+            teammate = teammate.reshape(1, map_size, map_size)
+
+        # Enemy feature maps.
+        _enemies = obs["enemies"]
+        enemies = np.zeros((len(_enemies), map_size, map_size)) \
+                     .astype(np.float32)
+        for i in range(len(_enemies)):
+            enemies[i][np.where(obs["board"] == _enemies[i].value)] = 1
+
+        items = np.zeros((8, map_size, map_size))
+        for item_value in [0, 1, 2, 4, 6, 7, 8, 9]:
+            items[i][obs["board"] == item_value] = 1
+
+        # for item in [
+        #         utility.Item.Passage, utility.Item.Rigid, utility.Item.Wood,
+        #         utility.Item.Flames, utility.Item.ExtraBomb,
+        #         utility.Item.IncrRange, utility.Item.Kick, utility.Item.Skull]:
+        #     items[i][obs["board"] == item.value] = 1
+
+        feature_maps = np.concatenate((
+            bomb_blast_strength, bomb_life, position, ammo, blast_strength,
+            can_kick, items, has_teammate, enemies
+        ))
+        if teammate is not None:
+            feature_maps = np.concatenate((feature_maps, teammate))
+
+        return feature_maps
+
+    @staticmethod
     def _featurize3D(obs):
         """Create 3D Feature Maps for Pommerman.
         Args:
           obs: The observation input. Should be for a single agent.
+
         Returns:
-          A 3D Feature Map where each feature is of a 13x13 board. The features are:
+          A 3D Feature Map where each map is bsXbs. The 23 features are:
           - (15) Items in Pommerman's utility.Item enum.
           - (2) Bomb blast strength and Bomb life.
           - (1) Agent position.
