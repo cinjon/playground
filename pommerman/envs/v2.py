@@ -40,7 +40,7 @@ class Pomme(v0.Pomme):
         - bomb blast strength (board_size^2).
         - bomb life (board_size^2)
         - agent's position (2)
-        - player ammo counts (4)
+        - player ammo counts (1)
         - blast strength (1)
         - can_kick (1)
         - teammate (one of {AgentDummy.value, Agent3.value}).
@@ -48,8 +48,10 @@ class Pomme(v0.Pomme):
         - radio (radio_vocab_size * radio_num_words)
         """
         bss = self._board_size**2
-        min_obs = [0]*3*bss + [0]*8 + [utility.Item.AgentDummy.value]*4
-        max_obs = [len(utility.Item)]*bss + [self._board_size]*bss + [25]*bss + [self._board_size]*2 + [self._num_items]*4 + [self._num_items] + [1] + [utility.Item.Agent3.value]*4
+        min_obs = [0]*3*bss + [0]*5 + [utility.Item.AgentDummy.value]*4
+        max_obs = [len(utility.Item)]*bss + [self._board_size]*bss + [25]*bss
+        max_obs += [self._board_size]*2 + [self._num_items]*2 + [1]
+        max_obs += [utility.Item.Agent3.value]*4
         min_obs.extend([0]*self._radio_vocab_size*self._radio_num_words)
         max_obs.extend([1]*self._radio_vocab_size*self._radio_num_words)
         self.observation_space = spaces.Box(np.array(min_obs), np.array(max_obs))

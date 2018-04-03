@@ -632,13 +632,14 @@ class ForwardModel(object):
                     life[(x, y)] = bomb.life
             return blast_strengths, life
 
-        def _in_view_range(self, position, vrow, vcol):
+        def in_view_range(position, vrow, vcol):
             row, col = position
-            return all([row >= vrow - agent_view_size, row < vrow + agent_view_size,
-                        col >= vcol - agent_view_size, col < vcol + agent_view_size])
+            return all([
+                row >= vrow - agent_view_size, row < vrow + agent_view_size,
+                col >= vcol - agent_view_size, col < vcol + agent_view_size])
 
-        attrs = ['position', 'ammo', 'blast_strength', 'can_kick', 'teammate', 'enemies']
-        keys = ['board'] + attrs
+        attrs = ['position', 'blast_strength', 'can_kick', 'teammate', 'ammo',
+                 'enemies']
 
         observations = []
         for agent in agents:

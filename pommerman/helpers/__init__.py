@@ -5,7 +5,7 @@ from .. import agents
 def _make_agent_from_string(agent_string, port=None, docker_env_dict=None):
     agent_type, agent_control = agent_string.split("::")
 
-    assert agent_type in ["player", "random", "docker", "test"]
+    assert agent_type in ["player", "random", "docker", "test", "tensorforce"]
 
     agent_instance = None
 
@@ -18,5 +18,7 @@ def _make_agent_from_string(agent_string, port=None, docker_env_dict=None):
         agent_instance = agents.DockerAgent(agent_control, port=port, env_vars=docker_env_dict)
     elif agent_type == "test":
         agent_instance = eval(agent_control)()
+    elif agent_type == "tensorforce":
+        agent_instance = agents.TensorForceAgent(algorithm=agent_control)
 
     return agent_instance

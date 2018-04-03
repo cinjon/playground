@@ -1,12 +1,17 @@
 """Train an agent with TensorForce.
 
-Call this with a config, a game, and a list of agents, one of which should be a tensorforce agent. The script will start separate threads to operate the agents and then report back the result.
+Call this with a config, a game, and a list of agents, one of which should be a
+tensorforce agent. The script will start separate threads to operate the agents
+and then report back the result.
 
 An example with all three simple agents running ffa:
-python train_with_tensorforce.py --agents=tensorforce::ppo,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent --config=ffa_v0
+python train_with_tensorforce.py \
+ --agents=tensorforce::ppo,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent \
+ --config=ffa_v0
 """
 import atexit
 import functools
+import os
 
 import argparse
 import docker
@@ -14,7 +19,8 @@ from tensorforce.execution import Runner
 from tensorforce.contrib.openai_gym import OpenAIGym
 import gym
 
-from .. import configs, utility, agents
+from .. import helpers, make
+from ..agents import TensorForceAgent
 
 
 client = docker.from_env()
@@ -49,61 +55,81 @@ class WrappedEnv(OpenAIGym):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Playground Flags.')
-    parser.add_argument('--game',
-                        default='pommerman',
-                        help='Game to choose.')
-    parser.add_argument('--config',
-                        default='ffa_v0',
-                        help='Configuration to execute.')
-    parser.add_argument('--agents',
-                        default='tensorforce::ppo,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent',
-                        help='Comma delineated list of agent types and docker locations to run the agents.')
-    parser.add_argument('--record_dir',
-                        help="Directory to record the PNGs of the game. Doesn't record if None.")
+    parser = argparse.ArgumentParser(description="Playground Flags.")
+    parser.add_argument("--game",
+                        default="pommerman",
+                        help="Game to choose.")
+    parser.add_argument("--config",
+                        default="PommeFFA-v0",
+                        help="Configuration to execute. See env_ids in "
+                        "configs.py for options.")
+    parser.add_argument("--agents",
+                        default="tensorforce::ppo,test::agents.SimpleAgent,"
+                        "test::agents.SimpleAgent,test::agents.SimpleAgent",
+                        help="Comma delineated list of agent types and docker "
+                        "locations to run the agents.")
+    parser.add_argument("--agent_env_vars",
+                        help="Comma delineated list of agent environment vars "
+                        "to pass to Docker. This is only for the Docker Agent."
+                        " An example is '0:foo=bar:baz=lar,3:foo=lam', which "
+                        "would send two arguments to Docker Agent 0 and one to"
+                        " Docker Agent 3.",
+                        default="")
+    parser.add_argument("--record_pngs_dir",
+                        default=None,
+                        help="Directory to record the PNGs of the game. "
+                        "Doesn't record if None.")
+    parser.add_argument("--record_json_dir",
+                        default=None,
+                        help="Directory to record the JSON representations of "
+                        "the game. Doesn't record if None.")
+    parser.add_argument("--render",
+                        default=True,
+                        help="Whether to render or not. Defaults to True.")
+    parser.add_argument("--game_state_file",
+                        default=None,
+                        help="File from which to load game state. Defaults to "
+                        "None.")
     args = parser.parse_args()
 
-    config = utility.AttrDict(getattr(configs, args.config)())
-    _agents = []
-    for agent_id, agent_info in enumerate(args.agents.split(",")):
-        agent = config.agent(agent_id, config.game_type)
-        agent_type, agent_control = agent_info.split("::")
-        assert agent_type in ["player", "random", "docker", "test", "tensorforce"]
-        if agent_type == "player":
-            agent = agents.PlayerAgent(agent, agent_control)
-        elif agent_type == "random":
-            agent = agents.RandomAgent(agent)
-        elif agent_type == "docker":
-            agent = agents.DockerAgent(
-                agent,
-                docker_image=agent_control,
-                docker_client=client,
-                port=agent_id+1000)
-        elif agent_type == "test":
-            agent = eval(agent_control)(agent)
-        elif agent_type == "tensorforce":
-            agent = agents.TensorForceAgent(agent, algorithm=agent_control)
-            training_agent = agent
-        _agents.append(agent)
+    config = args.config
+    record_pngs_dir = args.record_pngs_dir
+    record_json_dir = args.record_json_dir
+    agent_env_vars = args.agent_env_vars
+    game_state_file = args.game_state_file
 
-    gym.envs.registration.register(
-        id=config.env_id,
-        entry_point=config.env_entry_point,
-        kwargs=config.env_kwargs
-    )
-    env = config.env(**config.env_kwargs)
-    env.set_agents(_agents)
-    env.set_training_agents([training_agent.agent_id])
-    env.seed(0)
+    # TODO: After https://github.com/MultiAgentLearning/playground/pull/40
+    #       this is still missing the docker_env_dict parsing for the agents.
+    agents = [
+        helpers._make_agent_from_string(agent_string, agent_id+1000)
+        for agent_id, agent_string in enumerate(args.agents.split(","))
+    ]
+
+    env = make(config, agents, game_state_file)
+    training_agent = None
+
+    for agent in agents:
+        if type(agent) == TensorForceAgent:
+            training_agent = agent
+            env.set_training_agent(agent.agent_id)
+            break
+
+    if args.record_pngs_dir:
+        assert not os.path.isdir(args.record_pngs_dir)
+        os.makedirs(args.record_pngs_dir)
+    if args.record_json_dir:
+        assert not os.path.isdir(args.record_json_dir)
+        os.makedirs(args.record_json_dir)
 
     # Create a Proximal Policy Optimization agent
     agent = training_agent.initialize(env)
 
-    atexit.register(functools.partial(clean_up_agents, _agents))
-    wrapped_env = WrappedEnv(env, visualize=True)
+    atexit.register(functools.partial(clean_up_agents, agents))
+    wrapped_env = WrappedEnv(env, visualize=args.render)
     runner = Runner(agent=agent, environment=wrapped_env)
     runner.run(episodes=10, max_episode_timesteps=2000)
-    print("Stats: ", runner.episode_rewards, runner.episode_timesteps, runner.episode_times)
+    print("Stats: ", runner.episode_rewards, runner.episode_timesteps,
+          runner.episode_times)
 
     try:
         runner.close()

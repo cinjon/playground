@@ -1,6 +1,7 @@
 """The baseline Pommerman environment.
 
-This evironment acts as game manager for Pommerman. Further environments, such as in v1.py, will inherit from this.
+This evironment acts as game manager for Pommerman. Further environments,
+such as in v1.py, will inherit from this.
 """
 import json
 import os
@@ -49,10 +50,11 @@ class Pomme(gym.Env):
         self.training_agents = None
         self.model = utility.ForwardModel()
 
-        # Observation and Action Spaces. These are both geared towards a single agent even though the environment expects
-        # actions and returns observations for all four agents. We do this so that it's clear what the actions and obs are
-        # for a single agent. Wrt the observations, they are actually returned as a dict for easier understanding.
-
+        # Observation and Action Spaces. These are both geared towards a single
+        # agent even though the environment expects actions and returns
+        # observations for all four agents. We do this so that it's clear what
+        # the actions and obs are for a single agent. Wrt the observations,
+        # they are actually returned as a dict for easier understanding.
         self._set_action_space()
         self._set_observation_space()
 
@@ -67,15 +69,17 @@ class Pomme(gym.Env):
         - bomb blast strength (board_size^2).
         - bomb life (board_size^2)
         - agent's position (2)
-        - player ammo counts (4)
+        - player ammo counts (1)
         - blast strength (1)
         - can_kick (1)
         - teammate (one of {AgentDummy.value, Agent3.value}).
         - enemies (three of {AgentDummy.value, Agent3.value}).
         """
         bss = self._board_size**2
-        min_obs = [0]*3*bss + [0]*8 + [utility.Item.AgentDummy.value]*4
-        max_obs = [len(utility.Item)]*bss + [self._board_size]*bss + [25]*bss + [self._board_size]*2 + [self._num_items]*4 + [self._num_items] + [1] + [utility.Item.Agent3.value]*4
+        min_obs = [0]*3*bss + [0]*5 + [utility.Item.AgentDummy.value]*4
+        max_obs = [len(utility.Item)]*bss + [self._board_size]*bss + [25]*bss
+        max_obs += [self._board_size]*2 + [self._num_items]*2 + [1]
+        max_obs += [utility.Item.Agent3.value]*4
         self.observation_space = spaces.Box(np.array(min_obs), np.array(max_obs))
 
     def set_agents(self, agents):
@@ -255,7 +259,8 @@ class Pomme(gym.Env):
     @staticmethod
     def featurize(obs):
         board = obs["board"].reshape(-1).astype(np.float32)
-        bomb_blast_strength = obs["bomb_blast_strength"].reshape(-1).astype(np.float32)
+        bomb_blast_strength = obs["bomb_blast_strength"].reshape(-1) \
+                                                        .astype(np.float32)
         bomb_life = obs["bomb_life"].reshape(-1).astype(np.float32)
         position = utility.make_np_float(obs["position"])
         ammo = utility.make_np_float([obs["ammo"]])
@@ -264,7 +269,9 @@ class Pomme(gym.Env):
 
         teammate = utility.make_np_float([obs["teammate"].value])
         enemies = utility.make_np_float([e.value for e in obs["enemies"]])
-        return np.concatenate((board, bomb_blast_strength, bomb_life, position, ammo, blast_strength, can_kick, teammate, enemies))
+        return np.concatenate((
+            board, bomb_blast_strength, bomb_life, position, ammo,
+            blast_strength, can_kick, teammate, enemies))
 
     def get_json_info(self):
         """Returns a json snapshot of the current game state."""
@@ -299,15 +306,21 @@ class Pomme(gym.Env):
 
         agent_array = json.loads(self._init_game_state['agents'])
         for a in agent_array:
-            agent = next(x for x in self._agents if x.agent_id == a['agent_id'])
+            agent = next(x for x in self._agents \
+                         if x.agent_id == a['agent_id'])
             agent.set_start_position((a['position'][0], a['position'][1]))
-            agent.reset(int(a['ammo']), bool(a['is_alive']), int(a['blast_strength']), bool(a['can_kick']))
+            agent.reset(int(a['ammo']), bool(a['is_alive']),
+                        int(a['blast_strength']), bool(a['can_kick']))
 
         self._bombs = []
         bomb_array = json.loads(self._init_game_state['bombs'])
         for b in bomb_array:
-            bomber = next(x for x in self._agents if x.agent_id == b['bomber_id'])
-            self._bombs.append(Bomb(bomber, tuple(b['position']), int(b['life']), int(b['blast_strength']), b['moving_direction']))
+            bomber = next(x for x in self._agents \
+                          if x.agent_id == b['bomber_id'])
+            self._bombs.append(Bomb(
+                bomber, tuple(b['position']), int(b['life']),
+                int(b['blast_strength']), b['moving_direction']))
+                                    
 
         self._flames = []
         flameArray = json.loads(self._init_game_state['flames'])

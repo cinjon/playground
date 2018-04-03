@@ -92,8 +92,8 @@ def main():
                         default='pommerman',
                         help='Game to choose.')
     parser.add_argument('--config',
-                        default='ffa_v0',
-                        help='Configuration to execute.')
+                        default='PommeFFA-v0',
+                        help='Configuration to execute. See env_ids in configs.py for options.')
     parser.add_argument('--agents',
                         default='test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent',
                         # default='player::arrows,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent',
