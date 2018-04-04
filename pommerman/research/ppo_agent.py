@@ -2,6 +2,7 @@
 PPO Agent using IKostrikov's approach for the ppo algorithm.
 """
 from pommerman.agents import BaseAgent
+from pommerman import characters
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.optim as optim
@@ -11,9 +12,9 @@ from storage import RolloutStorage
 
 class PPOAgent(BaseAgent):
     """The TensorForceAgent. Acts through the algorith, not here."""
-    def __init__(self, character, actor_critic):
+    def __init__(self, actor_critic, character=characters.Bomber):
         self._actor_critic = actor_critic
-        self._character = character
+        super(PPOAgent, self).__init__(character)
 
     def cuda(self):
         self._actor_critic.cuda()
@@ -95,9 +96,9 @@ class PPOAgent(BaseAgent):
     def feed_forward_generator(self, advantage, args):
         return self._rollout.feed_forward_generator(advantage, args)
 
-    def copy(self, agent):
+    def copy(self):
         # NOTE: Ugh. This is bad.
-        return PPOAgent(agent, None)
+        return PPOAgent(None, self._character)
 
     def after_update(self):
         self._rollout.after_update()

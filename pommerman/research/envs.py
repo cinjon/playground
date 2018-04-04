@@ -9,43 +9,47 @@ import numpy as np
 import pommerman
 
 
-def make_env(args, config, rank, training_agents=[]):
-    def _thunk():
-        game_type = config['game_type']
-        agent_type = config['agent']
-        env = config['env'](**config["env_kwargs"])
-        env.seed(args.seed + rank)
+def make_env(config, how_train, seed, rank, game_state_file, training_agents,
+             num_stack):
+    """Makes an environment callable for multithreading purposes.
 
-        if args.how_train == 'simple':
-            agents = [pommerman.agents.SimpleAgent(agent_type(game_type=game_type))
-                      for _ in range(3)]
-            training_agent_id = rank % 4
-            agents.insert(training_agent_id, training_agents[0])
-            for agent_id, agent in enumerate(agents):
-                agent.set_agent_id(agent_id)
-            env.set_agents(agents)
-            env.set_training_agents([training_agent_id])
-            env.set_init_game_state(args.game_state_file)
-        elif args.how_train == 'homogenous':
-            # NOTE: We can't use just one agent character here because it needs to track its own state.
-            # We do that by instantiating three more copies. There is probably a better way.
-            if rank > -1:
-                copies = [
-                    training_agents[0].copy(
-                        agent_type(agent_id=agent_id, game_type=game_type)
-                    )
-                    for agent_id in range(4)
-                ]
-            else:
-                copies = training_agents*4
-            env.set_agents(copies)
-            env.set_training_agents(list(range(4)))
-            env.set_init_game_state(args.game_state_file)
+    Args:
+      config: See the arguments module's config options.
+      how_train: Str for the method for training. 'heterogenous' is not
+        supported yet.
+      seed: The random seed to use.
+      rank: The environment count.
+      game_state_file: Str location of game state from which to instantiate.
+      training_agents: The list of training agents to use.
+      num_stack: For stacking frames.
+
+    Returns a callable to instantiate an environment fit for our PPO training
+      purposes.
+    """
+    def _thunk():
+        if how_train == 'dummy':
+            agents = [pommerman.agents.SimpleAgent() for _ in range(4)]
+            training_agent_ids = []
+        elif how_train == 'simple':
+            training_agent_ids = [rank % 4]
+            agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
+            agents.insert(training_agent_ids[0], training_agents[0])
+        elif how_train == 'homogenous':
+            # NOTE: We can't use just one agent character here because it needs
+            # to track its own state. We do that by instantiating three more
+            # copies. There is probably a better way.
+            agents = [training_agents[0].copy() for agent_id in range(4)]
+            training_agent_ids = [list(range(4))]
         else:
             raise
 
-        env = WrapPomme(env, args.how_train)
-        env = MultiAgentFrameStack(env, args.num_stack)
+        env = pommerman.make(config, agents, game_state_file)
+        env.set_training_agents(training_agent_ids)
+        env.seed(seed)
+        env.rank = rank
+
+        env = WrapPomme(env, how_train)
+        env = MultiAgentFrameStack(env, num_stack)
         return env
     return _thunk
 
@@ -57,9 +61,12 @@ class WrapPomme(gym.ObservationWrapper):
 
         # TODO: make obs_shape an argument.
         obs_shape = (25,13,13)
+        extended_shape = [len(self.env.training_agents), obs_shape[0],
+                          obs_shape[1], obs_shape[2]]
         self.observation_space = spaces.Box(
-            self.observation_space.low[0], self.observation_space.high[0],
-            [len(self.env.training_agents), obs_shape[0], obs_shape[1], obs_shape[2]],
+            self.observation_space.low[0],
+            self.observation_space.high[0],
+            extended_shape,
             dtype=np.float32
         )
         self.render_fps = env._render_fps
@@ -70,7 +77,6 @@ class WrapPomme(gym.ObservationWrapper):
 
     def observation(self, observation):
         filtered = self._filter(observation)
-        # TODO: Consider removing the original featurize3D in favor of v2.
         return np.array([self._featurize3D(obs) for obs in filtered])
 
     def step(self, actions):
@@ -166,8 +172,10 @@ class WrapPomme(gym.ObservationWrapper):
 
 
 #######
-# The following were graciously taken from baselines because we don't want to install cv2.
+# The following were graciously taken from baselines because we don't want to
+# install cv2.
 #######
+
 
 class MultiAgentFrameStack(gym.Wrapper):
     def __init__(self, env, k):
@@ -181,7 +189,11 @@ class MultiAgentFrameStack(gym.Wrapper):
         self.k = k
         self.frames = deque([], maxlen=k)
         shp = env.observation_space.shape
-        self.observation_space = spaces.Box(low=0, high=255, shape=(shp[0], shp[1] * k, shp[2], shp[3]), dtype=np.uint8)
+        self.observation_space = spaces.Box(
+            low=0,
+            high=255,
+            shape=(shp[0], shp[1] * k, shp[2], shp[3]),
+            dtype=np.uint8)
         self.render_fps = env.render_fps
 
     def reset(self):
@@ -202,11 +214,12 @@ class MultiAgentFrameStack(gym.Wrapper):
 
 class LazyFrames(object):
     def __init__(self, frames):
-        """This object ensures that common frames between the observations are only stored once.
-        It exists purely to optimize memory usage which can be huge for DQN's 1M frames replay
-        buffers.
-        This object should only be converted to numpy array before being passed to the model.
-        You'd not believe how complex the previous solution was."""
+        """This object ensures that common frames between the observations are
+        only stored once. It exists purely to optimize memory usage which can
+        be huge for DQN's 1M frames replay buffers.
+        This object should only be converted to numpy array before being passed
+        to the model. You'd not believe how complex the previous solution was.
+        """
         self._frames = frames
         self._out = None
 

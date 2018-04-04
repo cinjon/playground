@@ -1,9 +1,6 @@
 from collections import defaultdict
-import copy
-import glob
 import os
 import time
-import sys
 
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 import gym
@@ -41,9 +38,7 @@ if args.cuda:
 try:
     os.makedirs(args.log_dir)
 except OSError:
-    files = glob.glob(os.path.join(args.log_dir, '*.monitor.csv'))
-    for f in files:
-        os.remove(f)
+    pass
 
 def main():
     print("#######")
@@ -54,13 +49,9 @@ def main():
     os.environ['OMP_NUM_THREADS'] = '1'
     assert(args.run_name)
 
-    # Instantiate the environment
-    config = getattr(configs, args.config)()
-
-    # We make this in order to get the shapes.
-    dummy_agent = config['agent'](game_type=config['game_type'])
-    dummy_agent = ppo_agent.PPOAgent(dummy_agent, None)
-    dummy_env = make_env(args, config, -1, [dummy_agent])()
+    dummy_env = make_env(config=args.config, how_train='dummy', seed=None,
+                         rank=-1, game_state_file=args.game_state_file,
+                         training_agents=[], num_stack=args.num_stack)()
     envs_shape = dummy_env.observation_space.shape[1:]
     obs_shape = (envs_shape[0], *envs_shape[1:])
     action_space = dummy_env.action_space
@@ -81,8 +72,7 @@ def main():
     for saved_model in saved_models:
         # TODO: implement the model loading.
         model = actor_critic(saved_model)
-        agent = config['agent'](game_type=config['game_type'])
-        agent = ppo_agent.PPOAgent(agent, model)
+        agent = ppo_agent.PPOAgent(model)
         training_agents.append(agent)
 
     if args.how_train == 'simple':
@@ -103,13 +93,17 @@ def main():
         args.run_name, args.how_train, args.config, args.model, args.seed)
     writer = SummaryWriter(os.path.join(args.log_dir, suffix))
 
-    # NOTE: Does this work correctly? Will the threads operate independently?
-    envs = [make_env(args, config, i, training_agents)
-            for i in range(args.num_processes)]
-    if args.render:
-        envs = SubprocVecEnvRender(envs)
-    else:
-        envs = SubprocVecEnv(envs)
+    # NOTE: I didn't think that this should work because I thought that the
+    # agent object would overwrite the agent_id on each env. Somehow it is
+    # working though. This might be due to the separate threads, but that
+    # doesn't make sense to me. TODO: Look into why.
+    envs = [
+        make_env(config=args.config, how_train=args.how_train, seed=args.seed,
+                 rank=rank, game_state_file=args.game_state_file,
+                 training_agents=training_agents, num_stack=args.num_stack)
+        for rank in range(args.num_processes)
+    ]
+    envs = SubprocVecEnvRender(envs) if args.render else SubprocVecEnv(envs)
 
     for agent in training_agents:
         agent.initialize(args, obs_shape, action_space,
@@ -156,7 +150,7 @@ def main():
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
 
-    for j in range(num_updates):            
+    for j in range(num_updates):
         for agent in training_agents:
             agent.set_eval()
 
@@ -234,7 +228,6 @@ def main():
                     [[[0.0] if done_[i] else [1.0] for i in range(len(done_))]
                      for done_ in done]).transpose(0,1).unsqueeze(2)
 
-            # print("REWARD / DONE / MASKS: ", reward, done, masks.squeeze())
             final_rewards *= masks
             final_rewards += (1 - masks) * episode_rewards
             episode_rewards *= masks
