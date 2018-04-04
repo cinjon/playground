@@ -40,18 +40,18 @@ def ffa_v0_env():
 def ffa_v3_env():
     """Start up a FFA config with the default settings."""
     env = envs.v3.Pomme
-    game_type = envs.utility.GameType.FFA
+    game_type = constants.GameType.FFA
     env_entry_point = 'pommerman.envs.v3:Pomme'
     env_id = 'PommeFFA-v3'
     env_kwargs = {
         'game_type': game_type,
-        'board_size': envs.utility.BOARD_SIZE,
-        'agent_view_size': envs.utility.AGENT_VIEW_SIZE,
-        'num_rigid': envs.utility.NUM_RIGID,
-        'num_wood': envs.utility.NUM_WOOD,
-        'num_items': envs.utility.NUM_ITEMS,
-        'max_steps': envs.utility.MAX_STEPS,
-        'render_fps': envs.utility.RENDER_FPS,
+        'board_size': constants.BOARD_SIZE,
+        'agent_view_size': constants.AGENT_VIEW_SIZE,
+        'num_rigid': constants.NUM_RIGID,
+        'num_wood': constants.NUM_WOOD,
+        'num_items': constants.NUM_ITEMS,
+        'max_steps': constants.MAX_STEPS,
+        'render_fps': constants.RENDER_FPS,
     }
     agent = characters.Bomber
     return locals()
