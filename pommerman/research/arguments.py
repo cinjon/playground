@@ -67,9 +67,8 @@ def get_args():
                         help='save this run with this name. must be set')
 
     # specific to Pommerman
-    parser.add_argument('--config', type=str, default='ffa_v3',
-                        help='game configuration: ffa_v0 | ffa_v0_fast '
-                        ' | ffa_v1 | team_v0 | radio_v2 (ffa_v0)')
+    parser.add_argument('--config', type=str, default='PommeFFA-v3',
+                        help='Configuration to execute. See env_ids in configs.py for options.')
     parser.add_argument('--nagents', type=int, default=1,
                         help='number of training agents. independent of the '
                         'number of agents battling.')
