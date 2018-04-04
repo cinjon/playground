@@ -14,6 +14,7 @@ from gym.utils import seeding
 import gym
 
 from . import utility
+from . import forward_model
 from ..characters import Bomb, Flame
 from ..utility import PommermanJSONEncoder as json_encoder
 
@@ -48,7 +49,7 @@ class Pomme(gym.Env):
         self._is_partially_observable = is_partially_observable
 
         self.training_agents = None
-        self.model = utility.ForwardModel()
+        self.model = forward_model.ForwardModel()
 
         # Observation and Action Spaces. These are both geared towards a single
         # agent even though the environment expects actions and returns
