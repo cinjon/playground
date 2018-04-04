@@ -5,7 +5,8 @@ import random
 import numpy as np
 
 from . import BaseAgent
-from ..envs import utility
+from .. import constants
+from .. import utility
 
 
 class SimpleAgent(BaseAgent):
@@ -31,7 +32,7 @@ class SimpleAgent(BaseAgent):
         my_position = tuple(obs['position'])
         board = np.array(obs['board'])
         bombs = convert_bombs(np.array(obs['bomb_blast_strength']))
-        enemies = [utility.Item(e) for e in obs['enemies']]
+        enemies = [constants.Item(e) for e in obs['enemies']]
         ammo = int(obs['ammo'])
         blast_strength = int(obs['blast_strength'])
         items, dist, prev = self._djikstra(board, my_position, bombs, enemies, depth=8)
@@ -44,7 +45,7 @@ class SimpleAgent(BaseAgent):
 
         # Lay pomme if we are adjacent to an enemy.
         if self._is_adjacent_enemy(items, dist, enemies) and self._maybe_bomb(ammo, blast_strength, items, dist, my_position):
-            return utility.Action.Bomb.value
+            return constants.Action.Bomb.value
 
         # Move towards an enemy if there is one in exactly three reachable spaces.
         direction = self._near_enemy(my_position, items, dist, prev, enemies, 3)
@@ -60,9 +61,9 @@ class SimpleAgent(BaseAgent):
         # Maybe lay a bomb if we are within a space of a wooden wall.
         if self._near_wood(my_position, items, dist, prev, 1):
             if self._maybe_bomb(ammo, blast_strength, items, dist, my_position):
-                return utility.Action.Bomb.value
+                return constants.Action.Bomb.value
             else:
-                return utility.Action.Stop.value
+                return constants.Action.Stop.value
 
         # Move towards a wooden wall if there is one within two reachable spaces and you have a bomb.
         direction = self._near_wood(my_position, items, dist, prev, 2)
@@ -72,14 +73,14 @@ class SimpleAgent(BaseAgent):
                 return directions[0].value
 
         # Choose a random but valid direction.
-        directions = [utility.Action.Stop, utility.Action.Left, utility.Action.Right, utility.Action.Up, utility.Action.Down]
+        directions = [constants.Action.Stop, constants.Action.Left, constants.Action.Right, constants.Action.Up, constants.Action.Down]
         valid_directions = self._filter_invalid_directions(board, my_position, directions, enemies)
         directions = self._filter_unsafe_directions(board, my_position, valid_directions, bombs)
         directions = self._filter_recently_visited(directions, my_position, self._recently_visited_positions)
         if len(directions) > 1:
-            directions = [k for k in directions if k != utility.Action.Stop]
+            directions = [k for k in directions if k != constants.Action.Stop]
         if not len(directions):
-            directions = [utility.Action.Stop]
+            directions = [constants.Action.Stop]
 
         # Add this position to the recently visited uninteresting positions so we don't return immediately.
         self._recently_visited_positions.append(my_position)
@@ -92,8 +93,8 @@ class SimpleAgent(BaseAgent):
         assert(depth is not None)
 
         if exclude is None:
-            exclude = [utility.Item.Fog, utility.Item.Rigid,
-                       utility.Item.Skull, utility.Item.Flames]
+            exclude = [constants.Item.Fog, constants.Item.Rigid,
+                       constants.Item.Skull, constants.Item.Flames]
 
         def out_of_range(p1, p2):
             x1, y1 = p1
@@ -125,7 +126,7 @@ class SimpleAgent(BaseAgent):
 
         for bomb in bombs:
             if bomb['position'] == my_position:
-                items[utility.Item.Bomb].append(my_position)
+                items[constants.Item.Bomb].append(my_position)
 
         while not Q.empty():
             _, position = Q.get()
@@ -142,7 +143,7 @@ class SimpleAgent(BaseAgent):
                         dist[new_position] = val
                         prev[new_position] = position
 
-            item = utility.Item(board[position])
+            item = constants.Item(board[position])
             items[item].append(position)
 
         return items, dist, prev
@@ -164,26 +165,26 @@ class SimpleAgent(BaseAgent):
             if my_position == position:
                 # We are on a bomb. All directions are in range of bomb.
                 for direction in [
-                    utility.Action.Right,
-                    utility.Action.Left,
-                    utility.Action.Up,
-                    utility.Action.Down,
+                    constants.Action.Right,
+                    constants.Action.Left,
+                    constants.Action.Up,
+                    constants.Action.Down,
                 ]:
                     ret[direction] = max(ret[direction], bomb['blast_strength'])
             elif x == position[0]:
                 if y < position[1]:
                     # Bomb is right.
-                    ret[utility.Action.Right] = max(ret[utility.Action.Right], bomb['blast_strength'])
+                    ret[constants.Action.Right] = max(ret[constants.Action.Right], bomb['blast_strength'])
                 else:
                     # Bomb is left.
-                    ret[utility.Action.Left] = max(ret[utility.Action.Left], bomb['blast_strength'])
+                    ret[constants.Action.Left] = max(ret[constants.Action.Left], bomb['blast_strength'])
             elif y == position[1]:
                 if x < position[0]:
                     # Bomb is down.
-                    ret[utility.Action.Down] = max(ret[utility.Action.Down], bomb['blast_strength'])
+                    ret[constants.Action.Down] = max(ret[constants.Action.Down], bomb['blast_strength'])
                 else:
                     # Bomb is down.
-                    ret[utility.Action.Up] = max(ret[utility.Action.Up], bomb['blast_strength'])
+                    ret[constants.Action.Up] = max(ret[constants.Action.Up], bomb['blast_strength'])
         return ret
 
     def _find_safe_directions(self, board, my_position, unsafe_directions, bombs, enemies):
@@ -227,7 +228,7 @@ class SimpleAgent(BaseAgent):
 
         if len(unsafe_directions) == 4:
             next_board = board.copy()
-            next_board[my_position] = utility.Item.Bomb.value
+            next_board[my_position] = constants.Item.Bomb.value
 
             for direction, bomb_range in unsafe_directions.items():
                 next_position = utility.get_next_position(my_position, direction)
@@ -241,7 +242,7 @@ class SimpleAgent(BaseAgent):
                     # a small bit of randomness. So let's go with this one.
                     return [direction]
             if not safe:
-                safe = [utility.Action.Stop]
+                safe = [constants.Action.Stop]
             return safe
 
         x, y = my_position
@@ -269,7 +270,7 @@ class SimpleAgent(BaseAgent):
 
         if not safe:
             # We don't have ANY directions. So return the stop choice.
-            return [utility.Action.Stop]
+            return [constants.Action.Stop]
 
         return safe
 
@@ -299,7 +300,7 @@ class SimpleAgent(BaseAgent):
 
         # Will we be stuck?
         x, y = my_position
-        for position in items.get(utility.Item.Passage):
+        for position in items.get(constants.Item.Passage):
             if dist[position] == np.inf:
                 continue
 
@@ -347,16 +348,16 @@ class SimpleAgent(BaseAgent):
     @classmethod
     def _near_good_powerup(cls, my_position, items, dist, prev, radius):
         objs = [
-            utility.Item.ExtraBomb,
-            utility.Item.IncrRange,
-            utility.Item.Kick
+            constants.Item.ExtraBomb,
+            constants.Item.IncrRange,
+            constants.Item.Kick
         ]
         nearest_item_position = cls._nearest_position(dist, objs, items, radius)
         return cls._get_direction_towards_position(my_position, nearest_item_position, prev)
 
     @classmethod
     def _near_wood(cls, my_position, items, dist, prev, radius):
-        objs = [utility.Item.Wood]
+        objs = [constants.Item.Wood]
         nearest_item_position = cls._nearest_position(dist, objs, items, radius)
         return cls._get_direction_towards_position(my_position, nearest_item_position, prev)
 

@@ -1,8 +1,10 @@
 import gym
 import inspect
-from . import configs
-from . import utility
 from . import agents
+from . import configs
+from . import constants
+from . import forward_model
+from . import utility
 
 registry = None
 
@@ -11,6 +13,9 @@ def _register():
     global registry
     registry = []
     for name, f in inspect.getmembers(configs, inspect.isfunction):
+        if not name.endswith('_env'):
+            continue
+
         config = f()
         gym.envs.registration.register(
             id=config['env_id'],

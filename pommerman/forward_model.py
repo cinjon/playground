@@ -2,7 +2,8 @@ from collections import defaultdict
 
 import numpy as np
 
-from ..characters import Flame
+from . import constants
+from . import characters
 from . import utility
 
 
@@ -76,7 +77,7 @@ class ForwardModel(object):
             if agent.is_alive:
                 return agent.act(obs[agent.agent_id], action_space=action_space)
             else:
-                return utility.Action.Stop.value
+                return constants.Action.Stop.value
 
         def act_with_communication(agent):
             if agent.is_alive:
@@ -86,7 +87,7 @@ class ForwardModel(object):
                 assert(type(action) == list)
                 return action
             else:
-                return [utility.Action.Stop.value, 0, 0]
+                return [constants.Action.Stop.value, 0, 0]
 
         ret = []
         for agent in agents:
@@ -112,7 +113,7 @@ class ForwardModel(object):
                 if item_value:
                     del curr_items[position]
                 else:
-                    item_value = utility.Item.Passage.value
+                    item_value = constants.Item.Passage.value
                 curr_board[position] = item_value
             else:
                 flame.tick()
@@ -171,9 +172,9 @@ class ForwardModel(object):
             if agent.is_alive:
                 position = agent.position
 
-                if action == utility.Action.Stop.value:
+                if action == constants.Action.Stop.value:
                     agent.stop()
-                elif action == utility.Action.Bomb.value:
+                elif action == constants.Action.Bomb.value:
                     bomb = agent.maybe_lay_bomb()
                     if bomb:
                         curr_bombs.append(bomb)
@@ -214,15 +215,15 @@ class ForwardModel(object):
                 if agent.can_kick:
                     bombs = [bomb for bomb in curr_bombs if bomb.position == agent.position]
                     if bombs:
-                        bombs[0].moving_direction = utility.Action(direction)
+                        bombs[0].moving_direction = constants.Action(direction)
 
             if utility.position_is_powerup(curr_board, agent.position):
-                agent.pick_up(utility.Item(curr_board[agent.position]))
-                if utility.Item(curr_board[agent.position]) == utility.Item.Skull:
+                agent.pick_up(constants.Item(curr_board[agent.position]))
+                if constants.Item(curr_board[agent.position]) == constants.Item.Skull:
                     self.step_info[agent.agent_id].append('bad_item')
                 else:
                     self.step_info[agent.agent_id].append('good_item')
-                curr_board[agent.position] = utility.Item.Passage.value
+                curr_board[agent.position] = constants.Item.Passage.value
 
         # Explode bombs.
         next_bombs = []
@@ -230,9 +231,9 @@ class ForwardModel(object):
         for bomb in curr_bombs:
             bomb.tick()
             if bomb.is_moving():
-                invalid_values = list(range(len(utility.Item)+1))[1:]
+                invalid_values = list(range(len(constants.Item)+1))[1:]
                 if utility.is_valid_direction(curr_board, bomb.position, bomb.moving_direction.value, invalid_values=invalid_values):
-                    curr_board[bomb.position] = utility.Item.Passage.value
+                    curr_board[bomb.position] = constants.Item.Passage.value
                     bomb.move()
                 else:
                     bomb.stop()
@@ -243,10 +244,10 @@ class ForwardModel(object):
                     for r, c in indices:
                         if not all([r >= 0, c >= 0, r < board_size, c < board_size]):
                             break
-                        if curr_board[r][c] == utility.Item.Rigid.value:
+                        if curr_board[r][c] == constants.Item.Rigid.value:
                             break
                         exploded_map[r][c] = 1
-                        if curr_board[r][c] == utility.Item.Wood.value:
+                        if curr_board[r][c] == constants.Item.Wood.value:
                             break
             else:
                 next_bombs.append(bomb)
@@ -268,19 +269,19 @@ class ForwardModel(object):
 
         # Update the board
         for bomb in curr_bombs:
-            curr_board[bomb.position] = utility.Item.Bomb.value
+            curr_board[bomb.position] = constants.Item.Bomb.value
 
         for agent in curr_agents:
             position = np.where(curr_board == utility.agent_value(agent.agent_id))
-            curr_board[position] = utility.Item.Passage.value
+            curr_board[position] = constants.Item.Passage.value
             if agent.is_alive:
                 curr_board[agent.position] = utility.agent_value(agent.agent_id)
 
         flame_positions = np.where(exploded_map == 1)
         for row, col in zip(flame_positions[0], flame_positions[1]):
-            curr_flames.append(Flame((row, col)))
+            curr_flames.append(characters.Flame((row, col)))
         for flame in curr_flames:
-            curr_board[flame.position] = utility.Item.Flames.value
+            curr_board[flame.position] = constants.Item.Flames.value
 
         return curr_board, curr_agents, curr_bombs, curr_items, curr_flames
 
@@ -320,7 +321,7 @@ class ForwardModel(object):
                 for row in range(board_size):
                     for col in range(board_size):
                         if not in_view_range(agent.position, row, col):
-                            board[row, col] = utility.Item.Fog.value
+                            board[row, col] = constants.Item.Fog.value
             agent_obs['board'] = board
 
             bomb_blast_strengths, bomb_life = make_bomb_maps(agent.position)
@@ -341,7 +342,7 @@ class ForwardModel(object):
         if step_count >= max_steps:
             # The game is done. Return True.
             return [True]*4 if all_agents else True
-        elif game_type == utility.GameType.FFA:
+        elif game_type == constants.GameType.FFA:
             if training_agents is not None and all([
                     agent not in alive_ids for agent in training_agents]):
                 ret = []
@@ -366,36 +367,36 @@ class ForwardModel(object):
 
     @staticmethod
     def get_info(done, rewards, game_type, agents):
-        if game_type == utility.GameType.FFA:
+        if game_type == constants.GameType.FFA:
             alive = [agent for agent in agents if agent.is_alive]
             if done and len(alive) > 1:
                 return {
-                    'result': utility.Result.Tie,
+                    'result': constants.Result.Tie,
                 }
             elif done:
                 return {
-                    'result': utility.Result.Win,
+                    'result': constants.Result.Win,
                     'winners': [num for num, reward in enumerate(rewards) \
                                 if reward == 1],
                 }
             else:
                 return {
-                    'result': utility.Result.Incomplete,
+                    'result': constants.Result.Incomplete,
                 }
         elif done:
             if rewards == [1]*4:
                 return {
-                    'result': utility.Result.Tie,
+                    'result': constants.Result.Tie,
                 }
             else:
                 return {
-                    'result': utility.Result.Win,
+                    'result': constants.Result.Win,
                     'winners': [num for num, reward in enumerate(rewards) \
                                 if reward == 1],
                 }
         else:
             return {
-                'result': utility.Result.Incomplete,
+                'result': constants.Result.Incomplete,
             }
 
     @staticmethod
@@ -405,7 +406,7 @@ class ForwardModel(object):
 
         alive_agents = [num for num, agent in enumerate(agents) \
                         if agent.is_alive]
-        if game_type == utility.GameType.FFA:
+        if game_type == constants.GameType.FFA:
             if len(alive_agents) == 1 or step_count >= max_steps:
                 # Game is over. All of the alive agents get reward.
                 return [2*int(agent.is_alive) - 1 for agent in agents]

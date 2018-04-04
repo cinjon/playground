@@ -10,14 +10,14 @@ The collapsing works in the following manner:
 3. When we are at a step in the collapsing schedule, we take the matching ring and turn it into rigid walls.
    This has the effect of destroying any items, bombs (which don't go off), and agents in those squares.
 """
-from ..utility import PommermanJSONEncoder as json_encoder
-from . import utility
+from .. import constants
+from .. import utility
 from . import v0
 
 class Pomme(v0.Pomme):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second' : utility.RENDER_FPS
+        'video.frames_per_second' : constants.RENDER_FPS
     }
 
     def __init__(self, *args, **kwargs):
@@ -44,7 +44,7 @@ class Pomme(v0.Pomme):
         def collapse(r, c):
             if utility.position_is_agent(board, (r, c)):
                 # Agent. Kill it.
-                num_agent = board[r][c] - utility.Item.Agent0.value
+                num_agent = board[r][c] - constants.Item.Agent0.value
                 agent = self._agents[num_agent]
                 agent.die()
             elif utility.position_is_bomb(board, (r, c)):
@@ -53,7 +53,7 @@ class Pomme(v0.Pomme):
             elif (r, c) in self._items:
                 # Item. Remove the item.
                 del self._items[(r, c)]
-            board[r][c] = utility.Item.Rigid.value
+            board[r][c] = constants.Item.Rigid.value
 
         for cell in range(ring, self._board_size - ring):
             collapse(ring, cell)

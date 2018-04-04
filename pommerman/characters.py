@@ -2,7 +2,8 @@
 
 import random
 
-from .envs import utility
+from . import constants
+from . import utility
 
 
 class Bomber(object):
@@ -12,35 +13,35 @@ class Bomber(object):
         self._game_type = game_type
         self.ammo = 1
         self.is_alive = True
-        self.blast_strength = utility.DEFAULT_BLAST_STRENGTH
+        self.blast_strength = constants.DEFAULT_BLAST_STRENGTH
         self.can_kick = False
         if agent_id is not None:
             self.set_agent_id(agent_id)
 
     def set_agent_id(self, agent_id):
         self.agent_id = agent_id
-        if self._game_type == utility.GameType.FFA:
-            self.teammate = utility.Item.AgentDummy
-            self.enemies = [getattr(utility.Item, 'Agent%d' % id_)
+        if self._game_type == constants.GameType.FFA:
+            self.teammate = constants.Item.AgentDummy
+            self.enemies = [getattr(constants.Item, 'Agent%d' % id_)
                             for id_ in range(4) if id_ != agent_id]
         else:
             teammate_id = (agent_id + 2) % 4
-            self.teammate = getattr(utility.Item, 'Agent%d' % teammate_id)
-            self.enemies = [getattr(utility.Item, 'Agent%d' % id_)
+            self.teammate = getattr(constants.Item, 'Agent%d' % teammate_id)
+            self.enemies = [getattr(constants.Item, 'Agent%d' % id_)
                             for id_ in range(4) if id_ != agent_id and id_ != teammate_id]
-            self.enemies.append(utility.Item.AgentDummy)
+            self.enemies.append(constants.Item.AgentDummy)
 
     def maybe_lay_bomb(self):
         if self.ammo > 0:
             self.ammo -= 1
-            return Bomb(self, self.position, utility.DEFAULT_BOMB_LIFE, self.blast_strength)
+            return Bomb(self, self.position, constants.DEFAULT_BOMB_LIFE, self.blast_strength)
         return None
 
     def incr_ammo(self):
         self.ammo += 1
 
     def get_next_position(self, direction):
-        action = utility.Action(direction)
+        action = constants.Action(direction)
         return utility.get_next_position(self.position, action)
 
     def move(self, direction):
@@ -63,17 +64,17 @@ class Bomber(object):
         self.position = self.start_position
         self.ammo = ammo
         self.is_alive = is_alive
-        self.blast_strength = blast_strength or utility.DEFAULT_BLAST_STRENGTH
+        self.blast_strength = blast_strength or constants.DEFAULT_BLAST_STRENGTH
         self.can_kick = can_kick
 
     def pick_up(self, item):
-        if item == utility.Item.ExtraBomb:
+        if item == constants.Item.ExtraBomb:
             self.ammo = min(self.ammo + 1, 10)
-        elif item == utility.Item.IncrRange:
+        elif item == constants.Item.IncrRange:
             self.blast_strength = min(self.blast_strength + 1, 10)
-        elif item == utility.Item.Kick:
+        elif item == constants.Item.Kick:
             self.can_kick = True
-        elif item == utility.Item.Skull:
+        elif item == constants.Item.Skull:
             rand = random.random()
             if rand < .33:
                 self.blast_strength = max(2, self.blast_strength - 1)

@@ -7,15 +7,15 @@ stream for each agent.
 from gym import spaces
 import numpy as np
 
-from ..utility import PommermanJSONEncoder as json_encoder
-from . import utility
+from .. import constants
+from .. import utility
 from . import v0
 
 
 class Pomme(v0.Pomme):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second' : utility.RENDER_FPS
+        'video.frames_per_second' : constants.RENDER_FPS
     }
 
     def __init__(self, *args, **kwargs):
@@ -25,7 +25,7 @@ class Pomme(v0.Pomme):
             assert("Please provide both radio_vocab_size and radio_num_words to use the Radio environment.")
 
         self._radio_from_agent = {
-            agent: (0, 0) for agent in [utility.Item.Agent0, utility.Item.Agent1, utility.Item.Agent2, utility.Item.Agent3]
+            agent: (0, 0) for agent in [constants.Item.Agent0, constants.Item.Agent1, constants.Item.Agent2, constants.Item.Agent3]
         }
         super().__init__(*args, **kwargs)
 
@@ -48,10 +48,10 @@ class Pomme(v0.Pomme):
         - radio (radio_vocab_size * radio_num_words)
         """
         bss = self._board_size**2
-        min_obs = [0]*3*bss + [0]*5 + [utility.Item.AgentDummy.value]*4
-        max_obs = [len(utility.Item)]*bss + [self._board_size]*bss + [25]*bss
+        min_obs = [0]*3*bss + [0]*5 + [constants.Item.AgentDummy.value]*4
+        max_obs = [len(constants.Item)]*bss + [self._board_size]*bss + [25]*bss
         max_obs += [self._board_size]*2 + [self._num_items]*2 + [1]
-        max_obs += [utility.Item.Agent3.value]*4
+        max_obs += [constants.Item.Agent3.value]*4
         min_obs.extend([0]*self._radio_vocab_size*self._radio_num_words)
         max_obs.extend([1]*self._radio_vocab_size*self._radio_num_words)
         self.observation_space = spaces.Box(np.array(min_obs), np.array(max_obs))
@@ -73,7 +73,7 @@ class Pomme(v0.Pomme):
                 radio_action = (0, 0)
             else:
                 radio_action = np.clip(radio_action, 1, 8).astype(np.uint8)
-            self._radio_from_agent[getattr(utility.Item, 'Agent%d' % agent.agent_id)] = radio_action
+            self._radio_from_agent[getattr(constants.Item, 'Agent%d' % agent.agent_id)] = radio_action
 
         return super().step(personal_actions)
 
