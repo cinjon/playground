@@ -96,9 +96,11 @@ class ForwardModel(object):
                 ret.append(act_ex_communication(agent))
         return ret
 
-    @staticmethod
-    def step(actions, curr_board, curr_agents, curr_bombs, curr_items,
+    def step(self, actions, curr_board, curr_agents, curr_bombs, curr_items,
              curr_flames):
+        # We track what the agents each do in this dict.
+        self.step_info = defaultdict(list)
+
         board_size = len(curr_board)
 
         # Tick the flames. Replace any dead ones with passages. If there is an item there, then reveal that item.
@@ -134,6 +136,35 @@ class ForwardModel(object):
         def has_position_conflict(counter):
             return any([len(agent_ids) > 1 for next_position, agent_ids in counter.items() if next_position])
 
+        def dist_nearest_enemy(agent):
+            agent_position = agent.position
+            target_position = None
+            distance = None
+            enemies = agent.enemies
+            seen = set()
+            Q = [agent_position]
+            while Q:
+                position = Q.pop(0)
+                if not utility.position_on_board(curr_board, position):
+                    continue
+
+                if position in seen:
+                    continue
+                seen.add(position)
+
+                if utility.position_is_enemy(curr_board, position, enemies):
+                    target_position = position
+                    break
+
+                x, y = position
+                Q.extend([(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
+
+            if target_position is not None:
+                xt, yt = target_position
+                xa, ya = agent_position
+                distance = abs(yt - ya) + abs(xt - xa)
+            return distance
+
         curr_positions = [agent.position for agent in curr_agents]
         next_positions = [agent.position for agent in curr_agents]
         for agent, action in zip(curr_agents, actions):
@@ -146,6 +177,10 @@ class ForwardModel(object):
                     bomb = agent.maybe_lay_bomb()
                     if bomb:
                         curr_bombs.append(bomb)
+                        dist_to_enemy = dist_nearest_enemy(agent)
+                        if dist_to_enemy:
+                            self.step_info[agent.agent_id].append(
+                                'bomb:%d' % dist_to_enemy)
                 elif utility.is_valid_direction(curr_board, position, action):
                     next_position = agent.get_next_position(action)
 
@@ -183,6 +218,10 @@ class ForwardModel(object):
 
             if utility.position_is_powerup(curr_board, agent.position):
                 agent.pick_up(utility.Item(curr_board[agent.position]))
+                if utility.Item(curr_board[agent.position]) == utility.Item.Skull:
+                    self.step_info[agent.agent_id].append('bad_item')
+                else:
+                    self.step_info[agent.agent_id].append('good_item')
                 curr_board[agent.position] = utility.Item.Passage.value
 
         # Explode bombs.
@@ -224,6 +263,7 @@ class ForwardModel(object):
         for agent in curr_agents:
             if agent.in_range(exploded_map):
                 agent.die()
+                self.step_info[agent.agent_id].append('dead')
         exploded_map = np.array(exploded_map)
 
         # Update the board
@@ -294,22 +334,35 @@ class ForwardModel(object):
         return observations
 
     @staticmethod
-    def get_done(agents, step_count, max_steps, game_type, training_agent):
+    def get_done(agents, step_count, max_steps, game_type, training_agents,
+                 all_agents=False):
         alive = [agent for agent in agents if agent.is_alive]
         alive_ids = sorted([agent.agent_id for agent in alive])
         if step_count >= max_steps:
-            return True
+            # The game is done. Return True.
+            return [True]*4 if all_agents else True
         elif game_type == utility.GameType.FFA:
-            if training_agent is not None and training_agent not in alive_ids:
-                return True
-            return len(alive) <= 1
+            if training_agents is not None and all([
+                    agent not in alive_ids for agent in training_agents]):
+                ret = []
+                for agent in agents:
+                    if agent.agent_id not in training_agents:
+                        ret.append(True)
+                    else:
+                        ret.append(agent.agent_id not in alive_ids)
+
+                return ret if all_agents else all(ret)
+            else:
+                is_done = len(alive) <= 1
+                return is_done if not all_agents else [is_done]*4
         elif any([
                 len(alive_ids) <= 1,
                 alive_ids == [0, 2],
                 alive_ids == [1, 3],
         ]):
-            return True
-        return False
+            # The game is done. Return True.
+            return [True]*4 if all_agents else True
+        return [not agent.is_alive for agent in agents]
 
     @staticmethod
     def get_info(done, rewards, game_type, agents):

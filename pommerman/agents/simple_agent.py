@@ -341,8 +341,8 @@ class SimpleAgent(BaseAgent):
 
     @classmethod
     def _near_enemy(cls, my_position, items, dist, prev, enemies, radius):
-        nearest_enemy_position = self._nearest_position(dist, enemies, items, radius)
-        return self._get_direction_towards_position(my_position, nearest_enemy_position, prev)
+        nearest_enemy_position = cls._nearest_position(dist, enemies, items, radius)
+        return cls._get_direction_towards_position(my_position, nearest_enemy_position, prev)
 
     @classmethod
     def _near_good_powerup(cls, my_position, items, dist, prev, radius):
