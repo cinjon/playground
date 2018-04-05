@@ -94,6 +94,11 @@ def get_args():
     parser.add_argument('--num-steps-eval', type=int, default=1000,
                         help='number of steps to run for evaluation')
 
+    parser.add_argument('--expert-prob', type=float, default=0.5,
+                        help='probability that the agent will act using the experts action')
+    parser.add_argument('--minibatch-size', type=int, default=100,
+                        help='size of the minibatch for training on the aggregated dataset')
+    
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

@@ -48,6 +48,10 @@ class FFPolicy(nn.Module):
         action_log_probs, dist_entropy = self.dist.logprobs_and_entropy(x, actions)
         return value, action_log_probs, dist_entropy, states
 
+    def get_action_scores(self, inputs, states, masks, deterministic=False):
+        value, x, states = self(inputs, states, masks)
+        return self.dist.linear(x)
+
 
 # TODO: what's the min number of layers for this to work?
 class PommeCNNPolicySmall(FFPolicy):

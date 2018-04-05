@@ -79,6 +79,14 @@ class WrapPomme(gym.ObservationWrapper):
         filtered = self._filter(observation)
         return np.array([self._featurize3D(obs) for obs in filtered])
 
+    def get_expert_obs(self):
+        obs = self.env.get_observations()
+        return obs
+
+    def get_agent_obs(self):
+        obs = self.env.get_observations()
+        return self.observation(obs)
+
     def step(self, actions):
         if self._how_train == 'simple':
             obs = self.env.get_observations()
@@ -107,7 +115,7 @@ class WrapPomme(gym.ObservationWrapper):
           - (2) Whether has teammate, teammate's position
           - (3) Enemies's position.
           - (8) Positions for:
-                Passage/Rigid/Wood/Flames/ExtraBomb/IncrRange/Kick/Skull 
+                Passage/Rigid/Wood/Flames/ExtraBomb/IncrRange/Kick/Skull
         """
         map_size = len(obs["board"])
 
@@ -210,6 +218,14 @@ class MultiAgentFrameStack(gym.Wrapper):
     def _get_ob(self):
         assert len(self.frames) == self.k
         return LazyFrames(list(self.frames))
+
+    def get_expert_obs(self):
+        ob = self.env.get_expert_obs()
+        return ob
+
+    def get_agent_obs(self):
+        ob = self.env.get_agent_obs()
+        return ob
 
 
 class LazyFrames(object):

@@ -60,6 +60,15 @@ class PPOAgent(BaseAgent):
         return self._actor_critic.evaluate_actions(observations, states, masks,
                                                    actions)
 
+    def get_action_scores(self, observations, states, masks):
+        return self._actor_critic.get_action_scores(observations, states, masks)
+
+    def optimize_dagger(self, action_classification_loss, max_grad_norm):
+        self._optimizer.zero_grad()
+        action_classification_loss.backward()
+        nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
+        self._optimizer.step()
+
     def optimize(self, value_loss, action_loss, dist_entropy, entropy_coef,
                  max_grad_norm):
         self._optimizer.zero_grad()
@@ -72,7 +81,7 @@ class PPOAgent(BaseAgent):
             self._rollout.compute_returns(next_value, use_gae, gamma, tau,
                                           num_agent)
         advantages = self._rollout.compute_advantages()
-        diff = (advantages - advantages.mean()) 
+        diff = (advantages - advantages.mean())
         advantages = diff / (advantages.std() + 1e-5)
         return advantages
 
