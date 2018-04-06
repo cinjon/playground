@@ -2,7 +2,6 @@
 from collections import deque
 import os
 
-from baselines import bench
 import gym
 from gym import spaces
 import numpy as np
@@ -219,9 +218,8 @@ class MultiAgentFrameStack(gym.Wrapper):
     def __init__(self, env, k):
         """Stack k last frames.
         Returns lazy array, which is much more memory efficient.
-        See Also
+        See LazyFrames below
         --------
-        baselines.common.atari_wrappers.LazyFrames
         """
         gym.Wrapper.__init__(self, env)
         self.k = k

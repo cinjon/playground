@@ -30,11 +30,10 @@ import torch
 from torch.autograd import Variable
 
 from arguments import get_args
-from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 import envs as env_helpers
 from model import PommeCNNPolicySmall
 import ppo_agent
-from subproc_vec_env import SubprocVecEnvRender
+from subproc_vec_env import SubprocVecEnv
 
 
 torch.manual_seed(args.seed)
