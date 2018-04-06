@@ -1,3 +1,4 @@
+"""Module to create the environment and apply wrappers."""
 from collections import deque
 import os
 
@@ -7,9 +8,10 @@ from gym import spaces
 import numpy as np
 
 import pommerman
+from subproc_vec_env import SubprocVecEnv
 
 
-def make_env(config, how_train, seed, rank, game_state_file, training_agents,
+def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
              num_stack):
     """Makes an environment callable for multithreading purposes.
 
@@ -38,8 +40,9 @@ def make_env(config, how_train, seed, rank, game_state_file, training_agents,
             # NOTE: We can't use just one agent character here because it needs
             # to track its own state. We do that by instantiating three more
             # copies. There is probably a better way.
-            agents = [training_agents[0].copy() for agent_id in range(4)]
-            training_agent_ids = [list(range(4))]
+            agents = [training_agents[0].copy_ex_model()
+                      for agent_id in range(4)]
+            training_agent_ids = list(range(4))
         else:
             raise
 
@@ -54,13 +57,37 @@ def make_env(config, how_train, seed, rank, game_state_file, training_agents,
     return _thunk
 
 
+def make_envs(config, how_train, seed, game_state_file, training_agents,
+               num_stack, num_processes, render):
+    # NOTE: I didn't think this would work because I thought that the agent
+    # would overwrite the agent_id on each env. However, it is working.
+    # TODO: Look into why.
+    envs = [
+        _make_env(config=config, how_train=how_train, seed=seed, rank=rank,
+                 game_state_file=game_state_file,
+                 training_agents=training_agents, num_stack=num_stack)
+        for rank in range(num_processes)
+    ]
+    return SubprocVecEnv(envs)
+
+
+def get_env_shapes(config, num_stack):
+    dummy_env = _make_env(config=config, how_train='dummy', seed=None, rank=-1,
+                         game_state_file=None, training_agents=[],
+                         num_stack=num_stack)()
+    envs_shape = dummy_env.observation_space.shape[1:]
+    obs_shape = (envs_shape[0], *envs_shape[1:])
+    action_space = dummy_env.action_space
+    return obs_shape, action_space
+
+
 class WrapPomme(gym.ObservationWrapper):
     def __init__(self, env=None, how_train='simple'):
         super(WrapPomme, self).__init__(env)
         self._how_train = how_train
 
         # TODO: make obs_shape an argument.
-        obs_shape = (18,13,13)
+        obs_shape = (19, 13, 13)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]
         self.observation_space = spaces.Box(
@@ -72,7 +99,7 @@ class WrapPomme(gym.ObservationWrapper):
         self.render_fps = env._render_fps
 
     def _filter(self, arr):
-        # TODO: Is arr always an np.array If so, can make this better.
+        # TODO: Is arr always an np.array? If so, can do this better.
         return np.array([arr[i] for i in self.env.training_agents])
 
     def observation(self, observation):
@@ -97,8 +124,10 @@ class WrapPomme(gym.ObservationWrapper):
             all_actions = actions
 
         observation, reward, done, info = self.env.step(all_actions)
-        return self.observation(observation), self._filter(reward), \
-            self._filter(done), info
+        obs = self.observation(observation)
+        rew = self._filter(reward)
+        done = self._filter(done)
+        return obs, rew, done, info
 
     def reset(self, **kwargs):
         return self.observation(self.env.reset())

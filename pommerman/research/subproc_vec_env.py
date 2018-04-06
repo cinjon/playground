@@ -37,10 +37,10 @@ def worker(remote, parent_remote, env_fn_wrapper):
             raise NotImplementedError
 
 
-class SubprocVecEnvRender(SubprocVecEnv):
+class SubprocVecEnv(SubprocVecEnv):
     def __init__(self, env_fns, spaces=None):
         """
-        envs: list of gym environments to run in subprocesses
+        env_fns: list of gym environments to run in subprocesses
         """
         self._viewer = None
         self.waiting = False

@@ -1,8 +1,12 @@
-"""Eval script. Merge this in with main.py's training.
+"""Eval script.
 
-Evaluation pipeline PPO v. 3 SimpleAgents in FFA and
-for self-play PPO in FFA and for two different versions
-(newer v. 3 older versions of the policy).
+Evaluation pipeline:
+1. Receives a set of paths to saved models.
+2. Told which one is being tested.
+3. If there are less than four paths given, then it will fill the rest of the
+   agents with SimpleAgent.
+4. Runs 100 episodes. 
+5. Records and logs the number of wins in that episode for the target agent.
 
 Examples:
 
@@ -16,7 +20,6 @@ python eval.py --num-channels 128 --saved-models /path/to/model.pt
 import copy
 import glob
 import os
-import subprocess
 import sys
 import time
 
@@ -28,99 +31,68 @@ from torch.autograd import Variable
 
 from arguments import get_args
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
-from envs import make_env
-from model import PommeResnetPolicy, PommeCNNPolicySmall
+import envs as env_helpers
+from model import PommeCNNPolicySmall
 import ppo_agent
 from subproc_vec_env import SubprocVecEnvRender
 
-args = get_args()
 
 torch.manual_seed(args.seed)
 
 
 def eval():
     os.environ['OMP_NUM_THREADS'] = '1'
-    saved_models = args.saved_models
-    assert(saved_models), "Please include saved_models path."
-    assert(len(saved_models.split(",")) == 1), "Only one model please."
+    args = get_args()
 
-    # Instantiate the environment
-    config = getattr(configs, args.config)()
+    target_paths = args.target_eval_paths.split(',')
+    assert(target_paths), "Please include target_paths."
+    saved_paths = args.saved_paths
+    assert(saved_paths), "Please include saved_paths."
 
-    if args.cims_address:
-        assert(args.cims_password)
-        cims_model_address = ":".join([args.cims_address, saved_models])
-        local_model_address = os.path.join(
-            args.cims_save_model_local, saved_models.split('/')[-1])
-        subprocess.call(['sshpass', '-p', '%s' % args.cims_password,
-                         'scp', cims_model_address, local_model_address])
-    else:
-        local_model_address = saved_models
+    for path in target_paths:
+        assert(path in saved_paths), "Path %s not in saved_paths." % path
 
-    # We make this in order to get the shapes.
-    dummy_agent = config['agent'](game_type=config['game_type'])
-    dummy_agent = ppo_agent.PPOAgent(dummy_agent, None)
-    dummy_env = make_env(args, config, -1, [dummy_agent])()
-    envs_shape = dummy_env.observation_space.shape[1:]
-    obs_shape = (envs_shape[0], *envs_shape[1:])
-    action_space = dummy_env.action_space
-    if args.model == 'convnet':
-        actor_critic_model = PommeCNNPolicySmall(
-            obs_shape[0], action_space, args)
-        actor_critic_lambda = lambda saved_model: actor_critic_model
-    elif args.model == 'resnet':
-        actor_critic_model = PommeResnetPolicy(
-            obs_shape[0], action_space, args)
-        actor_critic_lambda = lambda saved_model: actor_critic_model
+    new_saved_paths = []
+    for path in saved_paths.split(','):
+        if os.path.exists(path):
+            new_saved_paths.append(path)
+        else:
+            new_saved_paths.append(
+                utils.scp_model_from_cims(
+                    saved_paths, args.cims_address,
+                    args.cims_password, args.cims_save_model_local)
+            )
 
-    # TODO: this only works for simple - need a list of checkpoints for self-play
-    # We need to get the agent = config.agent(agent_id, config.game_type) and then
-    # pass that agent into the agent.PPOAgent
-    training_agents = []
+    obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
+    # TODO: This doesn't quite work the same as in train ... Needs adjustment.
+    num_training_per_episode = utils.validate_how_train(args.how_train,
+                                                        args.num_agents)
 
-    print("****")
+    training_agents = utils.load_agents(
+        obs_shape, action_space, args.board_size, args.num_channels, config,
+        num_stack, num_training_per_episode, args.model_str, new_saved_paths,
+        args.lr, args.eps, num_steps, num_processes)
+
+    training_agents = utils.load_agents(obs_shape, action_space,
+                                        args.board_size, args.num_channels,
+                                        args.config, args.num_stack,
+                                        args.model, local_model_address,
+                                        args.lr, args.eps, num_steps,
+                                        num_processes)
     model_name = local_model_address.split('/')[-1]
-    loaded_model = torch.load(local_model_address)
-    state_dict = loaded_model['state_dict']
-    print("epoch for {} is: {}".format(model_name, loaded_model['epoch']))
-    # TODO: Make this cleaner. It's silly rn with the lambda above.
-    actor_critic_model.load_state_dict(state_dict)
-    agent = config['agent'](game_type=config['game_type'])
-    agent = ppo_agent.PPOAgent(agent, actor_critic_model)
-    training_agents = [agent]
-    print("****")
+    print("num episodes for {} is: {}".format(model_name,
+                                              training_agents[0].num_episodes)
 
-    if args.how_train == 'simple':
-        # Simple trains a single agent against three SimpleAgents.
-        assert(args.nagents == 1), "Simple training should have a single agent."
-        num_training_per_episode = 1
-    elif args.how_train == 'homogenous':
-        # Homogenous trains a single agent against itself (self-play).
-        assert(args.nagents == 1), "Homogenous toraining should have a single agent."
-        num_training_per_episode = 4
-    elif args.how_train == 'heterogenous':
-        assert(args.nagents > 1), "Heterogenous training should have more than one agent."
-        print("Heterogenous training is not implemented yet.")
-        return
+    envs = utils.make_envs(args.config, args.how_train, args.seed,
+                           args.game_state_file, training_agents,
+                           args.num_stack, num_processes, args.render)
 
-    # NOTE: Does this work correctly? Will the threads operate independently?
-    envs = [make_env(args, config, i, training_agents)
-            for i in range(args.num_processes)]
-    envs = SubprocVecEnvRender(envs)
-
-    for agent in training_agents:
-        agent.initialize(args, obs_shape, action_space,
-                         num_training_per_episode)
-
-    current_obs = torch.zeros(num_training_per_episode, args.num_processes,
-                              *obs_shape)
     def update_current_obs(obs):
         current_obs = torch.from_numpy(obs).float()
+    current_obs = torch.zeros(num_training_per_episode, num_processes,
+                              *obs_shape)
+    update_current_obs(envs.reset())
 
-    def torch_numpy_stack(value):
-        return torch.from_numpy(np.stack([x.data for x in value])).float()
-
-    obs = update_current_obs(envs.reset())
     if args.how_train == 'simple':
         training_agents[0].update_rollouts(obs=current_obs, timestep=0)
     elif args.how_train == 'homogenous':
@@ -218,10 +190,10 @@ def eval():
                 current_obs *= masks_all.unsqueeze(2)
             update_current_obs(obs)
 
-            states_all = torch_numpy_stack(states_agents)
-            action_all = torch_numpy_stack(action_agents)
-            action_log_prob_all = torch_numpy_stack(action_log_prob_agents)
-            value_all = torch_numpy_stack(value_agents)
+            states_all = utils.torch_numpy_stack(states_agents)
+            action_all = utils.torch_numpy_stack(action_agents)
+            action_log_prob_all = utils.torch_numpy_stack(action_log_prob_agents)
+            value_all = utils.torch_numpy_stack(value_agents)
 
             training_agents[0].insert_rollouts(
                 step, current_obs, states_all, action_all, action_log_prob_all,

@@ -79,7 +79,7 @@ for job in jobs:
             jobname += "_%s%s" % (flag, str(job[flag]))
 
     job_args = args + ["--run-name %s" % jobname]
-    jobcommand = "OMP_NUM_THREADS=1 python main.py %s%s" % (
+    jobcommand = "OMP_NUM_THREADS=1 python train.py %s%s" % (
         " ".join(job_args), flagstring)
     print(jobcommand)
 

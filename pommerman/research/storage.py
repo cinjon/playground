@@ -49,7 +49,7 @@ class RolloutStorage(object):
         self.rewards[step].copy_(reward)
         self.masks[step+1].copy_(mask)
 
-    def after_update(self):
+    def after_epoch(self):
         self.observations[0].copy_(self.observations[-1])
         self.states[0].copy_(self.states[-1])
         self.masks[0].copy_(self.masks[-1])
@@ -80,7 +80,7 @@ class RolloutStorage(object):
     def compute_advantages(self):
         return self.returns[:-1] - self.value_preds[:-1]
 
-    def feed_forward_generator(self, advantages, args):
+    def feed_forward_generator(self, advantages, num_mini_batch, num_steps):
         advantages = advantages.view([-1, 1])
         num_steps = self.rewards.size(0)
         num_training_per_episode = self.rewards.size(1)
@@ -91,11 +91,11 @@ class RolloutStorage(object):
         state_size = self.states.size(3)
 
         batch_size = num_processes * num_steps
-        mini_batch_size = batch_size // args.num_mini_batch
+        mini_batch_size = batch_size // num_mini_batch
         sampler = BatchSampler(SubsetRandomSampler(range(batch_size)),
                                mini_batch_size, drop_last=False)
 
-        # Reshape so that trajectories per agent  look like new processes.
+        # Reshape so that trajectories per agent look like new processes.
         observations = self.observations.view([
             num_steps+1, num_total, *obs_shape])
         states = self.states.view([num_steps+1, num_total, state_size])
@@ -115,24 +115,24 @@ class RolloutStorage(object):
 
             observations_batch = observations[:-1] \
                                  .contiguous() \
-                                 .view((args.num_steps*num_total),
+                                 .view((num_steps*num_total),
                                        *observations.size()[2:])[indices]
             states_batch = states[:-1] \
                            .contiguous() \
-                           .view((args.num_steps*num_total), 1)[indices]
+                           .view((num_steps*num_total), 1)[indices]
             actions_batch = actions \
                             .contiguous() \
-                            .view((args.num_steps*num_total), 1)[indices]
+                            .view((num_steps*num_total), 1)[indices]
             return_batch = returns[:-1] \
                            .contiguous() \
-                           .view((args.num_steps*num_total), 1)[indices]
+                           .view((num_steps*num_total), 1)[indices]
             masks_batch = masks[:-1] \
                           .contiguous() \
-                          .view((args.num_steps*num_total), 1)[indices]
+                          .view((num_steps*num_total), 1)[indices]
             old_action_log_probs_batch = \
                                 action_log_probs \
                                 .contiguous() \
-                                .view((args.num_steps*num_total), 1)[indices]
+                                .view((num_steps*num_total), 1)[indices]
             adv_targ = advantages.contiguous().view(-1, 1)[indices]
 
             yield observations_batch, states_batch, actions_batch, \
