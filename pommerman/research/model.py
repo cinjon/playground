@@ -50,7 +50,7 @@ class FFPolicy(nn.Module):
 
     def get_action_scores(self, inputs, states, masks, deterministic=False):
         value, x, states = self(inputs, states, masks)
-        return self.dist.linear(x)
+        return self.dist(x)
 
 
 # TODO: what's the min number of layers for this to work?

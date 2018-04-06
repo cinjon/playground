@@ -98,7 +98,7 @@ def get_args():
                         help='probability that the agent will act using the experts action')
     parser.add_argument('--minibatch-size', type=int, default=100,
                         help='size of the minibatch for training on the aggregated dataset')
-    
+
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

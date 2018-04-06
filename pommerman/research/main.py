@@ -117,6 +117,7 @@ def main():
     def torch_numpy_stack(value):
         return torch.from_numpy(np.stack([x.data for x in value])).float()
 
+    import pdb; pdb.set_trace()
     obs = update_current_obs(envs.reset())
     if args.how_train == 'simple':
         training_agents[0].update_rollouts(obs=current_obs, timestep=0)
@@ -240,6 +241,7 @@ def main():
             elif args.how_train == 'homogenous':
                 masks_all = masks
 
+            import pdb; pdb.set_trace()
             if args.how_train == 'simple':
                 current_obs *= masks_all.unsqueeze(2).unsqueeze(2)
             elif args.how_train == 'homogenous':
@@ -294,6 +296,7 @@ def main():
 
                     # Reshape to do in a single forward pass for all steps
                     _s = time.time()
+                    import pdb; pdb.set_trace()
                     result = agent.evaluate_actions(
                         Variable(observations_batch),
                         Variable(states_batch),

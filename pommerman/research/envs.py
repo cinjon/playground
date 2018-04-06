@@ -60,7 +60,7 @@ class WrapPomme(gym.ObservationWrapper):
         self._how_train = how_train
 
         # TODO: make obs_shape an argument.
-        obs_shape = (25,13,13)
+        obs_shape = (18,13,13)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]
         self.observation_space = spaces.Box(
@@ -79,9 +79,10 @@ class WrapPomme(gym.ObservationWrapper):
         filtered = self._filter(observation)
         return np.array([self._featurize3D(obs) for obs in filtered])
 
+    # NOTE: changed this so that the expert only gets to see the obs of the training agent (and not all of the other agents' obs)
     def get_expert_obs(self):
         obs = self.env.get_observations()
-        return obs
+        return self._filter(obs)
 
     def get_agent_obs(self):
         obs = self.env.get_observations()

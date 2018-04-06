@@ -1,5 +1,5 @@
 """
-PPO Agent using IKostrikov's approach for the ppo algorithm.
+Dagger Agent.
 """
 from pommerman.agents import BaseAgent
 from pommerman import characters
@@ -10,11 +10,11 @@ import torch.optim as optim
 from storage import RolloutStorage
 
 
-class PPOAgent(BaseAgent):
+class DaggerAgent(BaseAgent):
     """The TensorForceAgent. Acts through the algorith, not here."""
     def __init__(self, actor_critic, character=characters.Bomber):
         self._actor_critic = actor_critic
-        super(PPOAgent, self).__init__(character)
+        super(DaggerAgent, self).__init__(character)
 
     def cuda(self):
         self._actor_critic.cuda()
@@ -60,10 +60,12 @@ class PPOAgent(BaseAgent):
         return self._actor_critic.evaluate_actions(observations, states, masks,
                                                    actions)
 
-    def optimize(self, value_loss, action_loss, dist_entropy, entropy_coef,
-                 max_grad_norm):
+    def get_action_scores(self, observations, states, masks):
+        return self._actor_critic.get_action_scores(observations, states, masks)
+
+    def optimize(self, action_classification_loss, max_grad_norm):
         self._optimizer.zero_grad()
-        (value_loss + action_loss - dist_entropy * entropy_coef).backward()
+        action_classification_loss.backward()
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
         self._optimizer.step()
 

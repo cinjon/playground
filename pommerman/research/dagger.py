@@ -20,7 +20,7 @@ from arguments import get_args
 from envs import make_env
 from model import PommeResnetPolicy, PommeCNNPolicySmall
 
-import ppo_agent
+import dagger_agent
 from subproc_vec_env import SubprocVecEnvRender
 
 from pommerman.agents import SimpleAgent
@@ -50,7 +50,7 @@ def main():
     torch.cuda.empty_cache()
     os.environ['OMP_NUM_THREADS'] = '1'
     assert(args.run_name)
-    assert(args.num_processes == 1), "Doesn't work with multi-processing yet."
+    assert(args.num_processes == 1), "Doesn't work on more than one process."
 
     dummy_env = make_env(config=args.config, how_train='dummy', seed=None,
                          rank=-1, game_state_file=args.game_state_file,
@@ -66,7 +66,7 @@ def main():
             obs_shape[0], action_space, args)
 
     # We need to get the agent = config.agent(agent_id, config.game_type) and
-    # then pass that agent into the agent.PPOAgent
+    # then pass that agent into the agent.DaggerAgent
     training_agents = []
     saved_models = args.saved_models
     saved_models = saved_models.split(',') if saved_models \
@@ -75,7 +75,7 @@ def main():
     for saved_model in saved_models:
         # TODO: implement the model loading.
         model = actor_critic(saved_model)
-        agent = ppo_agent.PPOAgent(model)
+        agent = dagger_agent.DaggerAgent(model)
         training_agents.append(agent)
 
     # Simple trains a single agent against three SimpleAgents.
@@ -83,8 +83,9 @@ def main():
     num_training_per_episode = 1
 
 
-    suffix = "{}.train.ht-{}.cfg-{}.m-{}.seed-{}".format(
-        args.run_name, args.how_train, args.config, args.model, args.seed)
+    suffix = "{}.train.m-{}.nc-{}.ns-{}.mb-{}.lr-{}.seed-{}".format(
+        args.run_name, args.model, args.num_channels, args.num_steps,
+        args.minibatch_size, args.lr, args.seed)
     writer = SummaryWriter(os.path.join(args.log_dir, suffix))
 
     # NOTE: I didn't think that this should work because I thought that the
@@ -104,7 +105,7 @@ def main():
                          num_training_per_episode)
 
     # NOTE: only use one process so removed the second dim = num_processes
-    current_obs = torch.zeros(num_training_per_episode, *obs_shape)
+    current_obs = torch.zeros(num_training_per_episode,  *obs_shape)
     def update_current_obs(obs):
         current_obs = torch.from_numpy(obs).float()
 
@@ -147,7 +148,7 @@ def main():
 
     cross_entropy_loss = nn.CrossEntropyLoss()
     expert = SimpleAgent()
-    expert_action_tensor = torch.LongTensor(1)
+
     action_loss = 0
 
     for j in range(num_updates):
@@ -155,8 +156,8 @@ def main():
         for agent in training_agents:
             agent.set_eval()
 
-        agent_states = []
-        expert_actions = []
+        agent_states_list = []
+        expert_actions_list = []
 
         ########
         # Collect data using DAGGER
@@ -164,17 +165,21 @@ def main():
         for step in range(args.num_steps):
             expert_obs = envs.get_expert_obs()[0][0]
             expert_action = expert.act(expert_obs, action_space=action_space)
+            expert_action_tensor = torch.LongTensor(1)
             expert_action_tensor[0] = expert_action
 
-            agent_states.append(current_obs.squeeze(0))
-            expert_actions.append(expert_action_tensor)
+            agent_states_list.append(current_obs.squeeze(0))
+            expert_actions_list.append(expert_action_tensor)
+
+            # TODO: debug - figure out if expert_obs (for expert) is the same with current_obs (for agent)
 
             # take action provided by expert
-            if random.random() <= args.expert_prob:
+            prob = random.random()
+            if prob <= args.expert_prob:
                 list_expert_action = []
                 list_expert_action.append(expert_action)
                 arr_expert_action = np.array(list_expert_action)
-                obs, reward, done, info = envs.step(arr_expert_action)
+                obs, reward, done, info = envs.step(arr_expert_action) # obs: 1x1x36x13x13
 
             # take action provided by learning policy
             else:
@@ -182,9 +187,10 @@ def main():
                 value, action, action_log_prob, states = result
                 cpu_actions = action.data.squeeze(1).cpu().numpy()
                 cpu_actions_agents = cpu_actions
-                obs, reward, done, info = envs.step(cpu_actions_agents)
+                obs, reward, done, info = envs.step(cpu_actions_agents)   # obs: 1x1x36x13x13
 
-            update_current_obs(obs)
+            # update current observation with the one observed by taking a step with above action
+            update_current_obs(obs.reshape(1, *obs_shape))
 
             if args.render:
                 envs.render()
@@ -195,8 +201,8 @@ def main():
         for agent in training_agents:
             agent.set_train()
 
-        aggr_agent_states += agent_states
-        aggr_expert_actions += expert_actions
+        aggr_agent_states += agent_states_list
+        aggr_expert_actions += expert_actions_list
 
         num_steps_dagger = len(aggr_agent_states)
         indices = np.arange(0, num_steps_dagger).tolist()
@@ -205,8 +211,8 @@ def main():
         dummy_hidden_state = Variable(torch.zeros(1,1))
         dummy_mask = Variable(torch.zeros(1,1))
         agent_states_minibatch = torch.FloatTensor(args.minibatch_size, obs_shape[0], obs_shape[1], obs_shape[2])
-        expert_actions_minibatch = torch.FloatTensor(args.minibatch_size, obs_shape[0], obs_shape[1], obs_shape[2])
-        indices_minibatch = torch.LongTensor(args.minibatch_size, obs_shape[0], obs_shape[1], obs_shape[2])
+        expert_actions_minibatch = torch.FloatTensor(args.minibatch_size,  obs_shape[0], obs_shape[1], obs_shape[2])
+        indices_minibatch = torch.LongTensor(args.minibatch_size,  obs_shape[0], obs_shape[1], obs_shape[2])
         total_action_loss = 0
         for i in range(0, num_steps_dagger, args.minibatch_size):
             indices_minibatch = indices[i: i + args.minibatch_size]
@@ -216,25 +222,26 @@ def main():
             agent_states_minibatch = torch.stack(agent_states_minibatch, 0)
             expert_actions_minibatch = torch.stack(expert_actions_minibatch, 0)
 
+
             if args.cuda:
                 agent_states_minibatch = agent_states_minibatch.cuda()
                 expert_actions_minibatch = expert_actions_minibatch.cuda()
+                dummy_hidden_state = dummy_hidden_state.cuda()
+                dummy_mask = dummy_mask.cuda()
 
             action_scores = agent.get_action_scores(Variable(agent_states_minibatch), dummy_hidden_state, dummy_mask)
             action_loss = cross_entropy_loss(action_scores, Variable(expert_actions_minibatch.squeeze(1)))
-            agent.optimize_dagger(action_loss, args.max_grad_norm)
+
+            agent.optimize(action_loss, args.max_grad_norm)
             total_action_loss += action_loss
 
 
         # TODO: figure out what are the right hyperparams to use: num-steps, minibatch-size etc.
         # TODO: figure out whether you need to optimize multilpe times each update? on same data?
 
-
         print("###########")
         print("update {}, # steps: {} action loss {} ".format(j, num_steps_dagger, total_action_loss.data[0]/num_steps_dagger))
         print("###########\n")
-
-        # TODO: figure out a way to run it on multiple processes
 
         ########
         # Evaluate Current Policy
@@ -310,8 +317,7 @@ def main():
                 step, current_obs, states_all, action_all, action_log_prob_all,
                 value_all, reward_all, masks_all)
 
-
-        # TODO: This is relative to the loaded model if exists.
+        # TODO: This is relative to the loaded model if it exists.
         total_steps = (j + 1) * args.num_processes * args.num_steps
 
         #####
@@ -335,10 +341,11 @@ def main():
                     'total_steps': num_steps_dagger,
                 }
                 save_dict['args'] = vars(args)
-                suffix = "{}.train.ht-{}.cfg-{}.m-{}.nc-{}.lr-{}.epoch-{}.steps-{}.seed-{}.pt" \
-                         .format(args.run_name, args.how_train, args.config,
-                                 args.model, args.num_channels, args.lr, j, num_steps_dagger, args.seed)
+                suffix = "{}.train.m-{}.nc-{}.ns-{}.mb-{}.lr-{}.epoch-{}.steps-{}.seed-{}.pt" \
+                         .format(args.run_name, args.model, args.num_channels, args.num_steps,
+                         args.minibatch_size, args.lr, j, num_steps_dagger, args.seed)
                 torch.save(save_dict, os.path.join(save_path, suffix))
+
 
         #####
         # Log to console and to Tensorboard.
@@ -368,8 +375,7 @@ def main():
                 action_loss for action_loss in final_action_losses])
 
             print("Updates {}, total num steps {}, action classif loss {}, num timesteps {}, FPS {}, mean/median reward "
-                  "{:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}, avg entropy "
-                  "{:.5f}, avg value loss {:.5f}, avg policy loss {:.5f}".
+                  "{:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}".
                 format(j, num_steps_dagger,
                        total_action_loss,
                        total_steps,
@@ -378,9 +384,7 @@ def main():
                        final_rewards.median(),
                        final_rewards.min(),
                        final_rewards.max(),
-                       mean_dist_entropy,
-                       mean_value_loss,
-                       mean_action_loss))
+                       ))
 
             writer.add_scalar('action_classif_loss_per_steps', total_action_loss, num_steps_dagger)
             writer.add_scalar('action_classif_loss_per_updates', total_action_loss, j)
@@ -389,22 +393,39 @@ def main():
                 'mean': mean_dist_entropy,
                 'var': std_dist_entropy,
             }, num_steps_dagger)
+            writer.add_scalars('entropy_updates', {
+                'mean': mean_dist_entropy,
+                'var': std_dist_entropy,
+            }, j)
 
             writer.add_scalars('action_loss', {
                 'mean': mean_action_loss,
                 'var': std_action_loss,
             }, num_steps_dagger)
+            writer.add_scalars('action_loss_updates', {
+                'mean': mean_action_loss,
+                'var': std_action_loss,
+            }, j)
 
             writer.add_scalars('value_loss', {
                 'mean': mean_value_loss,
                 'var': std_value_loss,
             }, num_steps_dagger)
+            writer.add_scalars('value_loss_updates', {
+                'mean': mean_value_loss,
+                'var': std_value_loss,
+            }, j)
 
             writer.add_scalars('rewards', {
                 'mean': final_rewards.mean(),
                 'std': final_rewards.std(),
                 'median': final_rewards.median(),
             }, num_steps_dagger)
+            writer.add_scalars('rewards_updates', {
+                'mean': final_rewards.mean(),
+                'std': final_rewards.std(),
+                'median': final_rewards.median(),
+            }, j)
 
             writer.add_scalar('updates', j, num_steps_dagger)
             writer.add_scalar('steps_per_sec', steps_per_sec, num_steps_dagger)
@@ -421,12 +442,22 @@ def main():
                 for key, count in count_stats.items() \
                 if key.startswith('bomb:')
             }, num_steps_dagger)
+            writer.add_scalars('bomb_distances_updates', {
+                key.split(':')[1]: 1.0 * count / running_num_episodes
+                for key, count in count_stats.items() \
+                if key.startswith('bomb:')
+            }, j)
 
             if array_stats['rank']:
                 writer.add_scalars('rank', {
                     'mean': np.mean(array_stats['rank']),
                     'std': np.std(array_stats['rank']),
                 }, num_steps_dagger)
+            if array_stats['rank']:
+                writer.add_scalars('rank_updates', {
+                    'mean': np.mean(array_stats['rank']),
+                    'std': np.std(array_stats['rank']),
+                }, j)
 
             if array_stats['dead']:
                 writer.add_scalars('dying_step', {
@@ -437,6 +468,16 @@ def main():
                     'percent_dying_per_ep',
                     1.0 * len(array_stats['dead']) / running_num_episodes,
                     num_steps_dagger)
+            if array_stats['dead']:
+                writer.add_scalars('dying_step_updates', {
+                    'mean': np.mean(array_stats['dead']),
+                    'std': np.std(array_stats['dead']),
+                }, j)
+                writer.add_scalar(
+                    'percent_dying_per_ep_updates',
+                    1.0 * len(array_stats['dead']) / running_num_episodes,
+                    j)
+
 
             # always reset these stats so that means in the plots are per the last log_interval
             final_action_losses = [[] for agent in range(len(training_agents))]
