@@ -82,15 +82,15 @@ class PPOAgent(BaseAgent):
         advantages = diff / (advantages.std() + 1e-5)
         return advantages
 
-    def initialize(self, lr, eps, num_steps, num_processes, num_epoch,
-                   obs_shape, action_space, num_training_per_episode,
-                   num_episodes, total_steps, optimizer_state_dict):
+    def initialize(self, args, obs_shape, action_space,
+                   num_training_per_episode, num_episodes, total_steps,
+                   num_epoch, optimizer_state_dict):
         params = self._actor_critic.parameters()
-        self._optimizer = optim.Adam(params, lr=lr, eps=eps)
+        self._optimizer = optim.Adam(params, lr=args.lr, eps=args.eps)
         if optimizer_state_dict:
             self._optimizer.load_state_dict(optimizer_state_dict)
         self._rollout = RolloutStorage(
-            num_steps, num_processes, obs_shape, action_space,
+            args.num_steps, args.num_processes, obs_shape, action_space,
             self._actor_critic.state_size, num_training_per_episode
         )
         self.num_episodes = num_episodes

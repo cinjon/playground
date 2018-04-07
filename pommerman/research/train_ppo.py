@@ -1,7 +1,9 @@
 """Train script for ppo learning.
 
 Currently tested for how_train = "simple".
-TODO: Test that this works for homogenous training.
+TODO: Get homogenous training working s.t. the reward is properly updated for
+an agent in a team game that dies before the end of the game.
+TODO: Test that homogenous training works.
 TODO: Implement heterogenous training.
 
 The number of samples used for an epoch is:
@@ -19,15 +21,14 @@ from collections import defaultdict
 import os
 import time
 
-import gym
 import numpy as np
-from pommerman import configs
 from tensorboardX import SummaryWriter
 import torch
 from torch.autograd import Variable
 
 from arguments import get_args
 import envs as env_helpers
+import ppo_agent
 import utils
 
 
@@ -37,31 +38,21 @@ def train():
     args = get_args()
     assert(args.run_name)
 
-    how_train = args.how_train
-    config = args.config
-    num_agents = args.num_agents
-    num_stack = args.num_stack
-    num_steps = args.num_steps
-    num_processes = args.num_processes
-    num_epochs = int(args.num_frames // num_steps // num_processes)
-
-    print("NumEpochs {} NumFrames {} NumSteps {} NumProcesses {} Cuda {}\n"
-          .format(num_epochs, args.num_frames, num_steps, num_processes,
-                  args.cuda))
+    how_train, config, num_agents, num_stack, num_steps, num_processes, \
+        num_epochs = utils.get_train_vars(args)
 
     obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
     num_training_per_episode = utils.validate_how_train(how_train, num_agents)
-                                                        
 
     training_agents = utils.load_agents(
-        obs_shape, action_space, args.board_size, args.num_channels, config,
-        num_stack, args.num_agents, num_training_per_episode, args.model_str,
-        args.saved_paths, args.lr, args.eps, num_steps, num_processes)
+        obs_shape, action_space, num_training_per_episode, args,
+        ppo_agent.PPOAgent)
                                    
     envs = env_helpers.make_envs(config, how_train, args.seed,
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
 
+    # NOTE: These three funcs have side effects where they set variable values.
     def update_current_obs(obs):
         current_obs = torch.from_numpy(obs).float()
 
@@ -90,6 +81,7 @@ def train():
                               *obs_shape)
     update_current_obs(envs.reset())
 
+    #####
     # Logging helpers.
     suffix = "{}.train.ht-{}.cfg-{}.m-{}.seed-{}".format(
         args.run_name, how_train, config, args.model_str, args.seed)
@@ -104,8 +96,7 @@ def train():
                                    num_processes, 1])
     final_rewards = torch.zeros([num_training_per_episode,
                                  num_processes, 1])
-    final_dist_entropies = torch.zeros([num_training_per_episode,
-                                 num_processes, 1])
+
     # TODO: When we implement heterogenous, change this to be per agent.
     start_epoch = training_agents[0].num_epoch
     total_steps = training_agents[0].total_steps
@@ -115,7 +106,7 @@ def train():
     final_action_losses = [[] for agent in range(len(training_agents))]
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
-    ####
+    #####
 
     # TODO: Update this when we implement heterogenous.
     training_agents[0].update_rollouts(obs=current_obs, timestep=0)
@@ -153,7 +144,6 @@ def train():
                         cpu_actions_agents[num_process].append(
                             cpu_actions[num_process])
 
-            print("ACTIONS: ", cpu_actions_agents)
             obs, reward, done, info = envs.step(cpu_actions_agents)
 
             update_stats(info)
@@ -162,7 +152,6 @@ def train():
                 envs.render()
 
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
-            print("REWARD: ", reward)
             episode_rewards += reward
 
             if how_train == 'simple':
@@ -178,8 +167,6 @@ def train():
                 masks = torch.FloatTensor(
                     [[[0.0] if done_[i] else [1.0] for i in range(len(done_))]
                      for done_ in done]).transpose(0,1).unsqueeze(2)
-            print("DONE: ", done)
-            print("Masks: ", masks)
 
             final_rewards *= masks
             final_rewards += (1 - masks) * episode_rewards
@@ -198,7 +185,8 @@ def train():
 
             states_all = utils.torch_numpy_stack(states_agents)
             action_all = utils.torch_numpy_stack(action_agents)
-            action_log_prob_all = utils.torch_numpy_stack(action_log_prob_agents)
+            action_log_prob_all = utils.torch_numpy_stack(
+                action_log_prob_agents)
             value_all = utils.torch_numpy_stack(value_agents)
 
             training_agents[0].insert_rollouts(
@@ -258,15 +246,17 @@ def train():
             std_action_loss = np.std([
                 action_loss for action_loss in final_action_losses])
 
-            _log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
-                           final_rewards, mean_dist_entropy, mean_value_loss)
-            _log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
-                               steps_per_sec, final_rewards,
-                               mean_dist_entropy, mean_value_loss,
-                               mean_action_loss, std_dist_entropy,
-                               std_value_loss, std_action_loss, count_stats,
-                               array_stats, running_num_episodes)
-            
+            utils.log_to_console(num_epoch, num_episodes, total_steps,
+                                 steps_per_sec, final_rewards,
+                                 mean_dist_entropy, mean_value_loss)
+            utils.log_to_tensorboard(writer, num_epoch, num_episodes,
+                                     total_steps, steps_per_sec, final_rewards,
+                                     mean_dist_entropy, mean_value_loss,
+                                     mean_action_loss, std_dist_entropy,
+                                     std_value_loss, std_action_loss,
+                                     count_stats, array_stats,
+                                     running_num_episodes)
+                                     
             # Reset stats so that plots are per the last log_interval.
             final_action_losses = [[] for agent in range(len(training_agents))]
             final_value_losses =  [[] for agent in range(len(training_agents))]
@@ -278,83 +268,8 @@ def train():
                                          num_processes, 1])
             running_num_episodes = 0
 
-        if num_epoch % args.save_interval == 0:
-            utils.save_agents(num_epoch, training_agents, total_steps,
-                              num_episodes, args)
 
     writer.close()
-
-
-def _log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
-                    final_rewards, mean_dist_entropy, mean_value_loss,
-                    mean_action_loss):
-    print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, epochs "
-          "per sec {}, mean/median reward {:.1f}/{:.1f}, min/max reward "
-          "{:.1f}/{:.1f}, avg entropy {:.5f}, avg value loss {:.5f}, avg "
-          "policy loss {:.5f}"
-          .format(num_epoch, num_episodes, total_steps, steps_per_sec,
-                  epochs_per_sec, final_rewards.mean(),
-                  final_rewards.median(), final_rewards.min(),
-                  final_rewards.max(), mean_dist_entropy, mean_value_loss,
-                  mean_action_loss))
-
-
-def _log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
-                        steps_per_sec, final_rewards, mean_dist_entropy,
-                        mean_value_loss, mean_action_loss, std_dist_entropy,
-                        std_value_loss, std_action_loss, count_stats,
-                        array_stats, running_num_episodes):
-    writer.add_scalar('entropy', {
-        'mean' : mean_dist_entropy,
-        'std_max': mean_dist_entropy + std_dist_entropy,
-        'std_min': mean_dist_entropy - std_dist_entropy,
-    }, num_episodes)
-
-    writer.add_scalar('reward', {
-        'mean': final_rewards.mean(),
-        'std_max': final_rewards.mean() + final_rewards.std(),
-        'std_min': final_rewards.mean() - final_rewards.std(),
-    }, num_episodes)
-
-    writer.add_scalars('action_loss', {
-        'mean': mean_action_loss,
-        'std_max': mean_action_loss + std_action_loss,
-        'std_min': mean_action_loss - std_action_loss,
-    }, num_episodes)
-
-    writer.add_scalars('value_loss', {
-        'mean': mean_value_loss,
-        'std_max': mean_value_loss + std_value_loss,
-        'std_min': mean_value_loss - std_value_loss,
-    }, num_episodes)
-
-    writer.add_scalar('epochs', num_epoch, num_episodes)
-    writer.add_scalar('steps_per_sec', steps_per_sec, num_episodes)
-    writer.add_scalar('episodes_per_sec', episodes_per_sec, num_episodes)
-
-    for title, count in count_stats.items():
-        if title.startswith('bomb:'):
-            continue
-        writer.add_scalar(title, 1.0 * count / running_num_episodes,
-                          num_episodes)
-
-    writer.add_scalars('bomb_distances', {
-        key.split(':')[1]: 1.0 * count / running_num_episodes
-        for key, count in count_stats.items() \
-        if key.startswith('bomb:')
-    }, num_episodes)
-
-    if array_stats.get('rank'):
-        writer.add_scalar('mean_rank', np.mean(array_stats['rank']),
-                          num_episodes)
-
-    if array_stats.get('dead'):
-        writer.add_scalar('mean_dying_step', np.mean(array_stats['dead']),
-                          num_episodes)
-        writer.add_scalar(
-            'percent_dying_per_episode',
-            1.0 * len(array_stats['dead']) / running_num_episodes,
-            num_episodes)
 
 
 if __name__ == "__main__":

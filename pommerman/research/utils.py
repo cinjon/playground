@@ -6,19 +6,18 @@ import torch
 import torch.nn as nn
 
 import networks
-import ppo_agent
 
 
-def load_agents(obs_shape, action_space, board_size, num_channels, config,
-                num_stack, num_agents, num_training_per_episode, model_str,
-                paths, lr, eps, num_steps, num_processes):
-    actor_critic = lambda state_dict: networks.get_actor_critic(model_str)(
-        state_dict, obs_shape[0], action_space, board_size, num_channels)
+def load_agents(obs_shape, action_space, num_training_per_episode, args,
+                agent_type):
+    actor_critic = lambda state: networks.get_actor_critic(args.model_str)(
+        state, obs_shape[0], action_space, args.board_size, args.num_channels)
 
+    paths = args.saved_paths
     if not type(paths) == list:
-        paths = paths.split(',') if paths else [None]*num_agents
+        paths = paths.split(',') if paths else [None] * args.num_agents
             
-    assert(len(paths)) == num_agents
+    assert(len(paths)) == args.num_agents
 
     training_agents = []
     for path in paths:
@@ -37,10 +36,10 @@ def load_agents(obs_shape, action_space, board_size, num_channels, config,
             optimizer_state_dict = None
             model = actor_critic(None)
 
-        agent = ppo_agent.PPOAgent(model)
-        agent.initialize(lr, eps, num_steps, num_processes, num_epoch, obs_shape,
-                         action_space, num_training_per_episode, num_episodes,
-                         total_steps, optimizer_state_dict)
+        agent = agent_type(model)
+        agent.initialize(args, obs_shape, action_space,
+                         num_training_per_episode, num_episodes, total_steps,
+                         num_epoch, optimizer_state_dict)
         training_agents.append(agent)
     return training_agents
 
@@ -101,6 +100,93 @@ def scp_model_from_cims(saved_paths, cims_address, cims_password,
         return local_model_address
     except Exception as e:
         return None
+
+
+def get_train_vars(args):
+    how_train = args.how_train
+    config = args.config
+    num_agents = args.num_agents
+    num_stack = args.num_stack
+    num_steps = args.num_steps
+    num_processes = args.num_processes
+    num_epochs = int(args.num_frames // num_steps // num_processes)
+    print("NumEpochs {} NumFrames {} NumSteps {} NumProcesses {} Cuda {}\n"
+          .format(num_epochs, args.num_frames, num_steps, num_processes,
+                  args.cuda))
+    return how_train, config, num_agents, num_stack, num_steps, \
+        num_processes, num_epochs
+
+
+def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
+                   final_rewards, mean_dist_entropy, mean_value_loss,
+                   mean_action_loss):
+    print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, epochs "
+          "per sec {}, mean/median reward {:.1f}/{:.1f}, min/max reward "
+          "{:.1f}/{:.1f}, avg entropy {:.5f}, avg value loss {:.5f}, avg "
+          "policy loss {:.5f}"
+          .format(num_epoch, num_episodes, total_steps, steps_per_sec,
+                  epochs_per_sec, final_rewards.mean(),
+                  final_rewards.median(), final_rewards.min(),
+                  final_rewards.max(), mean_dist_entropy, mean_value_loss,
+                  mean_action_loss))
+
+
+def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
+                       steps_per_sec, final_rewards, mean_dist_entropy,
+                       mean_value_loss, mean_action_loss, std_dist_entropy,
+                       std_value_loss, std_action_loss, count_stats,
+                       array_stats, running_num_episodes):
+    writer.add_scalar('entropy', {
+        'mean' : mean_dist_entropy,
+        'std_max': mean_dist_entropy + std_dist_entropy,
+        'std_min': mean_dist_entropy - std_dist_entropy,
+    }, num_episodes)
+
+    writer.add_scalar('reward', {
+        'mean': final_rewards.mean(),
+        'std_max': final_rewards.mean() + final_rewards.std(),
+        'std_min': final_rewards.mean() - final_rewards.std(),
+    }, num_episodes)
+
+    writer.add_scalars('action_loss', {
+        'mean': mean_action_loss,
+        'std_max': mean_action_loss + std_action_loss,
+        'std_min': mean_action_loss - std_action_loss,
+    }, num_episodes)
+
+    writer.add_scalars('value_loss', {
+        'mean': mean_value_loss,
+        'std_max': mean_value_loss + std_value_loss,
+        'std_min': mean_value_loss - std_value_loss,
+    }, num_episodes)
+
+    writer.add_scalar('epochs', num_epoch, num_episodes)
+    writer.add_scalar('steps_per_sec', steps_per_sec, num_episodes)
+    writer.add_scalar('episodes_per_sec', episodes_per_sec, num_episodes)
+
+    for title, count in count_stats.items():
+        if title.startswith('bomb:'):
+            continue
+        writer.add_scalar(title, 1.0 * count / running_num_episodes,
+                          num_episodes)
+
+    writer.add_scalars('bomb_distances', {
+        key.split(':')[1]: 1.0 * count / running_num_episodes
+        for key, count in count_stats.items() \
+        if key.startswith('bomb:')
+    }, num_episodes)
+
+    if array_stats.get('rank'):
+        writer.add_scalar('mean_rank', np.mean(array_stats['rank']),
+                          num_episodes)
+
+    if array_stats.get('dead'):
+        writer.add_scalar('mean_dying_step', np.mean(array_stats['dead']),
+                          num_episodes)
+        writer.add_scalar(
+            'percent_dying_per_episode',
+            1.0 * len(array_stats['dead']) / running_num_episodes,
+            num_episodes)
 
 
 def validate_how_train(how_train, nagents):
