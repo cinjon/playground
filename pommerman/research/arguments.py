@@ -39,14 +39,14 @@ def get_args():
                         help='number of frames to stack (2)')
     parser.add_argument('--log-interval', type=int, default=10,
                         help='log interval, one log per n updates (10)')
-    parser.add_argument('--save-interval', type=int, default=10000,
+    parser.add_argument('--save-interval', type=int, default=10,
                         help='save interval, one save per n updates (10)')
     parser.add_argument('--num-frames', type=int, default=10e6,
                         help='number of frames to train (10e6)')
-    parser.add_argument('--log-dir', default='../logs',
-                        help='directory to save agent logs (../logs)')
-    parser.add_argument('--save-dir', default='../trained_models',
-                        help='directory to save models (../trained_models/)')
+    parser.add_argument('--log-dir', default='./logs',
+                        help='directory to save agent logs (./logs)')
+    parser.add_argument('--save-dir', default='./trained_models',
+                        help='directory to save models (./trained_models/)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
     parser.add_argument('--port', type=int, default=8097,

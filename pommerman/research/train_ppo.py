@@ -120,6 +120,10 @@ def train():
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
+        if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
+            utils.save_agents("ppo", num_epoch, training_agents, total_steps,
+                              num_episodes, args)
+
         for agent in training_agents:
             agent.set_eval()
 
@@ -267,7 +271,6 @@ def train():
             final_rewards = torch.zeros([num_training_per_episode,
                                          num_processes, 1])
             running_num_episodes = 0
-
 
     writer.close()
 

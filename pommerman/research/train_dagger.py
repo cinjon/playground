@@ -107,6 +107,10 @@ def train():
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
+        if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
+            utils.save_agents("dagger", num_epoch, training_agents,
+                              total_steps, num_episodes, args)
+
         agent.set_eval()
 
         agent_states_list = []
@@ -149,6 +153,8 @@ def train():
 
             if args.render:
                 envs.render()
+
+        total_steps += num_processes * num_steps
 
         #########
         # Train using DAGGER (with supervision from the expert)
@@ -254,8 +260,6 @@ def train():
                 step, current_obs, states_all, action_all, action_log_prob_all,
                 value_all, reward_all, masks_all)
 
-        total_steps += num_processes * num_steps
-
         #####
         # Log to console and to Tensorboard.
         #####
@@ -297,10 +301,6 @@ def train():
             final_rewards = torch.zeros([num_training_per_episode,
                                          num_processes, 1])
             running_num_episodes = 0
-
-        if num_epoch % args.save_interval == 0:
-            utils.save_agents(num_epoch, training_agents, total_steps,
-                              num_episodes, args)
 
     writer.close()
 

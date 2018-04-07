@@ -22,13 +22,14 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
     training_agents = []
     for path in paths:
         if path:
+            print("Loading path %s as agent." % path)
             loaded_model = torch.load(path)
             model_state_dict = loaded_model['state_dict']
             optimizer_state_dict = loaded_model['optimizer']
             num_episodes = loaded_model['num_episodes']
             total_steps = loaded_model['total_steps']
             num_epoch = loaded_model['num_epoch']
-            model = actor_critic(state_dict)
+            model = actor_critic(model_state_dict)
         else:
             num_episodes = 0
             total_steps = 0
@@ -44,19 +45,25 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
     return training_agents
 
 
-def save_agents(num_epoch, training_agents, total_steps, num_episodes, args):
+def is_save_epoch(num_epoch, start_epoch, save_interval):
+    if num_epoch % save_interval != 0:
+        return False
+    return num_epoch == 0 or num_epoch != start_epoch
+
+
+def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
+                args):
     """Save the model.
 
     Args:
+      prefix: A prefix string to prepend to the run_name.
       num_epoch: The int epoch.
       training_agents: The agent classes being trained.
       total_steps: The current number of steps.
       num_episodes: The number of episodes thus far.
-      run_name: The name to save this under.
-      model_str: The name of the model we are using.
-      seed: The int seed we are using.
+      args: The args from arguments.py
     """
-    run_name = args.run_name
+    name = prefix + args.run_name
     config = args.config
     how_train = args.how_train
     model_str = args.model_str
@@ -83,8 +90,8 @@ def save_agents(num_epoch, training_agents, total_steps, num_episodes, args):
         }
         save_dict['args'] = vars(args)
         suffix = "{}.ht-{}.cfg-{}.m-{}.num-{}.epoch-{}.steps-{}.seed-{}.pt" \
-                 .format(run_name, how_train, config,
-                         model_str, num_agent, num_epoch, total_steps, seed)
+                 .format(name, how_train, config, model_str, num_agent,
+                         num_epoch, total_steps, seed)
         torch.save(save_dict, os.path.join(save_dir, suffix))
 
 
