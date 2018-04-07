@@ -101,7 +101,7 @@ def main():
     # TODO: After https://github.com/MultiAgentLearning/playground/pull/40
     #       this is still missing the docker_env_dict parsing for the agents.
     agents = [
-        helpers._make_agent_from_string(agent_string, agent_id+1000)
+        helpers.make_agent_from_string(agent_string, agent_id+1000)
         for agent_id, agent_string in enumerate(args.agents.split(","))
     ]
 

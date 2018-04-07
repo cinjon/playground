@@ -34,7 +34,7 @@ def run(args, num_times=1, seed=None):
     # TODO: After https://github.com/MultiAgentLearning/playground/pull/40
     #       this is still missing the docker_env_dict parsing for the agents.
     agents = [
-        helpers._make_agent_from_string(agent_string, agent_id+1000)
+        helpers.make_agent_from_string(agent_string, agent_id+1000)
         for agent_id, agent_string in enumerate(args.agents.split(','))
     ]
 
@@ -60,6 +60,9 @@ def run(args, num_times=1, seed=None):
             actions = env.act(obs)
             obs, reward, done, info = env.step(actions)
 
+        for agent in agents:
+            agent.episode_end(reward[agent.agent_id])
+        
         print("Final Result: ", info)
         if args.render:
             time.sleep(5)

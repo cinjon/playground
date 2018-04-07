@@ -1,8 +1,8 @@
 from .. import agents
 
 
-# @NOTE: This routine is only meant for internal usage. API may change without compatibility
-def _make_agent_from_string(agent_string, port=None, docker_env_dict=None):
+# NOTE: This routine is meant for internal usage.
+def make_agent_from_string(agent_string, port=None, docker_env_dict=None):
     agent_type, agent_control = agent_string.split("::")
 
     assert agent_type in ["player", "random", "docker", "test", "tensorforce"]

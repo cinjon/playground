@@ -58,6 +58,9 @@ class ForwardModel(object):
                 "actions": actions,
             })
             if done:
+                # Callback to let the agents know that the game has ended.
+                for agent in agents:
+                    agent.episode_end(reward[agent.agent_id])
                 break
         return steps, board, agents, bombs, items, flames, done, info
 
@@ -377,14 +380,15 @@ class ForwardModel(object):
                 return {
                     'result': constants.Result.Win,
                     'winners': [num for num, reward in enumerate(rewards) \
-                                if reward == 1],
+                                if reward == 1]
                 }
             else:
                 return {
                     'result': constants.Result.Incomplete,
                 }
         elif done:
-            if rewards == [1]*4:
+            # We are playing a team game.
+            if rewards == [-1]*4:
                 return {
                     'result': constants.Result.Tie,
                 }
@@ -407,9 +411,12 @@ class ForwardModel(object):
         alive_agents = [num for num, agent in enumerate(agents) \
                         if agent.is_alive]
         if game_type == constants.GameType.FFA:
-            if len(alive_agents) == 1 or step_count >= max_steps:
-                # Game is over. All of the alive agents get reward.
+            if len(alive_agents) == 1:
+                # An agent won. Give them +1, others -1.
                 return [2*int(agent.is_alive) - 1 for agent in agents]
+            elif step_count >= max_steps:
+                # Game is over from time. Everyone gets -1.
+                return [-1]*4
             else:
                 # Game running: 0 for alive, -1 for dead.
                 return [int(agent.is_alive) - 1 for agent in agents]
@@ -423,7 +430,7 @@ class ForwardModel(object):
                 return [-1, 1, -1, 1]
             elif step_count >= max_steps:
                 # Game is over by max_steps. All agents tie.
-                return [1]*4
+                return [-1]*4
             else:
                 # No team has yet won or lost.
                 return [0]*4
