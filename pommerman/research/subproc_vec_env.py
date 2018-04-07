@@ -32,8 +32,90 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.render_fps))
         elif cmd == 'render':
             remote.send((env.render('rgb_array')))
+        elif cmd == 'get_expert_obs':
+            remote.send((env.get_expert_obs()))
+        elif cmd == 'get_agent_obs':
+            remote.send((env.get_agent_obs()))
         else:
             raise NotImplementedError
+
+
+class _VecEnv(ABC):
+    """
+    An abstract asynchronous, vectorized environment.
+    NOTE: This was taken from OpenAI's baselines package.
+    """
+    def __init__(self, num_envs, observation_space, action_space):
+        self.num_envs = num_envs
+        self.observation_space = observation_space
+        self.action_space = action_space
+
+    @abstractmethod
+    def reset(self):
+        """
+        Reset all the environments and return an array of
+        observations, or a tuple of observation arrays.
+
+        If step_async is still doing work, that work will
+        be cancelled and step_wait() should not be called
+        until step_async() is invoked again.
+        """
+        pass
+
+    @abstractmethod
+    def step_async(self, actions):
+        """
+        Tell all the environments to start taking a step
+        with the given actions.
+        Call step_wait() to get the results of the step.
+
+        You should not call this if a step_async run is
+        already pending.
+        """
+        pass
+
+    @abstractmethod
+    def step_wait(self):
+        """
+        Wait for the step taken with step_async().
+
+        Returns (obs, rews, dones, infos):
+         - obs: an array of observations, or a tuple of
+                arrays of observations.
+         - rews: an array of rewards
+         - dones: an array of "episode done" booleans
+         - infos: a sequence of info objects
+        """
+        pass
+
+    @abstractmethod
+    def close(self):
+        """
+        Clean up the environments' resources.
+        """
+        pass
+
+    def step(self, actions):
+        self.step_async(actions)
+        return self.step_wait()
+
+    def render(self):
+        logger.warn('Render not defined for %s'%self)
+
+
+class _CloudpickleWrapper(object):
+    """
+    Uses cloudpickle to serialize contents (otherwise multiprocessing tries to
+    use pickle). NOTE: This was taken from OpenAI's baselines package.
+    """
+    def __init__(self, x):
+        self.x = x
+    def __getstate__(self):
+        import cloudpickle
+        return cloudpickle.dumps(self.x)
+    def __setstate__(self, ob):
+        import pickle
+        self.x = pickle.loads(ob)
 
 
 class SubprocVecEnv(_VecEnv):
@@ -116,80 +198,12 @@ class SubprocVecEnv(_VecEnv):
             p.join()
         self.closed = True
 
+    def get_expert_obs(self):
+        for remote in self.remotes:
+            remote.send(('get_expert_obs', None))
+        return [remote.recv() for remote in self.remotes]
 
-class _VecEnv(ABC):
-    """
-    An abstract asynchronous, vectorized environment.
-    NOTE: This was taken from OpenAI's baselines package.
-    """
-    def __init__(self, num_envs, observation_space, action_space):
-        self.num_envs = num_envs
-        self.observation_space = observation_space
-        self.action_space = action_space
-
-    @abstractmethod
-    def reset(self):
-        """
-        Reset all the environments and return an array of
-        observations, or a tuple of observation arrays.
-
-        If step_async is still doing work, that work will
-        be cancelled and step_wait() should not be called
-        until step_async() is invoked again.
-        """
-        pass
-
-    @abstractmethod
-    def step_async(self, actions):
-        """
-        Tell all the environments to start taking a step
-        with the given actions.
-        Call step_wait() to get the results of the step.
-
-        You should not call this if a step_async run is
-        already pending.
-        """
-        pass
-
-    @abstractmethod
-    def step_wait(self):
-        """
-        Wait for the step taken with step_async().
-
-        Returns (obs, rews, dones, infos):
-         - obs: an array of observations, or a tuple of
-                arrays of observations.
-         - rews: an array of rewards
-         - dones: an array of "episode done" booleans
-         - infos: a sequence of info objects
-        """
-        pass
-
-    @abstractmethod
-    def close(self):
-        """
-        Clean up the environments' resources.
-        """
-        pass
-
-    def step(self, actions):
-        self.step_async(actions)
-        return self.step_wait()
-
-    def render(self):
-        logger.warn('Render not defined for %s'%self)
-
-
-class _CloudpickleWrapper(object):
-    """
-    Uses cloudpickle to serialize contents (otherwise multiprocessing tries to
-    use pickle). NOTE: This was taken from OpenAI's baselines package.
-    """
-    def __init__(self, x):
-        self.x = x
-    def __getstate__(self):
-        import cloudpickle
-        return cloudpickle.dumps(self.x)
-    def __setstate__(self, ob):
-        import pickle
-        self.x = pickle.loads(ob)
+    def get_agent_obs(self):
+        for remote in self.remotes:
+            remote.send(('get_agent_obs', None))
+        return [remote.recv() for remote in self.remotes]
