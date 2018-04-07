@@ -20,10 +20,12 @@ class DaggerAgent(BaseAgent):
         self._actor_critic.cuda()
         self._rollout.cuda()
 
-    def get_model(self):
+    @property
+    def model(self):
         return self._actor_critic
 
-    def get_optimizer(self):
+    @property
+    def optimizer(self):
         return self._optimizer
 
     def act(self, obs, action_space):
@@ -56,10 +58,6 @@ class DaggerAgent(BaseAgent):
         else:
             return self._actor_critic(observations, states, masks)[0].data
 
-    def evaluate_actions(self, observations, states, masks, actions):
-        return self._actor_critic.evaluate_actions(observations, states, masks,
-                                                   actions)
-
     def get_action_scores(self, observations, states, masks):
         return self._actor_critic.get_action_scores(observations, states, masks)
 
@@ -69,23 +67,21 @@ class DaggerAgent(BaseAgent):
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
         self._optimizer.step()
 
-    def compute_advantages(self, next_value_agents, use_gae, gamma, tau):
-        for num_agent, next_value in enumerate(next_value_agents):
-            self._rollout.compute_returns(next_value, use_gae, gamma, tau,
-                                          num_agent)
-        advantages = self._rollout.compute_advantages()
-        diff = (advantages - advantages.mean())
-        advantages = diff / (advantages.std() + 1e-5)
-        return advantages
-
     def initialize(self, args, obs_shape, action_space,
-                   num_training_per_episode):
-        self._optimizer = optim.Adam(self._actor_critic.parameters(), args.lr,
-                                     eps=args.eps)
+                   num_training_per_episode, num_episodes, total_steps,
+                   num_epoch, optimizer_state_dict):
+        params = self._actor_critic.parameters()
+        self._optimizer = optim.Adam(params, lr=args.lr, eps=args.eps)
+        if optimizer_state_dict:
+            self._optimizer.load_state_dict(optimizer_state_dict)
+        # TODO: Do we need the rollout storage here?
         self._rollout = RolloutStorage(
             args.num_steps, args.num_processes, obs_shape, action_space,
             self._actor_critic.state_size, num_training_per_episode
         )
+        self.num_episodes = num_episodes
+        self.total_steps = total_steps
+        self.num_epoch = num_epoch
 
     def update_rollouts(self, obs, timestep):
         self._rollout.observations[timestep, :, :, :, :, :].copy_(obs)

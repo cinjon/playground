@@ -83,6 +83,8 @@ def get_args():
                         help='cims password to copy over the model.')
     parser.add_argument('--cims-save-model-local', type=str, default='',
                         help='directory where to save a cims model locally.')
+    parser.add_argument('--num-steps-eval', type=int, default=1000,
+                        help='number of steps to run for evaluation')
     parser.add_argument('--target-eval-paths', type=str, default='',
                         help='path to saved models being tested, should be in '
                         'saved-paths as well. if >1, then assumes team.')

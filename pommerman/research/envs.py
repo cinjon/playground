@@ -39,9 +39,9 @@ def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
             # NOTE: We can't use just one agent character here because it needs
             # to track its own state. We do that by instantiating three more
             # copies. There is probably a better way.
-            agents = [training_agents[0].copy_ex_model()
-                      for agent_id in range(4)]
             training_agent_ids = list(range(4))
+            agents = [training_agents[0].copy_ex_model()
+                      for agent_id in training_agent_ids]
         else:
             raise
 
@@ -86,7 +86,7 @@ class WrapPomme(gym.ObservationWrapper):
         self._how_train = how_train
 
         # TODO: make obs_shape an argument.
-        obs_shape = (19, 13, 13)
+        obs_shape = (18, 13, 13)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]
         self.observation_space = spaces.Box(
@@ -105,14 +105,11 @@ class WrapPomme(gym.ObservationWrapper):
         filtered = self._filter(observation)
         return np.array([self._featurize3D(obs) for obs in filtered])
 
-    # NOTE: changed this so that the expert only gets to see the obs of the training agent (and not all of the other agents' obs)
     def get_expert_obs(self):
-        obs = self.env.get_observations()
-        return self._filter(obs)
+        return self._filter(self.env.get_observations())
 
     def get_agent_obs(self):
-        obs = self.env.get_observations()
-        return self.observation(obs)
+        return self.observation(self.env.get_observations())
 
     def step(self, actions):
         if self._how_train == 'simple':
@@ -141,8 +138,9 @@ class WrapPomme(gym.ObservationWrapper):
           A 3D Feature Map where each map is bsXbs. The 19 features are:
           - (2) Bomb blast strength and Bomb life.
           - (4) Agent position, ammo, blast strength, can_kick.
-          - (2) Whether has teammate, teammate's position
-          - (3) Enemies's position.
+          - (1) Whether has teammate.
+          - (1 / 0) If teammate, then the teammate's position.
+          - (2 / 3) Enemies' positions.
           - (8) Positions for:
                 Passage/Rigid/Wood/Flames/ExtraBomb/IncrRange/Kick/Skull
         """
@@ -247,13 +245,8 @@ class MultiAgentFrameStack(gym.Wrapper):
         assert len(self.frames) == self.k
         return LazyFrames(list(self.frames))
 
-    def get_expert_obs(self):
-        ob = self.env.get_expert_obs()
-        return ob
-
-    def get_agent_obs(self):
-        ob = self.env.get_agent_obs()
-        return ob
+    def __getattr__(self, attr):
+        return getattr(self.env, attr)
 
 
 class LazyFrames(object):
