@@ -50,8 +50,8 @@
   * Movement: a single integer in [0, 5] representing which of the six actions that agent would like to take of the following
     * Stop (0): This action is a pass.
     * Up (1): Move up on the board.
-    * Left (2): Move left on the board.
-    * Down (3): Move down on the board.
+    * Down (2): Move down on the board.
+    * Left (3): Move left on the board.
     * Right (4): Move right on the board.
     * Bomb (5): Lay a bomb.
   * Message: (Team Radio only) A list of two Ints in [1, 8]. These represent the message. 
