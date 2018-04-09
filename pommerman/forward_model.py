@@ -346,27 +346,35 @@ class ForwardModel(object):
             # The game is done. Return True.
             return [True]*4 if all_agents else True
         elif game_type == constants.GameType.FFA:
-            if training_agents is not None and all([
-                    agent not in alive_ids for agent in training_agents]):
-                ret = []
-                for agent in agents:
-                    if agent.agent_id not in training_agents:
-                        ret.append(True)
-                    else:
-                        ret.append(agent.agent_id not in alive_ids)
-
-                return ret if all_agents else all(ret)
+            training_agents_dead = all([agent not in alive_ids
+                                        for agent in training_agents])
+            if training_agents is not None and training_agents_dead:
+                # We have training_agents and they aren't all dead.
+                return [True]*4 if all_agents else True
             else:
-                is_done = len(alive) <= 1
-                return is_done if not all_agents else [is_done]*4
-        elif any([
-                len(alive_ids) <= 1,
-                alive_ids == [0, 2],
-                alive_ids == [1, 3],
-        ]):
-            # The game is done. Return True.
-            return [True]*4 if all_agents else True
-        return [not agent.is_alive for agent in agents]
+                if len(alive) <= 1:
+                    # We have one or fewer agents left. The game is over.
+                    return [True]*4 if all_agents else True
+                elif all_agents:
+                    # The game isn't over but we want data on all agents.
+                    return [not agent.is_alive for agent in agents] 
+                else:
+                    # The game isn't over and we only want True or False.
+                    return False
+        else:
+            if any([
+                    len(alive_ids) <= 1,
+                    alive_ids == [0, 2],
+                    alive_ids == [1, 3],
+            ]):
+                # The game is done.
+                return [True]*4 if all_agents else True
+            else:
+                # The game is not done. Return which are alive.
+                if all_agents:
+                    return [not agent.is_alive for agent in agents]
+                else:
+                    return False
 
     @staticmethod
     def get_info(done, rewards, game_type, agents):
