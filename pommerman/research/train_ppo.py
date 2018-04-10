@@ -52,7 +52,36 @@ def train():
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
 
-    # NOTE: These three funcs have side effects where they set variable values.
+    #####
+    # Logging helpers.
+    suffix = "{}.train.ht-{}.cfg-{}.m-{}.seed-{}".format(
+        args.run_name, how_train, config, args.model_str, args.seed)
+    log_dir = os.path.join(args.log_dir, suffix)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    writer = SummaryWriter(log_dir)
+    count_stats = defaultdict(int)
+    array_stats = defaultdict(list)
+    episode_rewards = torch.zeros([num_training_per_episode,
+                                   num_processes, 1])
+    final_rewards = torch.zeros([num_training_per_episode,
+                                 num_processes, 1])
+    def update_final_rewards(final_rewards, masks, episode_rewards):
+        return final_rewards
+
+    # TODO: When we implement heterogenous, change this to be per agent.
+    start_epoch = training_agents[0].num_epoch
+    total_steps = training_agents[0].total_steps
+    num_episodes = training_agents[0].num_episodes
+
+    running_num_episodes = 0
+    final_action_losses = [[] for agent in range(len(training_agents))]
+    final_value_losses =  [[] for agent in range(len(training_agents))]
+    final_dist_entropies = [[] for agent in range(len(training_agents))]
+    #####
+
+    # NOTE: These four funcs have side effects where they set variable values.
     def update_current_obs(obs):
         current_obs = torch.from_numpy(obs).float()
 
@@ -81,35 +110,17 @@ def train():
                               *obs_shape)
     update_current_obs(envs.reset())
 
-    #####
-    # Logging helpers.
-    suffix = "{}.train.ht-{}.cfg-{}.m-{}.seed-{}".format(
-        args.run_name, how_train, config, args.model_str, args.seed)
-    log_dir = os.path.join(args.log_dir, suffix)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-
-    writer = SummaryWriter(log_dir)
-    count_stats = defaultdict(int)
-    array_stats = defaultdict(list)
-    episode_rewards = torch.zeros([num_training_per_episode,
-                                   num_processes, 1])
-    final_rewards = torch.zeros([num_training_per_episode,
-                                 num_processes, 1])
-
-    # TODO: When we implement heterogenous, change this to be per agent.
-    start_epoch = training_agents[0].num_epoch
-    total_steps = training_agents[0].total_steps
-    num_episodes = training_agents[0].num_episodes
-
-    running_num_episodes = 0
-    final_action_losses = [[] for agent in range(len(training_agents))]
-    final_value_losses =  [[] for agent in range(len(training_agents))]
-    final_dist_entropies = [[] for agent in range(len(training_agents))]
-    #####
-
     # TODO: Update this when we implement heterogenous.
     training_agents[0].update_rollouts(obs=current_obs, timestep=0)
+    if how_train == 'homogenous':
+        # We use agent_died_now to keep track of which agents are dead in order
+        # to feed them their teammate's reward.
+        agent_died_now = [[False]*4 for _ in range(num_processes)]
+        # We use agent_died_prior to keep track of which agents died in a prior
+        # round of num_steps. If this is true, then we do NOT give them their
+        # teammate's reward and instead mask their observations to be 0 so that
+        # we can't get any training signal from it.
+        agent_died_prior = [[False]*4 for _ in range(num_processes)]
 
     torch.manual_seed(args.seed)
     if args.cuda:
@@ -149,14 +160,12 @@ def train():
                             cpu_actions[num_process])
 
             obs, reward, done, info = envs.step(cpu_actions_agents)
+            reward = reward.astype(np.float)
 
             update_stats(info)
 
             if args.render:
                 envs.render()
-
-            reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
-            episode_rewards += reward
 
             if how_train == 'simple':
                 running_num_episodes += sum([1 if done_ else 0
@@ -166,19 +175,59 @@ def train():
                     else [1.0]*num_training_per_episode
                 for done_ in done])
             elif how_train == 'homogenous':
-                running_num_episodes += sum([1 if done_.all() else 0
+                running_num_episodes += sum([int(done_.all())
                                              for done_ in done])
-                masks = torch.FloatTensor(
-                    [[[0.0] if done_[i] else [1.0] for i in range(len(done_))]
-                     for done_ in done]).transpose(0,1).unsqueeze(2)
 
+                # We want the masks to satisfy the following:
+                # 1. If the agent is alive --> 1.0.
+                # 2. If the agent died this round (agent_died_now) --> 1.0.
+                # 3. If the agent died prior (agent_died_prior) --> 0.0.
+                masks = [[None]*4 for _ in range(num_processes)]
+
+                # We update so that if an agent dies, then it receives its
+                # teammate's reward for the rest of this num_steps round. After
+                # that, it gets masked out until the episode ends.
+                for num_process in range(num_processes):
+                    masks[num_process] = [1.0]*4
+                    for id_ in range(4):
+                        tid = (id_ + 2) % 4
+                        if agent_died_now[num_process][id_]:
+                            # Give the agent its teammate's reward because it
+                            # died in this round.
+                            reward[num_process][id_] = reward[num_process][tid]
+                        elif done[num_process][id_]:
+                            if agent_died_prior[num_process][id_]:
+                                # The agent died in a prior round. No reward
+                                # and masks this out.
+                                masks[num_process][id_] = 0.0
+                            else:
+                                # The agent just died. Give it its teammate's
+                                # reward AND update agent_died_now to be True.
+                                reward[num_process][id_] = reward[num_process][tid]
+                                agent_died_now[num_process][id_] = True
+
+                masks = torch.FloatTensor(masks) \
+                             .transpose(0, 1).unsqueeze(2).unsqueeze(2)
+
+                # If the process completed, reset the agent_died_* vars.
+                for num_process in range(num_processes):
+                    if done[num_process].all():
+                        agent_died_now[num_process] = [False]*4
+                        agent_died_prior[num_process] = [False]*4
+
+            reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
+            episode_rewards += reward
             final_rewards *= masks
             final_rewards += (1 - masks) * episode_rewards
             episode_rewards *= masks
+
             if args.cuda:
                 masks = masks.cuda()
 
-            reward_all = reward.unsqueeze(2)
+            # Mask out observations of completed agents from the prior round.
+            # NOTE: we are ok with leaving in observations from agents that
+            # died this round because their position mask is zeroed out, so
+            # there is signal in the observations that they are dead.
             if how_train == 'simple':
                 masks_all = masks.transpose(0,1).unsqueeze(2)
                 current_obs *= masks_all.unsqueeze(2).unsqueeze(2)
@@ -187,6 +236,7 @@ def train():
                 current_obs *= masks_all.unsqueeze(2)
             update_current_obs(obs)
 
+            reward_all = reward.unsqueeze(2)
             states_all = utils.torch_numpy_stack(states_agents)
             action_all = utils.torch_numpy_stack(action_agents)
             action_log_prob_all = utils.torch_numpy_stack(
@@ -196,6 +246,17 @@ def train():
             training_agents[0].insert_rollouts(
                 step, current_obs, states_all, action_all, action_log_prob_all,
                 value_all, reward_all, masks_all)
+
+        if how_train == 'homogenous':
+            # Update the agent trackers so that if one of the agents has died,
+            # then that is passed through to the next block.
+            for num_process in range(num_processes):
+                for id_ in range(4):
+                    agent_died_prior[num_process][id_] = any([
+                        agent_died_prior[num_process][id_],
+                        agent_died_now[num_process][id_]
+                    ])
+                    agent_died_now[num_process][id_] = False
 
         # Compute the advantage values.
         if how_train == 'simple' or how_train == 'homogenous':
