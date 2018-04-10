@@ -81,6 +81,9 @@ class RolloutStorage(object):
         return self.returns[:-1] - self.value_preds[:-1]
 
     def feed_forward_generator(self, advantages, num_mini_batch, num_steps):
+        # TODO: Consider excluding from the indices the rollouts where the
+        # agent died before this rollout. They're signature is that every step
+        # is masked out.
         advantages = advantages.view([-1, 1])
         num_steps = self.rewards.size(0)
         num_training_per_episode = self.rewards.size(1)
@@ -90,7 +93,7 @@ class RolloutStorage(object):
         action_shape = self.actions.shape[3:]
         state_size = self.states.size(3)
 
-        batch_size = num_processes * num_steps
+        batch_size = num_total * num_steps
         mini_batch_size = batch_size // num_mini_batch
         sampler = BatchSampler(SubsetRandomSampler(range(batch_size)),
                                mini_batch_size, drop_last=False)
