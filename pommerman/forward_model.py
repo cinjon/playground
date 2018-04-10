@@ -313,7 +313,7 @@ class ForwardModel(object):
                 col >= vcol - agent_view_size, col < vcol + agent_view_size])
 
         attrs = ['position', 'blast_strength', 'can_kick', 'teammate', 'ammo',
-                 'enemies']
+                 'enemies', 'is_alive']
 
         observations = []
         for agent in agents:

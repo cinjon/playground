@@ -153,9 +153,10 @@ class WrapPomme(gym.ObservationWrapper):
         bomb_life = obs["bomb_life"].astype(np.float32) \
                                     .reshape(1, map_size, map_size)
 
-        # position of self.
+        # position of self. If the agent is dead, then this is all zeros.
         position = np.zeros((map_size, map_size)).astype(np.float32)
-        position[obs["position"][0], obs["position"][1]] = 1
+        if obs["is_alive"]:
+            position[obs["position"][0], obs["position"][1]] = 1
         position = position.reshape(1, map_size, map_size)
 
         # ammo of self agent: constant feature map.
@@ -188,7 +189,7 @@ class WrapPomme(gym.ObservationWrapper):
         # Enemy feature maps.
         _enemies = obs["enemies"]
         enemies = np.zeros((len(_enemies), map_size, map_size)) \
-                     .astype(np.float32)
+                    .astype(np.float32)
         for i in range(len(_enemies)):
             enemies[i][np.where(obs["board"] == _enemies[i].value)] = 1
 
