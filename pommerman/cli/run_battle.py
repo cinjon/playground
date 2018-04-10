@@ -56,7 +56,8 @@ def run(args, num_times=1, seed=None):
         while not done:
             steps += 1
             if args.render:
-                env.render(record_pngs_dir=args.record_pngs_dir, record_json_dir=args.record_json_dir)
+                env.render(record_pngs_dir=args.record_pngs_dir,
+                           record_json_dir=args.record_json_dir)
             actions = env.act(obs)
             obs, reward, done, info = env.step(actions)
 
@@ -66,7 +67,8 @@ def run(args, num_times=1, seed=None):
         print("Final Result: ", info)
         if args.render:
             time.sleep(5)
-            env.render(record_pngs_dir=args.record_pngs_dir, record_json_dir=args.record_json_dir, close=True)
+            env.render(record_pngs_dir=args.record_pngs_dir,
+                       record_json_dir=args.record_json_dir, close=True)
         return info
 
     infos = []
@@ -78,8 +80,10 @@ def run(args, num_times=1, seed=None):
         np.random.seed(seed)
         random.seed(seed)
 
-        record_pngs_dir_ = record_pngs_dir + '/%d' % (i+1) if record_pngs_dir else None
-        record_json_dir_ = record_json_dir + '/%d' % (i+1) if record_json_dir else None
+        record_pngs_dir_ = record_pngs_dir + '/%d' % (i+1) \
+                           if record_pngs_dir else None
+        record_json_dir_ = record_json_dir + '/%d' % (i+1) \
+                           if record_json_dir else None
         infos.append(_run(seed, record_pngs_dir_, record_json_dir_))
 
         times.append(time.time() - start)
@@ -90,33 +94,45 @@ def run(args, num_times=1, seed=None):
 
 
 def main():
+    simple_agent = 'test::agents.SimpleAgent'
+    player_agent = 'player::arrows'
+    docker_agent = 'docker::pommerman/simple-agent'
+    
     parser = argparse.ArgumentParser(description='Playground Flags.')
     parser.add_argument('--game',
                         default='pommerman',
                         help='Game to choose.')
     parser.add_argument('--config',
                         default='PommeFFA-v0',
-                        help='Configuration to execute. See env_ids in configs.py for options.')
+                        help='Configuration to execute. See env_ids in '
+                        'configs.py for options.')
     parser.add_argument('--agents',
-                        default='test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent',
-                        # default='player::arrows,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent',
-                        # default='docker::pommerman/simple-agent,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent',
-                        help='Comma delineated list of agent types and docker locations to run the agents.')
+                        default=','.join([simple_agent]*4),
+                        # default=','.join([player_agent] + [simple_agent]*3]),
+                        # default=','.join([docker_agent] + [simple_agent]*3]),
+                        help='Comma delineated list of agent types and docker '
+                        'locations to run the agents.')
     parser.add_argument('--agent_env_vars',
-                        help="Comma delineated list of agent environment vars to pass to Docker. This is only for the Docker Agent. An example is '0:foo=bar:baz=lar,3:foo=lam', which would send two arguments to Docker Agent 0 and one to Docker Agent 3.",
+                        help='Comma delineated list of agent environment vars '
+                        'to pass to Docker. This is only for the Docker Agent.'
+                        " An example is '0:foo=bar:baz=lar,3:foo=lam', which "
+                        'would send two arguments to Docker Agent 0 and one '
+                        'to Docker Agent 3.',
                         default="")
     parser.add_argument('--record_pngs_dir',
                         default=None,
-                        help="Directory to record the PNGs of the game. Doesn't record if None.")
+                        help='Directory to record the PNGs of the game. '
+                        "Doesn't record if None.")
     parser.add_argument('--record_json_dir',
                         default=None,
-                        help="Directory to record the JSON representations of the game. Doesn't record if None.")
+                        help='Directory to record the JSON representations of '
+                        "the game. Doesn't record if None.")
     parser.add_argument('--render',
                         default=True,
                         help="Whether to render or not. Defaults to True.")
     parser.add_argument('--game_state_file',
                         default=None,
-                        help="File from which to load game state. Defaults to None.")
+                        help="File from which to load game state.")
     args = parser.parse_args()
     run(args)
 
