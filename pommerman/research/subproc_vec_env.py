@@ -162,8 +162,6 @@ class SubprocVecEnv(_VecEnv):
         time.sleep(1.0 / self._render_fps)
 
     def reset(self):
-        if self._viewer is not None:
-            self._viewer.close()
         for remote in self.remotes:
             remote.send(('reset', None))
         return np.stack([remote.recv() for remote in self.remotes])
