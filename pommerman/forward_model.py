@@ -378,6 +378,9 @@ class ForwardModel(object):
 
     @staticmethod
     def get_info(done, rewards, game_type, agents):
+        if type(done) == list:
+            done = all(done)
+
         if game_type == constants.GameType.FFA:
             alive = [agent for agent in agents if agent.is_alive]
             if done and len(alive) > 1:
