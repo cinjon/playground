@@ -1,15 +1,16 @@
 """Module to create the environment and apply wrappers."""
 from collections import deque
 import os
+import random
 
 import gym
 from gym import spaces
 import numpy as np
-
 import pommerman
+
+import networks
 from subproc_vec_env import SubprocVecEnv
 
-import random
 
 def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
              num_stack):
@@ -45,7 +46,6 @@ def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
                       for agent_id in training_agent_ids]
         elif how_train == 'dagger':
             training_agent_ids = [random.randint(0, 3)]
-            print("agent id: ", training_agent_ids)
             agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
             agents.insert(training_agent_ids[0], training_agents[0])
         else:
@@ -109,7 +109,7 @@ class WrapPomme(gym.ObservationWrapper):
 
     def observation(self, observation):
         filtered = self._filter(observation)
-        return np.array([self._featurize3D(obs) for obs in filtered])
+        return np.array([networks.featurize3D(obs) for obs in filtered])
 
     def get_expert_obs(self):
         return self._filter(self.env.get_observations())
@@ -133,84 +133,6 @@ class WrapPomme(gym.ObservationWrapper):
 
     def reset(self, **kwargs):
         return self.observation(self.env.reset())
-
-    @staticmethod
-    def _featurize3D(obs):
-        """Create 3D Feature Maps for Pommerman.
-        Args:
-          obs: The observation input. Should be for a single agent.
-
-        Returns:
-          A 3D Feature Map where each map is bsXbs. The 19 features are:
-          - (2) Bomb blast strength and Bomb life.
-          - (4) Agent position, ammo, blast strength, can_kick.
-          - (1) Whether has teammate.
-          - (1 / 0) If teammate, then the teammate's position.
-          - (2 / 3) Enemies' positions.
-          - (8) Positions for:
-                Passage/Rigid/Wood/Flames/ExtraBomb/IncrRange/Kick/Skull
-        """
-        map_size = len(obs["board"])
-
-        # feature maps with ints for bomb blast strength and life.
-        bomb_blast_strength = obs["bomb_blast_strength"] \
-                              .astype(np.float32) \
-                              .reshape(1, map_size, map_size)
-        bomb_life = obs["bomb_life"].astype(np.float32) \
-                                    .reshape(1, map_size, map_size)
-
-        # position of self. If the agent is dead, then this is all zeros.
-        position = np.zeros((map_size, map_size)).astype(np.float32)
-        if obs["is_alive"]:
-            position[obs["position"][0], obs["position"][1]] = 1
-        position = position.reshape(1, map_size, map_size)
-
-        # ammo of self agent: constant feature map.
-        ammo = np.ones((map_size, map_size)).astype(np.float32) * obs["ammo"]
-        ammo = ammo.reshape(1, map_size, map_size)
-
-        # blast strength of self agent: constant feature map
-        blast_strength = np.ones((map_size, map_size)).astype(np.float32)
-        blast_strength *= obs["blast_strength"]
-        blast_strength = blast_strength.reshape(1, map_size, map_size)
-
-        # whether the agent can kick: constant feature map of 1 or 0.
-        can_kick = np.ones((map_size, map_size)).astype(np.float32)
-        can_kick *= float(obs["can_kick"])
-        can_kick = can_kick.reshape(1, map_size, map_size)
-
-        if obs["teammate"] == pommerman.constants.Item.AgentDummy:
-            has_teammate = np.zeros((map_size, map_size)) \
-                             .astype(np.float32) \
-                             .reshape(1, map_size, map_size)
-            teammate = None
-        else:
-            has_teammate = np.ones((map_size, map_size)) \
-                             .astype(np.float32) \
-                             .reshape(1, map_size, map_size)
-            teammate = np.zeros((map_size, map_size)).astype(np.float32)
-            teammate[np.where(obs["board"] == obs["teammate"].value)] = 1
-            teammate = teammate.reshape(1, map_size, map_size)
-
-        # Enemy feature maps.
-        _enemies = obs["enemies"]
-        enemies = np.zeros((len(_enemies), map_size, map_size)) \
-                    .astype(np.float32)
-        for i in range(len(_enemies)):
-            enemies[i][np.where(obs["board"] == _enemies[i].value)] = 1
-
-        items = np.zeros((8, map_size, map_size))
-        for item_value in [0, 1, 2, 4, 6, 7, 8, 9]:
-            items[i][obs["board"] == item_value] = 1
-
-        feature_maps = np.concatenate((
-            bomb_blast_strength, bomb_life, position, ammo, blast_strength,
-            can_kick, items, has_teammate, enemies
-        ))
-        if teammate is not None:
-            feature_maps = np.concatenate((feature_maps, teammate))
-
-        return feature_maps
 
 
 #######
