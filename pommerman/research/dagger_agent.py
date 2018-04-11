@@ -28,9 +28,13 @@ class DaggerAgent(BaseAgent):
     def optimizer(self):
         return self._optimizer
 
-    def act(self, obs, action_space):
+    # def act(self, obs, action_space):
+    #     """This agent has its own way of inducing actions."""
+    #     return None
+
+    def act(self, observations, states, masks):
         """This agent has its own way of inducing actions."""
-        return None
+        return self._actor_critic.act(observations, states, masks)
 
     def set_eval(self):
         self._actor_critic.eval()
