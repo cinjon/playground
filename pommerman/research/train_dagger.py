@@ -1,6 +1,9 @@
 """Train script for dagger learning.
 
 Currently only works for single processor and uses SimpleAgent as the expert.
+
+NOTE: Run this with how-train dagger so that the agent's position is random
+among the four possibilities.
 """
 
 from collections import defaultdict
@@ -9,6 +12,7 @@ import random
 import time
 
 import numpy as np
+from pommerman.agents import SimpleAgent
 from tensorboardX import SummaryWriter
 import torch
 from torch.autograd import Variable
@@ -16,7 +20,7 @@ from torch.autograd import Variable
 from arguments import get_args
 import dagger_agent
 import envs as env_helpers
-from pommerman.agents import SimpleAgent
+import networks
 import utils
 
 
@@ -46,10 +50,6 @@ def train():
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
 
-    # NOTE: These two funcs have side effects where they set variable values.
-    def update_current_obs(obs):
-        current_obs = torch.from_numpy(obs).float()
-
     def update_stats(info):
         for i in info:
             for lst in i.get('step_info', {}).values():
@@ -62,19 +62,12 @@ def train():
                         if 'bomb' in l:
                             count_stats['bomb'] += 1
 
-    dagger_obs = torch.zeros(num_training_per_episode,  *obs_shape)
-    current_obs = torch.zeros(num_training_per_episode, *obs_shape)
-    if args.cuda:
-        dagger_obs = torch.from_numpy(envs.reset().reshape(1, *obs_shape)).float().cuda()
-    else:
-        dagger_obs = torch.from_numpy(envs.reset().reshape(1, *obs_shape)).float()
-    update_current_obs(envs.reset())
-
     #####
     # Logging helpers.
     suffix = "{}.ht-{}.cfg-{}.m-{}.lr-{}-.mb-{}.prob-{}.anneal-{}.seed-{}.pt" \
-             .format(args.run_name, args.how_train, config, args.model_str, \
-            args.lr, args.minibatch_size, args.expert_prob, args.anneal_expert_prob, args.seed)
+             .format(args.run_name, args.how_train, config, args.model_str,
+                     args.lr, args.minibatch_size, args.expert_prob,
+                     args.anneal_expert_prob, args.seed)
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -100,14 +93,9 @@ def train():
     agent_act_arr = []
     #####
 
-    # TODO: Do we need this?
-    agent.update_rollouts(obs=current_obs, timestep=0)
-
     torch.manual_seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
-        current_obs = current_obs.cuda()
-        dagger_obs = dagger_obs.cuda()
         agent.cuda()
 
     aggregate_agent_states = []
@@ -124,12 +112,16 @@ def train():
         dummy_masks = dummy_masks.cuda()
 
     start = time.time()
+    agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
+    if args.cuda:
+        agent_obs = agent_obs.cuda
+
     for num_epoch in range(start_epoch, num_epochs):
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("dagger", num_epoch, training_agents,
                               total_steps, num_episodes, args)
 
-        # after 100 epochs: expert_prob is at 0 if it starts from 0.5 and yo use 0.005 annealing factor
+        # expert_prob 0.5 --> 0 after 100 epochs with 0.005 annealing factor.
         if args.anneal_expert_prob:
             expert_prob = args.expert_prob - num_epoch * args.anneal_factor
         else:
@@ -145,16 +137,12 @@ def train():
 
         for step in range(args.num_steps):
             expert_obs = envs.get_expert_obs()
-            # Cinjon: I think that this is going to get the first agent's obs
-            # in the first environment. The latter is true because we are
-            # assuming one process. However we don't want the former to be true
-            # because then we're always agent 0 and start in the same place.
             expert_obs = expert_obs[0][0]
             expert_action = expert.act(expert_obs, action_space=action_space)
             expert_action_tensor = torch.LongTensor(1)
             expert_action_tensor[0] = expert_action
 
-            agent_states_list.append(dagger_obs.squeeze(0))
+            agent_states_list.append(agent_obs.squeeze(0))
             expert_actions_list.append(expert_action_tensor)
 
             # TODO: debug - figure out if expert_obs (for expert) is the same with current_obs (for agent)
@@ -165,23 +153,20 @@ def train():
                 arr_expert_action = np.array(list_expert_action)
                 obs, reward, done, info = envs.step(arr_expert_action) # obs: 1x1x36x13x13
                 expert_act_arr.append(expert_action)
-
             else:
                 # take action provided by learning policy
-                result = agent.act(Variable(dagger_obs, volatile=True), Variable(dummy_states, volatile=True), Variable(dummy_masks, volatile=True))
-                value, action, action_log_prob, states, dist_entropies = result
+                result = agent.dagger_act(Variable(agent_obs, volatile=True), Variable(dummy_states, volatile=True), Variable(dummy_masks, volatile=True))
+                value, action, action_log_prob, states = result
                 cpu_actions = action.data.squeeze(1).cpu().numpy()
                 cpu_actions_agents = cpu_actions
                 obs, reward, done, info = envs.step(cpu_actions_agents)   # obs: 1x1x36x13x13
 
-                final_dist_entropies.append(dist_entropies)
+                # final_dist_entropies.append(dist_entropies)
                 agent_act_arr.append(cpu_actions_agents)
 
+            agent_obs = torch.from_numpy(obs).float().squeeze(0)
             if args.cuda:
-                dagger_obs = torch.from_numpy(obs.reshape(1, *obs_shape)).float().cuda()
-            else:
-                dagger_obs = torch.from_numpy(obs.reshape(1, *obs_shape)).float()
-
+                agent_obs = agent_obs.cuda
 
         total_steps += num_processes * num_steps
 
@@ -205,7 +190,6 @@ def train():
 
         agent_states_minibatch = torch.FloatTensor(args.minibatch_size, obs_shape[0], obs_shape[1], obs_shape[2])
         expert_actions_minibatch = torch.FloatTensor(args.minibatch_size,  obs_shape[0], obs_shape[1], obs_shape[2])
-        indices_minibatch = torch.LongTensor(args.minibatch_size,  obs_shape[0], obs_shape[1], obs_shape[2])
         total_action_loss = 0
         for i in range(0, len(aggregate_agent_states), args.minibatch_size):
             indices_minibatch = indices[i: i + args.minibatch_size]
@@ -264,7 +248,7 @@ def train():
                 while done[0][0] == False:
                     # take action provided by learning policy
                     result = agent.dagger_act(Variable(dagger_obs, volatile=True), Variable(dummy_states, volatile=True), Variable(dummy_masks, volatile=True))
-                    value, action, action_log_prob, states, dist_entropies = result
+                    _, action, _, _ = result
                     cpu_actions = action.data.squeeze(1).cpu().numpy()
                     cpu_actions_agents = cpu_actions
                     obs, reward, done, info = envs.step(cpu_actions_agents)   # obs: 1x1x36x13x13
@@ -294,7 +278,6 @@ def train():
             print("###########")
             print("epoch {}, # steps: {} reward mean {} ".format(num_epoch, len(aggregate_agent_states), 1.0*final_rewards_mean/args.num_steps))
             print("###########\n")
-
 
         #####
         # Log to console and to Tensorboard.
