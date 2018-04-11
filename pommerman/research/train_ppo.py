@@ -24,7 +24,6 @@ import time
 import numpy as np
 from tensorboardX import SummaryWriter
 import torch
-from torch.autograd import Variable
 
 from arguments import get_args
 import envs as env_helpers

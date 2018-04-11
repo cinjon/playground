@@ -23,7 +23,10 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
     for path in paths:
         if path:
             print("Loading path %s as agent." % path)
-            loaded_model = torch.load(path)
+            if args.cuda:
+                loaded_model = torch.load(path)
+            else:
+                loaded_model = torch.load(path, map_location='cpu')
             model_state_dict = loaded_model['state_dict']
             optimizer_state_dict = loaded_model['optimizer']
             num_episodes = loaded_model['num_episodes']
@@ -95,15 +98,15 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
         torch.save(save_dict, os.path.join(save_dir, suffix))
 
 
-def scp_model_from_cims(saved_paths, cims_address, cims_password,
-                        cims_save_model_local):
+def scp_model_from_ssh(saved_paths, ssh_address, ssh_password,
+                       ssh_save_model_local):
     try:
-        assert(cims_password)
-        cims_model_address = ":".join([cims_address, saved_paths])
+        assert(ssh_password)
+        ssh_model_address = ":".join([ssh_address, saved_paths])
         local_model_address = os.path.join(
-            cims_save_model_local, saved_paths.split('/')[-1])
-        subprocess.call(['sshpass', '-p', '%s' % cims_password, 'scp',
-                         cims_model_address, local_model_address])
+            ssh_save_model_local, saved_paths.split('/')[-1])
+        subprocess.call(['sshpass', '-p', '%s' % ssh_password, 'scp',
+                         ssh_model_address, local_model_address])
         return local_model_address
     except Exception as e:
         return None
