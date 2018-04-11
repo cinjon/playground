@@ -50,18 +50,6 @@ def train():
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
 
-    def update_stats(info):
-        for i in info:
-            for lst in i.get('step_info', {}).values():
-                for l in lst:
-                    if l.startswith('dead') or l.startswith('rank'):
-                        key, count = l.split(':')
-                        array_stats[key].append(int(count))
-                    else:
-                        count_stats[l] += 1
-                        if 'bomb' in l:
-                            count_stats['bomb'] += 1
-
     #####
     # Logging helpers.
     suffix = "{}.ht-{}.cfg-{}.m-{}.lr-{}-.mb-{}.prob-{}.anneal-{}.seed-{}.pt" \
@@ -72,10 +60,8 @@ def train():
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
-    writer = SummaryWriter(log_dir)
-    count_stats = defaultdict(int)
-    array_stats = defaultdict(list)
     # TODO: Remove the num_processes here.
+    writer = SummaryWriter(log_dir)
     episode_rewards = torch.zeros([num_training_per_episode,
                                    num_processes, 1])
     final_rewards = torch.zeros([num_training_per_episode,
@@ -85,10 +71,6 @@ def train():
     total_steps = agent.total_steps
     num_episodes = agent.num_episodes
 
-    running_num_episodes = 0
-    final_action_losses = []
-    final_value_losses =  []
-    final_dist_entropies = []
     expert_act_arr = []
     agent_act_arr = []
     #####
@@ -114,7 +96,7 @@ def train():
     start = time.time()
     agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
     if args.cuda:
-        agent_obs = agent_obs.cuda
+        agent_obs = agent_obs.cuda()
 
     for num_epoch in range(start_epoch, num_epochs):
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
@@ -155,18 +137,19 @@ def train():
                 expert_act_arr.append(expert_action)
             else:
                 # take action provided by learning policy
-                result = agent.dagger_act(Variable(agent_obs, volatile=True), Variable(dummy_states, volatile=True), Variable(dummy_masks, volatile=True))
+                result = agent.dagger_act(Variable(agent_obs, volatile=True), \
+                                            Variable(dummy_states, volatile=True), \
+                                            Variable(dummy_masks, volatile=True))
                 value, action, action_log_prob, states = result
                 cpu_actions = action.data.squeeze(1).cpu().numpy()
                 cpu_actions_agents = cpu_actions
                 obs, reward, done, info = envs.step(cpu_actions_agents)   # obs: 1x1x36x13x13
 
-                # final_dist_entropies.append(dist_entropies)
                 agent_act_arr.append(cpu_actions_agents)
 
             agent_obs = torch.from_numpy(obs).float().squeeze(0)
             if args.cuda:
-                agent_obs = agent_obs.cuda
+                agent_obs = agent_obs.cuda()
 
         total_steps += num_processes * num_steps
 
@@ -213,8 +196,9 @@ def train():
         # TODO: figure out what are the right hyperparams to use: num-steps, minibatch-size etc.
         # TODO: figure out whether you need to optimize multilpe times each epoch? on same data?
 
+        action_loss_mean = total_action_loss.data[0]/len(aggregate_agent_states)
         print("###########")
-        print("epoch {}, # steps: {} action loss {} ".format(num_epoch, len(aggregate_agent_states), total_action_loss.data[0]/len(aggregate_agent_states)))
+        print("epoch {}, # steps: {} action loss {} ".format(num_epoch, len(aggregate_agent_states), action_loss_mean))
         print("###########\n")
 
         if len(agent_act_arr) > 0:
@@ -238,30 +222,28 @@ def train():
         if num_epoch % args.log_interval == 0:
             final_rewards_mean = 0
             for k in range(args.num_steps_eval):
-                dagger_obs = torch.zeros(num_training_per_episode,  *obs_shape)
+                dagger_obs = torch.from_numpy(envs.reset().reshape(1, *obs_shape)).float()
                 if args.cuda:
-                    dagger_obs = torch.from_numpy(envs.reset().reshape(1, *obs_shape)).float().cuda()
-                else:
-                    dagger_obs = torch.from_numpy(envs.reset().reshape(1, *obs_shape)).float()
+                    dagger_obs = dagger_obs.cuda()
 
+                final_rewards = torch.zeros([num_training_per_episode, num_processes, 1])
                 done = [[False]]
                 while done[0][0] == False:
                     # take action provided by learning policy
-                    result = agent.dagger_act(Variable(dagger_obs, volatile=True), Variable(dummy_states, volatile=True), Variable(dummy_masks, volatile=True))
+                    result = agent.dagger_act(Variable(dagger_obs, volatile=True), \
+                                                Variable(dummy_states, volatile=True), \
+                                                Variable(dummy_masks, volatile=True))
                     _, action, _, _ = result
                     cpu_actions = action.data.squeeze(1).cpu().numpy()
                     cpu_actions_agents = cpu_actions
                     obs, reward, done, info = envs.step(cpu_actions_agents)   # obs: 1x1x36x13x13
 
+                    dagger_obs = torch.from_numpy(obs.reshape(1, *obs_shape)).float()
                     if args.cuda:
-                        dagger_obs = torch.from_numpy(obs.reshape(1, *obs_shape)).float().cuda()
-                    else:
-                        dagger_obs = torch.from_numpy(obs.reshape(1, *obs_shape)).float()
+                        dagger_obs = dagger_obs.cuda()
 
                     reward = utils.torch_numpy_stack(reward).transpose(0, 1)
                     episode_rewards += reward
-                    running_num_episodes += sum([1 if done_ else 0
-                                                 for done_ in done])
                     masks = torch.FloatTensor([
                         [0.0]*num_training_per_episode if done_ \
                         else [1.0]*num_training_per_episode
@@ -275,55 +257,20 @@ def train():
 
                 final_rewards_mean += final_rewards[0][0][0]
 
+
+            end = time.time()
+            steps_per_sec = 1.0 * total_steps / (end - start)
+            epochs_per_sec = 1.0 * num_epoch / (end - start)
+
             print("###########")
-            print("epoch {}, # steps: {} reward mean {} ".format(num_epoch, len(aggregate_agent_states), 1.0*final_rewards_mean/args.num_steps))
+            print("epoch {}, # steps: {} SPS {} EPS {} reward mean {} ".format(num_epoch, \
+                    len(aggregate_agent_states), steps_per_sec, epochs_per_sec, \
+                    1.0 * final_rewards_mean / args.num_steps_eval))
             print("###########\n")
 
-        #####
-        # Log to console and to Tensorboard.
-        #####
-        if running_num_episodes > args.log_interval:
-            end = time.time()
-            num_steps_sec = (end - start)
-            num_episodes += running_num_episodes
+            utils.log_to_tensorboard_dagger(writer, num_epoch, total_steps, \
+                                            action_loss_mean, final_rewards_mean)
 
-            steps_per_sec = 1.0 * total_steps / (end - start)
-            epochs_per_sec = 1.0 * args.log_interval / (end - start)
-            episodes_per_sec =  1.0 * num_episodes / (end - start)
-
-            mean_dist_entropy = np.mean(final_dist_entropies).data[0]
-            std_dist_entropy = np.std(final_dist_entropies)
-
-            mean_value_loss = 0 #np.mean(final_value_losses)
-            std_value_loss = 0 #np.std(final_value_losses)
-
-            mean_action_loss = 0 #np.mean(final_action_losses)
-            std_action_loss = 0 #np.std(final_action_losses)
-
-            # final_rewards = np.array([0])
-
-            utils.log_to_console(num_epoch, num_episodes, total_steps,
-                                steps_per_sec, epochs_per_sec, final_rewards,
-                                mean_dist_entropy, mean_value_loss, mean_action_loss)
-
-            utils.log_to_tensorboard(writer, num_epoch, num_episodes,
-                                     total_steps, steps_per_sec, episodes_per_sec,
-                                     final_rewards, mean_dist_entropy,
-                                     mean_value_loss, mean_action_loss,
-                                     std_dist_entropy, std_value_loss,
-                                     std_action_loss, count_stats, array_stats,
-                                     running_num_episodes)
-
-            # Reset stats so that plots are per the last log_interval.
-            final_action_losses = []
-            final_value_losses =  []
-            final_dist_entropies = []
-            count_stats = defaultdict(int)
-            array_stats = defaultdict(list)
-            final_rewards = torch.zeros([num_training_per_episode,
-                                         num_processes, 1])
-
-            running_num_episodes = 0
 
     writer.close()
 
