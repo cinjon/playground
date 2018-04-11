@@ -9,6 +9,7 @@ import numpy as np
 import pommerman
 from subproc_vec_env import SubprocVecEnv
 
+import random
 
 def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
              num_stack):
@@ -42,6 +43,11 @@ def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
             training_agent_ids = list(range(4))
             agents = [training_agents[0].copy_ex_model()
                       for agent_id in training_agent_ids]
+        elif how_train == 'dagger':
+            training_agent_ids = [random.randint(0, 3)]
+            print("agent id: ", training_agent_ids)
+            agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
+            agents.insert(training_agent_ids[0], training_agents[0])
         else:
             raise
 
@@ -112,7 +118,7 @@ class WrapPomme(gym.ObservationWrapper):
         return self.observation(self.env.get_observations())
 
     def step(self, actions):
-        if self._how_train == 'simple':
+        if self._how_train == 'simple' or self._how_train == 'dagger':
             obs = self.env.get_observations()
             all_actions = self.env.act(obs)
             all_actions.insert(self.env.training_agents[0], actions)
