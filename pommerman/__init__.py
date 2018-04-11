@@ -42,3 +42,6 @@ def make(config_id, agent_list, game_state_file=None):
     env.set_agents(agent_list)
     env.set_init_game_state(game_state_file)
     return env
+
+# We put this down here to avoid a circular import concern.
+from . import cli

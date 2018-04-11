@@ -24,21 +24,21 @@ from .. import helpers
 from .. import make
 
 
-def run(args, num_times=1, seed=None):
+def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
     config = args.config
     record_pngs_dir = args.record_pngs_dir
     record_json_dir = args.record_json_dir
-    agent_env_vars = args.agent_env_vars
     game_state_file = args.game_state_file
 
     # TODO: After https://github.com/MultiAgentLearning/playground/pull/40
     #       this is still missing the docker_env_dict parsing for the agents.
-    agents = [
+    agents = agents or [
         helpers.make_agent_from_string(agent_string, agent_id+1000)
         for agent_id, agent_string in enumerate(args.agents.split(','))
     ]
 
     env = make(config, agents, game_state_file)
+    env.set_training_agents(training_agents)
 
     if args.record_pngs_dir:
         assert not os.path.isdir(args.record_pngs_dir)
@@ -60,6 +60,8 @@ def run(args, num_times=1, seed=None):
                            record_json_dir=args.record_json_dir)
             actions = env.act(obs)
             obs, reward, done, info = env.step(actions)
+            if type(done) == list:
+                done = all(done)
 
         for agent in agents:
             agent.episode_end(reward[agent.agent_id])
@@ -99,9 +101,6 @@ def main():
     docker_agent = 'docker::pommerman/simple-agent'
     
     parser = argparse.ArgumentParser(description='Playground Flags.')
-    parser.add_argument('--game',
-                        default='pommerman',
-                        help='Game to choose.')
     parser.add_argument('--config',
                         default='PommeFFA-v0',
                         help='Configuration to execute. See env_ids in '
@@ -112,13 +111,6 @@ def main():
                         # default=','.join([docker_agent] + [simple_agent]*3]),
                         help='Comma delineated list of agent types and docker '
                         'locations to run the agents.')
-    parser.add_argument('--agent_env_vars',
-                        help='Comma delineated list of agent environment vars '
-                        'to pass to Docker. This is only for the Docker Agent.'
-                        " An example is '0:foo=bar:baz=lar,3:foo=lam', which "
-                        'would send two arguments to Docker Agent 0 and one '
-                        'to Docker Agent 3.',
-                        default="")
     parser.add_argument('--record_pngs_dir',
                         default=None,
                         help='Directory to record the PNGs of the game. '
