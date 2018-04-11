@@ -299,6 +299,7 @@ def train():
         #####
         # Log to console and to Tensorboard.
         #####
+        if running_num_episodes > args.log_interval:
             end = time.time()
             num_steps_sec = (end - start)
             num_episodes += running_num_episodes
