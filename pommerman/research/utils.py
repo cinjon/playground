@@ -23,7 +23,10 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
     for path in paths:
         if path:
             print("Loading path %s as agent." % path)
-            loaded_model = torch.load(path)
+            if args.cuda:
+                loaded_model = torch.load(path)
+            else:
+                loaded_model = torch.load(path, map_location='cpu')
             model_state_dict = loaded_model['state_dict']
             optimizer_state_dict = loaded_model['optimizer']
             num_episodes = loaded_model['num_episodes']
