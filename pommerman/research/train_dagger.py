@@ -263,7 +263,7 @@ def train():
                 done = [[False]]
                 while done[0][0] == False:
                     # take action provided by learning policy
-                    result = agent.act(Variable(dagger_obs, volatile=True), Variable(dummy_states, volatile=True), Variable(dummy_masks, volatile=True))
+                    result = agent.dagger_act(Variable(dagger_obs, volatile=True), Variable(dummy_states, volatile=True), Variable(dummy_masks, volatile=True))
                     value, action, action_log_prob, states, dist_entropies = result
                     cpu_actions = action.data.squeeze(1).cpu().numpy()
                     cpu_actions_agents = cpu_actions
@@ -299,6 +299,7 @@ def train():
         #####
         # Log to console and to Tensorboard.
         #####
+        if running_num_episodes > args.log_interval:
             end = time.time()
             num_steps_sec = (end - start)
             num_episodes += running_num_episodes

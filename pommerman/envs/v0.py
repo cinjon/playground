@@ -48,7 +48,7 @@ class Pomme(gym.Env):
         self._viewer = None
         self._is_partially_observable = is_partially_observable
 
-        self.training_agents = None
+        self.training_agents = []
         self.model = forward_model.ForwardModel()
 
         # Observation and Action Spaces. These are both geared towards a single

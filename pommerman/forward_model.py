@@ -348,7 +348,7 @@ class ForwardModel(object):
         elif game_type == constants.GameType.FFA:
             training_agents_dead = all([agent not in alive_ids
                                         for agent in training_agents])
-            if training_agents is not None and training_agents_dead:
+            if training_agents and training_agents_dead:
                 # We have training_agents and they aren't all dead.
                 return [True]*4 if all_agents else True
             else:

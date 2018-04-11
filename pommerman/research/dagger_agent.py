@@ -7,14 +7,15 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.optim as optim
 
+from research_agent import ResearchAgent
 from storage import RolloutStorage
 
 
-class DaggerAgent(BaseAgent):
+class DaggerAgent(ResearchAgent):
     """The TensorForceAgent. Acts through the algorith, not here."""
-    def __init__(self, actor_critic, character=characters.Bomber):
+    def __init__(self, actor_critic, character=characters.Bomber, **kwargs):
         self._actor_critic = actor_critic
-        super(DaggerAgent, self).__init__(character)
+        super(DaggerAgent, self).__init__(character, **kwargs)
 
     def cuda(self):
         self._actor_critic.cuda()
@@ -28,12 +29,7 @@ class DaggerAgent(BaseAgent):
     def optimizer(self):
         return self._optimizer
 
-    # def act(self, obs, action_space):
-    #     """This agent has its own way of inducing actions."""
-    #     return None
-
-    def act(self, observations, states, masks):
-        """This agent has its own way of inducing actions."""
+    def dagger_act(self, observations, states, masks):
         return self._actor_critic.act(observations, states, masks)
 
     def set_eval(self):
@@ -63,7 +59,8 @@ class DaggerAgent(BaseAgent):
             return self._actor_critic(observations, states, masks)[0].data
 
     def get_action_scores(self, observations, states, masks):
-        return self._actor_critic.get_action_scores(observations, states, masks)
+        return self._actor_critic.get_action_scores(observations, states,
+                                                    masks)
 
     def optimize(self, action_classification_loss, max_grad_norm):
         self._optimizer.zero_grad()
@@ -97,10 +94,6 @@ class DaggerAgent(BaseAgent):
 
     def feed_forward_generator(self, advantage, args):
         return self._rollout.feed_forward_generator(advantage, args)
-
-    def copy(self):
-        # NOTE: Ugh. This is bad.
-        return PPOAgent(None, self._character)
 
     def after_update(self):
         self._rollout.after_update()

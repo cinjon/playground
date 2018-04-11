@@ -6,6 +6,7 @@ class BaseAgent:
 
     def __init__(self, character=characters.Bomber):
         self._character = character
+        self._is_initialized = False
 
     def __getattr__(self, attr):
         return getattr(self._character, attr)
@@ -23,7 +24,9 @@ class BaseAgent:
         pass
 
     def init_agent(self, id, game_type):
-        self._character = self._character(id, game_type)
+        if not self._is_initialized:
+            self._character = self._character(id, game_type)
+            self._is_initialized = True
 
     @staticmethod
     def has_user_input():

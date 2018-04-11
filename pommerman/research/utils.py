@@ -23,7 +23,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
     for path in paths:
         if path:
             print("Loading path %s as agent." % path)
-            loaded_model = torch.load(path, map_location=lambda storage, loc: storage)
+            loaded_model = torch.load(path)
             model_state_dict = loaded_model['state_dict']
             optimizer_state_dict = loaded_model['optimizer']
             num_episodes = loaded_model['num_episodes']
@@ -54,7 +54,6 @@ def is_save_epoch(num_epoch, start_epoch, save_interval):
 def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
                 args):
     """Save the model.
-
     Args:
       prefix: A prefix string to prepend to the run_name.
       num_epoch: The int epoch.
@@ -89,9 +88,9 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
             'num_episodes': num_episodes,
         }
         save_dict['args'] = vars(args)
-        suffix = "{}.ht-{}.cfg-{}.m-{}.lr-{}-.mb-{}.prob-{}.anneal-{}.num-{}.epoch-{}.steps-{}.seed-{}.pt" \
-                 .format(name, how_train, config, model_str, args.lr, args.minibatch_size,
-                        args.expert_prob, args.anneal_expert_prob, num_agent, num_epoch, total_steps, seed)
+        suffix = "{}.ht-{}.cfg-{}.m-{}.num-{}.epoch-{}.steps-{}.seed-{}.pt" \
+                 .format(name, how_train, config, model_str, num_agent,
+                         num_epoch, total_steps, seed)
         torch.save(save_dict, os.path.join(save_dir, suffix))
 
 
@@ -125,47 +124,47 @@ def get_train_vars(args):
 
 
 def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
-                    epochs_per_sec, final_rewards, mean_dist_entropy,
-                    mean_value_loss, mean_action_loss):
+                   final_rewards, mean_dist_entropy, mean_value_loss,
+                   mean_action_loss):
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, epochs "
-          "per sec {}, mean reward {:.1f}, min/max reward "
+          "per sec {}, mean/median reward {:.1f}/{:.1f}, min/max reward "
           "{:.1f}/{:.1f}, avg entropy {:.5f}, avg value loss {:.5f}, avg "
           "policy loss {:.5f}"
           .format(num_epoch, num_episodes, total_steps, steps_per_sec,
                   epochs_per_sec, final_rewards.mean(),
-                  final_rewards.min(),
+                  final_rewards.median(), final_rewards.min(),
                   final_rewards.max(), mean_dist_entropy, mean_value_loss,
                   mean_action_loss))
 
 
 def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
-                       steps_per_sec, episodes_per_sec, final_rewards,
-                       mean_dist_entropy, mean_value_loss, mean_action_loss,
-                       std_dist_entropy, std_value_loss, std_action_loss,
-                       count_stats, array_stats, running_num_episodes):
-    # writer.add_scalar('entropy', {
-    #     'mean' : mean_dist_entropy,
-    #     'std_max': mean_dist_entropy + std_dist_entropy,
-    #     'std_min': mean_dist_entropy - std_dist_entropy,
-    # }, num_episodes)
-    #
-    # writer.add_scalar('reward', {
-    #     'mean': final_rewards.mean(),
-    #     'std_max': final_rewards.mean() + final_rewards.std(),
-    #     'std_min': final_rewards.mean() - final_rewards.std(),
-    # }, num_episodes)
-    #
-    # writer.add_scalars('action_loss', {
-    #     'mean': mean_action_loss,
-    #     'std_max': mean_action_loss + std_action_loss,
-    #     'std_min': mean_action_loss - std_action_loss,
-    # }, num_episodes)
-    #
-    # writer.add_scalars('value_loss', {
-    #     'mean': mean_value_loss,
-    #     'std_max': mean_value_loss + std_value_loss,
-    #     'std_min': mean_value_loss - std_value_loss,
-    # }, num_episodes)
+                       steps_per_sec, final_rewards, mean_dist_entropy,
+                       mean_value_loss, mean_action_loss, std_dist_entropy,
+                       std_value_loss, std_action_loss, count_stats,
+                       array_stats, running_num_episodes):
+    writer.add_scalar('entropy', {
+        'mean' : mean_dist_entropy,
+        'std_max': mean_dist_entropy + std_dist_entropy,
+        'std_min': mean_dist_entropy - std_dist_entropy,
+    }, num_episodes)
+
+    writer.add_scalar('reward', {
+        'mean': final_rewards.mean(),
+        'std_max': final_rewards.mean() + final_rewards.std(),
+        'std_min': final_rewards.mean() - final_rewards.std(),
+    }, num_episodes)
+
+    writer.add_scalars('action_loss', {
+        'mean': mean_action_loss,
+        'std_max': mean_action_loss + std_action_loss,
+        'std_min': mean_action_loss - std_action_loss,
+    }, num_episodes)
+
+    writer.add_scalars('value_loss', {
+        'mean': mean_value_loss,
+        'std_max': mean_value_loss + std_value_loss,
+        'std_min': mean_value_loss - std_value_loss,
+    }, num_episodes)
 
     writer.add_scalar('epochs', num_epoch, num_episodes)
     writer.add_scalar('steps_per_sec', steps_per_sec, num_episodes)
@@ -197,13 +196,9 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
 
 
 def validate_how_train(how_train, nagents):
-    if how_train == 'simple':
+    if how_train == 'simple' or how_train == 'dagger':
         # Simple trains a single agent against three SimpleAgents.
         assert(nagents == 1), "Simple training should have one agent."
-        return 1
-    elif how_train == 'dagger':
-        # Simple trains a single agent against three SimpleAgents.
-        assert(nagents == 1), "Dagger training should have one agent."
         return 1
     elif how_train == 'homogenous':
         # Homogenous trains a single agent against itself (self-play).

@@ -76,19 +76,45 @@ def get_args():
     parser.add_argument('--render', default=False, action='store_true',
                         help='whether to render the first process.')
 
-    parser.add_argument('--cims-address', type=str, default='',
-                        help='cims address, e.g. resnick@access.cims.nyu.edu. '
+    ### Eval Specific
+    parser.add_argument('--eval-mode', type=str, default='simple-ffa',
+                        help='mode for evaluation. see eval.py for options.')
+    parser.add_argument('--eval-targets', type=str, default='',
+                        help='local path to target comma-delineated model(s). '
+                        'each model is consists of a path to the model and '
+                        'the model type, e.g. "ppo::/path/to/model". '
+                        'not all modes expect multiple models. will retrieve '
+                        'from ssh location if provided.')
+    parser.add_argument('--eval-opponents', type=str, default='',
+                        help='similar to eval-targets but for opponents. if '
+                        'looking to test against SimpleAgents, then use '
+                        'simple::null.')
+    parser.add_argument('--ssh-address', type=str, default='',
+                        help='ssh address, e.g. resnick@access.cims.nyu.edu. '
                         'if empty, then assumed that we are using local.')
-    parser.add_argument('--cims-password', type=str, default='',
-                        help='cims password to copy over the model.')
-    parser.add_argument('--cims-save-model-local', type=str, default='',
-                        help='directory where to save a cims model locally.')
+    parser.add_argument('--ssh-password', type=str, default='',
+                        help='ssh password to copy over the model.')
+    parser.add_argument('--ssh-save-model-local', type=str, default='',
+                        help='directory where to save a ssh model locally.')
     parser.add_argument('--num-steps-eval', type=int, default=1000,
                         help='number of steps to run for evaluation')
-    parser.add_argument('--target-eval-paths', type=str, default='',
-                        help='path to saved models being tested, should be in '
-                        'saved-paths as well. if >1, then assumes team.')
+    parser.add_argument('--num-battles-eval', type=int, default=100,
+                        help='number of battles to run for evaluation.')
+    parser.add_argument('--record-pngs-dir',
+                        default=None,
+                        help='Directory to record the PNGs of the game. '
+                        "Doesn't record if None.")
+    parser.add_argument('--record-json-dir',
+                        default=None,
+                        help='Directory to record the JSON representations of '
+                        "the game. Doesn't record if None.")
 
+    ### Team Specific
+    parser.add_argument('--team-reward-sharing', type=float, default=0.0,
+                        help='what percent of the reward is blended between '
+                        'among the team.')
+
+    ### Dagger Specific
     parser.add_argument('--expert-prob', type=float, default=0.5,
                         help='probability that the agent will act using the experts action')
     parser.add_argument('--minibatch-size', type=int, default=100,
