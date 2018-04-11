@@ -1,204 +1,157 @@
 """Eval script.
 
-Evaluation pipeline:
-1. Receives a set of paths to saved models.
-2. Told which one is being tested.
-3. If there are less than four paths given, then it will fill the rest of the
-   agents with SimpleAgent.
-4. Runs 100 episodes. 
-5. Records and logs the number of wins in that episode for the target agent.
+We have a target model ("target") that we are evaluating. The modes considered:
+1. "ffa": Eval "target" against three agents in an FFA.
+2. "homogenous-team": Eval "target" on a team with itself against two other
+ agents that are also teamed together. Those two other agents are given by
+ "opp1", "opp2". If "opp2" is None or empty str, then we duplicate "opp1".
+3. "heterogenous-team": In this scenario, there is a second "target2". Aside
+ from that, it is the same as #2 above.
 
-Examples:
+In all circumstances, we run 100 battles and record the results afterward
+in terms of Win/Loss/Tie as well as mean/std of numbers of steps in each kind.
 
-python eval.py --cims-save-model-local ~/Code/selfplayground/models \
- --cims-password $CIMSP --cims-address $CIMSU \
- --saved-models /path/to/model.pt --num-channels 128
+Examples: TODO
+
+python eval.py --ssh-save-model-local ~/Code/selfplayground/models \
+ --ssh-password $CIMSP --ssh-address $CIMSU \
+ --saved-models /path/to/model.pt
  
-python eval.py --num-channels 128 --saved-models /path/to/model.pt
+python eval.py --saved-models /path/to/model.pt
 """
-
-import copy
-import glob
 import os
-import sys
-import time
+import random
 
-import gym
 from pommerman import configs
+from pommerman import agents
+from pommerman.cli import run_battle
 import numpy as np
 import torch
 from torch.autograd import Variable
 
 from arguments import get_args
+import dagger_agent
 import envs as env_helpers
-from model import PommeCNNPolicySmall
+import networks
 import ppo_agent
-from subproc_vec_env import SubprocVecEnv
+import utils
 
 
-torch.manual_seed(args.seed)
+def build_agents(mode, targets, opponents, obs_shape, action_space, args):
+    def _get_info(inp):
+        model_type, model_path = inp.split('::')
+        if all([model_path, model_path != 'null',
+                not os.path.exists(model_path)]):
+            print("Retrieving model %s from %s..." % \
+                  (model_path, args.ssh_address))
+            model_path = utils.scp_model_from_ssh(
+                model_path,
+                args.ssh_address,
+                args.ssh_password,
+                args.ssh_save_model_local)
+
+        if model_type == 'ppo':
+            return ppo_agent.PPOAgent, model_path
+        elif model_type == 'dagger':
+            return dagger_agent.DaggerAgent, model_path
+        elif model_type == 'simple':
+            return agents.SimpleAgent, None
+
+    def _build(info):
+        agent_type, path = info
+        if path:
+            model_str = args.model_str
+            actor_critic = lambda state, board_size, num_channels: networks.get_actor_critic(model_str)(
+                state, obs_shape[0], action_space, board_size, num_channels)
+
+            print("Loading path %s as agent." % path)
+            loaded_model = torch.load(path, map_location='cpu')
+            model_state_dict = loaded_model['state_dict']
+            args_state_dict = loaded_model['args']
+            model = actor_critic(model_state_dict, args_state_dict['board_size'],
+                                 args_state_dict['num_channels'])
+            return agent_type(model, num_stack=args_state_dict['num_stack'])
+        else:
+            return agent_type()
+
+    targets = targets.split(',')
+    opponents = opponents.split(',')
+
+    if mode == 'ffa':
+        assert(len(targets) == 1), "Exactly 1 target for ffa."
+        assert(len(opponents) == 3), "Exactly 3 opponents for ffa."
+    elif mode == 'homogenous_team':
+        assert(len(targets) == 1), "Exactly 1 target for homogenous-team."
+        assert(len(opponents) in [1, 2]), \
+            "Exactly 1 or 2 opponents for homogenous-team."
+        targets += targets
+        if len(opponents) == 1:
+            opponents += opponents
+    elif mode == 'heterogenous_team':
+        assert(len(targets) == 1), "Exactly 2 targets for heterogenous-team."
+        assert(len(opponents) in [1, 2]), \
+            "Exactly 1 or 2 opponents for heterogenous-team."
+        if len(opponents) == 1:
+            opponents += opponents
+    else:
+        raise ValueError
+
+    targets = [_build(_get_info(agent)) for agent in targets]
+    opponents = [_build(_get_info(agent)) for agent in opponents]
+    return targets, opponents
 
 
 def eval():
     os.environ['OMP_NUM_THREADS'] = '1'
     args = get_args()
 
-    target_paths = args.target_eval_paths.split(',')
-    assert(target_paths), "Please include target_paths."
-    saved_paths = args.saved_paths
-    assert(saved_paths), "Please include saved_paths."
+    torch.manual_seed(args.seed)
+    mode = args.eval_mode
+    obs_shape, action_space = env_helpers.get_env_shapes(args.config,
+                                                         args.num_stack)
+    targets = args.eval_targets
+    opponents = args.eval_opponents
+    targets, opponents = build_agents(mode, targets, opponents, obs_shape,
+                                      action_space, args)
 
-    for path in target_paths:
-        assert(path in saved_paths), "Path %s not in saved_paths." % path
-
-    new_saved_paths = []
-    for path in saved_paths.split(','):
-        if os.path.exists(path):
-            new_saved_paths.append(path)
-        else:
-            new_saved_paths.append(
-                utils.scp_model_from_cims(
-                    saved_paths, args.cims_address,
-                    args.cims_password, args.cims_save_model_local)
-            )
-
-    obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
-    # TODO: This doesn't quite work the same as in train ... Needs adjustment.
-    num_training_per_episode = utils.validate_how_train(args.how_train,
-                                                        args.num_agents)
-
-    training_agents = utils.load_agents(
-        obs_shape, action_space, args.board_size, args.num_channels, config,
-        num_stack, num_training_per_episode, args.model_str, new_saved_paths,
-        args.lr, args.eps, num_steps, num_processes)
-
-    training_agents = utils.load_agents(obs_shape, action_space,
-                                        args.board_size, args.num_channels,
-                                        args.config, args.num_stack,
-                                        args.model, local_model_address,
-                                        args.lr, args.eps, num_steps,
-                                        num_processes)
-    model_name = local_model_address.split('/')[-1]
-    print("num episodes for {} is: {}".format(model_name,
-                                              training_agents[0].num_episodes)
-
-    envs = utils.make_envs(args.config, args.how_train, args.seed,
-                           args.game_state_file, training_agents,
-                           args.num_stack, num_processes, args.render)
-
-    def update_current_obs(obs):
-        current_obs = torch.from_numpy(obs).float()
-    current_obs = torch.zeros(num_training_per_episode, num_processes,
-                              *obs_shape)
-    update_current_obs(envs.reset())
-
-    if args.how_train == 'simple':
-        training_agents[0].update_rollouts(obs=current_obs, timestep=0)
-    elif args.how_train == 'homogenous':
-        training_agents[0].update_rollouts(obs=current_obs, timestep=0)
-
-    # These variables are used to compute average rewards for all processes.
-    episode_rewards = torch.zeros([num_training_per_episode,
-                                   args.num_processes, 1])
-    final_rewards = torch.zeros([num_training_per_episode,
-                                 args.num_processes, 1])
-
-    if args.cuda:
-        current_obs = current_obs.cuda()
-        for agent in training_agents:
-            agent.cuda()
-
-    for agent in training_agents:
-        agent.set_eval()
-
-    start = time.time()
-    eval_steps = args.num_steps_eval
-
-    for j in range(eval_steps):
-        for step in range(args.num_steps):
-            value_agents = []
-            action_agents = []
-            action_log_prob_agents = []
-            states_agents = []
-            episode_reward = []
-            cpu_actions_agents = []
-
-            if args.how_train == 'simple':
-                result = training_agents[0].run(step, 0, use_act=True)
-                value, action, action_log_prob, states = result
-                value_agents.append(value)
-                action_agents.append(action)
-                action_log_prob_agents.append(action_log_prob)
-                states_agents.append(states)
-                cpu_actions = action.data.squeeze(1).cpu().numpy()
-                cpu_actions_agents = cpu_actions
-            elif args.how_train == 'homogenous':
-                cpu_actions_agents = [[] for _ in range(args.num_processes)]
-                for i in range(4):
-                    result = training_agents[0].run(step=step, num_agent=i,
-                                                    use_act=True)
-                    value, action, action_log_prob, states = result
-                    value_agents.append(value)
-                    action_agents.append(action)
-                    action_log_prob_agents.append(action_log_prob)
-                    states_agents.append(states)
-                    cpu_actions = action.data.squeeze(1).cpu().numpy()
-                    for num_process in range(args.num_processes):
-                        cpu_actions_agents[num_process].append(cpu_actions[num_process])
-
-            obs, reward, done, info = envs.step(cpu_actions_agents)
-
-            envs.render()
-            reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
-            episode_rewards += reward
+    # Run the model with run_battle.
+    if mode == 'ffa':
+        print('Starting FFA Battles.')
+        for position in range(4):
+            print("Running Battle Position %d..." % position)
+            num_times = args.num_battles_eval // 4
+            agents = [o for o in opponents]
+            agents.insert(position, targets[0])
+            infos = run_battle.run(args, num_times=num_times, seed=args.seed,
+                                   agents=agents, training_agents=[position])
+            print(infos)
+    elif mode == 'homogenous_team':
+        print('Starting Homogenous Team Battles.')
+        for position in range(2):
+            training_agents = [position, position+2]
+            print("Running Battle Position %d..." % position)
+            num_times = args.num_battles_eval // 2
+            agents = [o for o in opponents]
+            agents.insert(position, targets[0])
+            agents.insert(position+2, targets[1])
+            infos = run_battle.run(
+                args, num_times=num_times, seed=args.seed, agents=agents,
+                training_agents=training_agents)
+            print(infos)
+    elif mode == 'heterogenous_team':
+        print('Starting Heterogenous Team Battles.')
+        for position in range(2):
+            print("Running Battle Position %d..." % position)
+            training_agents = [position, position+2]
+            num_times = args.num_battles_eval // 2
+            agents = [o for o in opponents]
+            agents.insert(position, targets[0])
+            agents.insert(position+2, targets[1])
+            infos = run_battle.run(
+                args, num_times=num_times, seed=args.seed, agents=agents,
+                training_agents=training_agents)
+            print(infos)
 
 
-            # NOTE: if how-train simple always has num_training_per_episode = 1
-            # then we don't need the conditions below
-            if args.how_train == 'simple':
-                if num_training_per_episode == 1:
-                    masks = torch.FloatTensor([
-                        [0.0]*num_training_per_episode if done_ \
-                        else [1.0]*num_training_per_episode
-                    for done_ in done])
-                else:
-                    masks = torch.FloatTensor(
-                        [[[0.0] if done_[i] else [1.0]
-                          for i in range(len(done_))] for done_ in done])
-            elif args.how_train == 'homogenous':
-                masks = torch.FloatTensor(
-                    [[[0.0] if done_[i] else [1.0] for i in range(len(done_))]
-                     for done_ in done]).transpose(0,1).unsqueeze(2)
-
-            final_rewards *= masks
-            final_rewards += (1 - masks) * episode_rewards
-            episode_rewards *= masks
-            if args.cuda:
-                masks = masks.cuda()
-
-            reward_all = reward.unsqueeze(2)
-            reward_all = reward.unsqueeze(2)
-            if args.how_train == 'simple':
-                masks_all = masks.transpose(0,1).unsqueeze(2)
-            elif args.how_train == 'homogenous':
-                masks_all = masks
-
-            if args.how_train == 'simple':
-                current_obs *= masks_all.unsqueeze(2).unsqueeze(2)
-            elif args.how_train == 'homogenous':
-                current_obs *= masks_all.unsqueeze(2)
-            update_current_obs(obs)
-
-            states_all = utils.torch_numpy_stack(states_agents)
-            action_all = utils.torch_numpy_stack(action_agents)
-            action_log_prob_all = utils.torch_numpy_stack(action_log_prob_agents)
-            value_all = utils.torch_numpy_stack(value_agents)
-
-            training_agents[0].insert_rollouts(
-                step, current_obs, states_all, action_all, action_log_prob_all,
-                value_all, reward_all, masks_all)
-
-
-# test against prior version
 if __name__ == "__main__":
     eval()
