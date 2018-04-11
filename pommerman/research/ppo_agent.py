@@ -1,19 +1,22 @@
 """PPO Agent using IKostrikov's approach for the ppo algorithm."""
-from pommerman.agents import BaseAgent
 from pommerman import characters
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.optim as optim
 
+from research_agent import ResearchAgent
 from storage import RolloutStorage
 
 
-class PPOAgent(BaseAgent):
+class PPOAgent(ResearchAgent):
     """The TensorForceAgent. Acts through the algorith, not here."""
-    def __init__(self, actor_critic, character=characters.Bomber):
+    def __init__(self, actor_critic, character=characters.Bomber, **kwargs):
         self._actor_critic = actor_critic
-        super(PPOAgent, self).__init__(character)
+        super(PPOAgent, self).__init__(character, **kwargs)
+        if self._actor_critic is not None:
+            # This caveat is so that it works with both train and eval.
+            self._states = torch.zeros(1, self._actor_critic.state_size)
 
     def cuda(self):
         self._actor_critic.cuda()
@@ -26,10 +29,6 @@ class PPOAgent(BaseAgent):
     @property
     def optimizer(self):
         return self._optimizer
-
-    def act(self, obs, action_space):
-        """This agent has its own way of inducing actions."""
-        return None
 
     def set_eval(self):
         self._actor_critic.eval()
@@ -154,3 +153,4 @@ class PPOAgent(BaseAgent):
 
     def after_epoch(self):
         self._rollout.after_epoch()
+
