@@ -59,7 +59,8 @@ class DaggerAgent(ResearchAgent):
             return self._actor_critic(observations, states, masks)[0].data
 
     def get_action_scores(self, observations, states, masks):
-        return self._actor_critic.get_action_scores(observations, states, masks)
+        return self._actor_critic.get_action_scores(observations, states,
+                                                    masks)
 
     def optimize(self, action_classification_loss, max_grad_norm):
         self._optimizer.zero_grad()
