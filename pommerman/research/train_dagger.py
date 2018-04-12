@@ -98,7 +98,6 @@ def train():
 
     start = time.time()
 
-    action_loss_mean = 0  # NOTE: no need to initialize - only needed when using eval-only part to log to tensorboard
     for num_epoch in range(start_epoch, num_epochs):
         # NOTE: moved envs inside the loop so that you get dif init position for the dagger agent each epoch
         envs = env_helpers.make_envs(config, how_train, args.seed,
@@ -265,7 +264,6 @@ def train():
                     dagger_obs = dagger_obs.cuda()
 
                 total_rewards = torch.zeros([num_training_per_episode, num_processes, 1])
-                success = 0
                 done = [[False]]
                 while done[0][0] == False:
                     # take action provided by learning policy
@@ -304,7 +302,7 @@ def train():
                 # print("total reward {} \n".format(total_rewards[0][0][0]))
 
                 if reward[0][0] > 0:
-                    success_rate += success
+                    success_rate += 1
                 final_reward_mean += reward[0][0]
                 total_reward_mean += total_rewards[0][0][0]
 
@@ -321,7 +319,7 @@ def train():
                     len(aggregate_agent_states), steps_per_sec, epochs_per_sec, success_rate, final_reward_mean,  total_reward_mean))
             print("###########\n")
 
-            utils.log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss_mean, \
+            utils.log_to_tensorboard_dagger(writer, num_epoch, total_steps, np.mean(action_losses), \
                                             total_reward_mean, success_rate, final_reward_mean)
 
 
