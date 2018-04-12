@@ -9,18 +9,8 @@ The differences here are that this environment:
   d. When another agent dies (that this agent didn't kill) 0.1
   e. Picking up a bad item: -0.1
 """
-from collections import defaultdict
-import json
-import os
-
-import numpy as np
-from scipy.misc import imresize as resize
-import time
-from gym import spaces
-from gym.utils import seeding
-import gym
-
 from .v0 import Pomme as PommeV0
+
 
 class Pomme(PommeV0):
     def step(self, actions):
