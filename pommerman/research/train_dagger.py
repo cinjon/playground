@@ -4,6 +4,12 @@ Currently only works for single processor and uses SimpleAgent as the expert.
 
 NOTE: Run this with how-train dagger so that the agent's position is random
 among the four possibilities.
+
+Example args:
+
+python train_dagger.py --num-processes 1 --run-name a --how-train dagger \
+ --minibatch-size 5000 --num-steps 5000 --log-interval 10 --lr 0.1 \
+ --expert-prob 0.5 --save-interval 10 --num-steps-eval 100
 """
 
 from collections import defaultdict
@@ -191,7 +197,6 @@ def train():
 
             agent.optimize(action_loss, args.max_grad_norm)
             total_action_loss += action_loss
-
 
         # TODO: figure out what are the right hyperparams to use: num-steps, minibatch-size etc.
         # TODO: figure out whether you need to optimize multilpe times each epoch? on same data?
