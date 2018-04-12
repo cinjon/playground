@@ -187,7 +187,8 @@ def train():
             args.minibatch_size, obs_shape[0], obs_shape[1], obs_shape[2])
         expert_actions_minibatch = torch.FloatTensor(
             args.minibatch_size,  obs_shape[0], obs_shape[1], obs_shape[2])
-        total_action_loss = 0
+        action_losses = []
+        num_opts = 0
         for i in range(0, len(aggregate_agent_states), args.minibatch_size):
             indices_minibatch = indices[i: i + args.minibatch_size]
             agent_states_minibatch = [aggregate_agent_states[k]
@@ -210,16 +211,23 @@ def train():
                 action_scores, Variable(expert_actions_minibatch.squeeze(1)))
 
             agent.optimize(action_loss, args.max_grad_norm)
-            total_action_loss += action_loss
+            action_losses.append(action_loss.data[0])
+
+            if num_opts < 3:
+                print("Opt Step %d: action_loss %.5f." % (num_opts,
+                                                          action_loss))
+            num_opts += 1
 
         # TODO: What are the right hyperparams to use?
         # TODO: Should we optimize multiple times each epoch? On same data?
 
-        num_aggregate_states = len(aggregate_agent_states)
-        action_loss_mean = total_action_loss.data[0] / num_aggregate_states
+        num_epoch_steps = len(aggregate_agent_states) // args.minibatch_size
+        print(num_opts, num_epoch_steps)
+        num_optim_steps = (num_epoch + 1) * num_epoch_steps
         print("###########")
-        print("epoch {}, # steps: {} action loss {} ".format(
-            num_epoch, len(aggregate_agent_states), action_loss_mean))
+        print("epoch {} steps {} action loss mean {:.3f} / std {:.3f}" \
+              .format(num_epoch, num_epoch_steps, np.mean(action_losses),
+                      np.std(action_losses)))
         print("###########\n")
 
         if len(agent_act_arr) > 0:
