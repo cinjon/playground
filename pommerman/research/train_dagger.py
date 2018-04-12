@@ -222,7 +222,6 @@ def train():
         # TODO: Should we optimize multiple times each epoch? On same data?
 
         num_epoch_steps = len(aggregate_agent_states) // args.minibatch_size
-        print(num_opts, num_epoch_steps)
         num_optim_steps = (num_epoch + 1) * num_epoch_steps
         print("###########")
         print("epoch {} steps {} action loss mean {:.3f} / std {:.3f}" \
