@@ -141,14 +141,20 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                   mean_action_loss))
 
 
-def log_to_tensorboard_dagger(writer, num_epoch, num_steps,
-                            action_loss_mean, final_reward_mean):
+def log_to_tensorboard_dagger(writer, num_epoch, num_steps, action_loss,
+                                total_reward, success_rate, final_reward):
 
-    writer.add_scalar('final_reward_epoch', num_epoch, final_reward_mean)
-    writer.add_scalar('action_loss_epoch', num_epoch, action_loss_mean)
+    writer.add_scalar('final_reward_epoch', num_epoch, final_reward)
+    writer.add_scalar('final_reward_steps', num_steps, final_reward)
 
-    writer.add_scalar('final_reward_steps', num_steps, final_reward_mean)
-    writer.add_scalar('action_loss_steps', num_steps, action_loss_mean)
+    writer.add_scalar('total_reward_epoch', num_epoch, total_reward)
+    writer.add_scalar('total_reward_steps', num_steps, total_reward)
+
+    writer.add_scalar('action_loss_epoch', num_epoch, action_loss)
+    writer.add_scalar('action_loss_steps', num_steps, action_loss)
+
+    writer.add_scalar('success_rate_epoch', num_epoch, success_rate)
+    writer.add_scalar('success_rate_steps', num_steps, success_rate)
 
 
 def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,

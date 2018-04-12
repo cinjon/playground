@@ -46,9 +46,6 @@ def train():
         dagger_agent.DaggerAgent)
     agent = training_agents[0]
 
-    envs = env_helpers.make_envs(config, how_train, args.seed,
-                                 args.game_state_file, training_agents,
-                                 num_stack, num_processes, args.render)
 
     #####
     # Logging helpers.
@@ -94,11 +91,17 @@ def train():
         dummy_masks = dummy_masks.cuda()
 
     start = time.time()
-    agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
-    if args.cuda:
-        agent_obs = agent_obs.cuda()
 
+    action_loss_mean = 0  # NOTE: no need to initialize - only needed when using eval-only part to log to tensorboard
     for num_epoch in range(start_epoch, num_epochs):
+        # NOTE: moved envs inside the loop so that you get dif init position for the dagger agent each epoch
+        envs = env_helpers.make_envs(config, how_train, args.seed,
+                                     args.game_state_file, training_agents,
+                                     num_stack, num_processes, args.render)
+        agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
+        if args.cuda:
+            agent_obs = agent_obs.cuda()
+
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("dagger", num_epoch, training_agents,
                               total_steps, num_episodes, args)
@@ -220,16 +223,20 @@ def train():
         # Eval the current policy
         ######
         if num_epoch % args.log_interval == 0:
-            final_rewards_mean = 0
+            success_rate = 0
+            final_reward_mean = 0
+            total_reward_mean = 0
             for k in range(args.num_steps_eval):
                 dagger_obs = torch.from_numpy(envs.reset().reshape(1, *obs_shape)).float()
                 if args.cuda:
                     dagger_obs = dagger_obs.cuda()
 
-                final_rewards = torch.zeros([num_training_per_episode, num_processes, 1])
+                total_rewards = torch.zeros([num_training_per_episode, num_processes, 1])
+                success = 0
                 done = [[False]]
                 while done[0][0] == False:
                     # take action provided by learning policy
+                    # TODO: change the below to make it deterministic - need change in the dagger_act fct
                     result = agent.dagger_act(Variable(dagger_obs, volatile=True), \
                                                 Variable(dummy_states, volatile=True), \
                                                 Variable(dummy_masks, volatile=True))
@@ -248,29 +255,39 @@ def train():
                         [0.0]*num_training_per_episode if done_ \
                         else [1.0]*num_training_per_episode
                     for done_ in done])
-                    final_rewards *= masks
-                    final_rewards += (1 - masks) * episode_rewards
+                    total_rewards *= masks
+                    total_rewards += (1 - masks) * episode_rewards
                     episode_rewards *= masks
 
                     if args.render:
                         envs.render()
 
-                final_rewards_mean += final_rewards[0][0][0]
+                # NOTE: can add this when eval-only / rendering
+                # print("**** episode {} ***** ".format(k))
+                # print("win          {} ".format(success))
+                # print("final reward {} ".format(reward[0][0]))
+                # print("total reward {} \n".format(total_rewards[0][0][0]))
 
+                if reward[0][0] > 0:
+                    success_rate += success
+                final_reward_mean += reward[0][0]
+                total_reward_mean += total_rewards[0][0][0]
+
+            final_reward_mean = final_reward_mean / args.num_steps_eval
+            total_reward_mean = total_reward_mean / args.num_steps_eval
+            success_rate = success_rate / args.num_steps_eval
 
             end = time.time()
             steps_per_sec = 1.0 * total_steps / (end - start)
             epochs_per_sec = 1.0 * num_epoch / (end - start)
 
             print("###########")
-            print("epoch {}, # steps: {} SPS {} EPS {} reward mean {} ".format(num_epoch, \
-                    len(aggregate_agent_states), steps_per_sec, epochs_per_sec, \
-                    1.0 * final_rewards_mean / args.num_steps_eval))
+            print("Epoch {}, # steps: {} SPS {} EPS {} \n success rate {} mean final reward {} mean total reward {} ".format(num_epoch, \
+                    len(aggregate_agent_states), steps_per_sec, epochs_per_sec, success_rate, final_reward_mean,  total_reward_mean))
             print("###########\n")
 
-            utils.log_to_tensorboard_dagger(writer, num_epoch, total_steps, \
-                                            action_loss_mean, final_rewards_mean)
-
+            utils.log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss_mean, \
+                                            total_reward_mean, success_rate, final_reward_mean)
 
     writer.close()
 
