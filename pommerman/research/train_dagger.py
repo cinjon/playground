@@ -4,6 +4,12 @@ Currently only works for single processor and uses SimpleAgent as the expert.
 
 NOTE: Run this with how-train dagger so that the agent's position is random
 among the four possibilities.
+
+Example args:
+
+python train_dagger.py --num-processes 1 --run-name a --how-train dagger \
+ --minibatch-size 5000 --num-steps 5000 --log-interval 10 --lr 0.1 \
+ --expert-prob 0.5 --save-interval 10 --num-steps-eval 100
 """
 
 from collections import defaultdict
@@ -136,17 +142,18 @@ def train():
                 list_expert_action = []
                 list_expert_action.append(expert_action)
                 arr_expert_action = np.array(list_expert_action)
-                obs, reward, done, info = envs.step(arr_expert_action) # obs: 1x1x36x13x13
+                obs, reward, done, info = envs.step(arr_expert_action)
                 expert_act_arr.append(expert_action)
             else:
                 # take action provided by learning policy
-                result = agent.dagger_act(Variable(agent_obs, volatile=True), \
-                                            Variable(dummy_states, volatile=True), \
-                                            Variable(dummy_masks, volatile=True))
+                result = agent.dagger_act(
+                    Variable(agent_obs, volatile=True),
+                    Variable(dummy_states, volatile=True),
+                    Variable(dummy_masks, volatile=True))
                 value, action, action_log_prob, states = result
                 cpu_actions = action.data.squeeze(1).cpu().numpy()
                 cpu_actions_agents = cpu_actions
-                obs, reward, done, info = envs.step(cpu_actions_agents)   # obs: 1x1x36x13x13
+                obs, reward, done, info = envs.step(cpu_actions_agents)
 
                 agent_act_arr.append(cpu_actions_agents)
 
@@ -162,11 +169,13 @@ def train():
         agent.set_train()
 
         if len(aggregate_agent_states) >= 50000:
-            indices_replace = np.arange(0, len(aggregate_agent_states)).tolist()
+            indices_replace = np.arange(0, len(aggregate_agent_states)) \
+                                .tolist()
             random.shuffle(indices_replace)
             for k in range(args.num_steps):
-                aggregate_agent_states[indices_replace[k]] = agent_states_list[k]
-                aggregate_expert_actions[indices_replace[k]] = expert_actions_list[k]
+                indice = indices_replace[k]
+                aggregate_agent_states[indice] = agent_states_list[k]
+                aggregate_expert_actions[indice] = expert_actions_list[k]
         else:
             aggregate_agent_states += agent_states_list
             aggregate_expert_actions += expert_actions_list
@@ -174,13 +183,17 @@ def train():
         indices = np.arange(0, len(aggregate_agent_states)).tolist()
         random.shuffle(indices)
 
-        agent_states_minibatch = torch.FloatTensor(args.minibatch_size, obs_shape[0], obs_shape[1], obs_shape[2])
-        expert_actions_minibatch = torch.FloatTensor(args.minibatch_size,  obs_shape[0], obs_shape[1], obs_shape[2])
+        agent_states_minibatch = torch.FloatTensor(
+            args.minibatch_size, obs_shape[0], obs_shape[1], obs_shape[2])
+        expert_actions_minibatch = torch.FloatTensor(
+            args.minibatch_size,  obs_shape[0], obs_shape[1], obs_shape[2])
         total_action_loss = 0
         for i in range(0, len(aggregate_agent_states), args.minibatch_size):
             indices_minibatch = indices[i: i + args.minibatch_size]
-            agent_states_minibatch = [aggregate_agent_states[k] for k in indices_minibatch]
-            expert_actions_minibatch = [aggregate_expert_actions[k] for k in indices_minibatch]
+            agent_states_minibatch = [aggregate_agent_states[k]
+                                      for k in indices_minibatch]
+            expert_actions_minibatch = [aggregate_expert_actions[k]
+                                        for k in indices_minibatch]
 
             agent_states_minibatch = torch.stack(agent_states_minibatch, 0)
             expert_actions_minibatch = torch.stack(expert_actions_minibatch, 0)
@@ -189,31 +202,43 @@ def train():
                 agent_states_minibatch = agent_states_minibatch.cuda()
                 expert_actions_minibatch = expert_actions_minibatch.cuda()
 
-            action_scores = agent.get_action_scores(Variable(agent_states_minibatch), Variable(dummy_states), Variable(dummy_masks))
-            action_loss = cross_entropy_loss(action_scores, Variable(expert_actions_minibatch.squeeze(1)))
+            action_scores = agent.get_action_scores(
+                Variable(agent_states_minibatch),
+                Variable(dummy_states),
+                Variable(dummy_masks))
+            action_loss = cross_entropy_loss(
+                action_scores, Variable(expert_actions_minibatch.squeeze(1)))
 
             agent.optimize(action_loss, args.max_grad_norm)
             total_action_loss += action_loss
 
+        # TODO: What are the right hyperparams to use?
+        # TODO: Should we optimize multiple times each epoch? On same data?
 
-        # TODO: figure out what are the right hyperparams to use: num-steps, minibatch-size etc.
-        # TODO: figure out whether you need to optimize multilpe times each epoch? on same data?
-
-        action_loss_mean = total_action_loss.data[0]/len(aggregate_agent_states)
+        num_aggregate_states = len(aggregate_agent_states)
+        action_loss_mean = total_action_loss.data[0] / num_aggregate_states
         print("###########")
-        print("epoch {}, # steps: {} action loss {} ".format(num_epoch, len(aggregate_agent_states), action_loss_mean))
+        print("epoch {}, # steps: {} action loss {} ".format(
+            num_epoch, len(aggregate_agent_states), action_loss_mean))
         print("###########\n")
 
         if len(agent_act_arr) > 0:
-            agent_mean_act_prob = [len([i for i in agent_act_arr if i == k])*1.0/len(agent_act_arr) for k in range(6)]
+            agent_mean_act_prob = [
+                len([i for i in agent_act_arr if i == k]) * \
+                1.0/len(agent_act_arr) for k in range(6)
+            ]
             for k in range(6):
                 print("mean act {} probs {}".format(k, agent_mean_act_prob[k]))
             print("")
 
         if len(expert_act_arr) > 0:
-            expert_mean_act_prob = [len([i for i in expert_act_arr if i == k])*1.0/len(expert_act_arr) for k in range(6)]
+            expert_mean_act_prob = [
+                len([i for i in expert_act_arr if i == k]) * \
+                1.0/len(expert_act_arr) for k in range(6)
+            ]
             for k in range(6):
-                print("expert mean act {} probs {}".format(k, expert_mean_act_prob[k]))
+                print("expert mean act {} probs {}".format(
+                    k, expert_mean_act_prob[k]))
             print("")
 
         expert_act_arr = []
@@ -227,7 +252,8 @@ def train():
             final_reward_mean = 0
             total_reward_mean = 0
             for k in range(args.num_steps_eval):
-                dagger_obs = torch.from_numpy(envs.reset().reshape(1, *obs_shape)).float()
+                dagger_obs = torch.from_numpy(
+                    envs.reset().reshape(1, *obs_shape)).float()
                 if args.cuda:
                     dagger_obs = dagger_obs.cuda()
 
@@ -240,12 +266,14 @@ def train():
                     result = agent.dagger_act(Variable(dagger_obs, volatile=True), \
                                                 Variable(dummy_states, volatile=True), \
                                                 Variable(dummy_masks, volatile=True))
+
                     _, action, _, _ = result
                     cpu_actions = action.data.squeeze(1).cpu().numpy()
                     cpu_actions_agents = cpu_actions
-                    obs, reward, done, info = envs.step(cpu_actions_agents)   # obs: 1x1x36x13x13
+                    obs, reward, done, info = envs.step(cpu_actions_agents)
 
-                    dagger_obs = torch.from_numpy(obs.reshape(1, *obs_shape)).float()
+                    dagger_obs = torch.from_numpy(obs.reshape(1, *obs_shape)) \
+                                      .float()
                     if args.cuda:
                         dagger_obs = dagger_obs.cuda()
 
@@ -288,6 +316,7 @@ def train():
 
             utils.log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss_mean, \
                                             total_reward_mean, success_rate, final_reward_mean)
+
 
     writer.close()
 
