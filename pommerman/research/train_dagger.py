@@ -55,9 +55,9 @@ def train():
 
     #####
     # Logging helpers.
-    suffix = "{}.ht-{}.cfg-{}.m-{}.lr-{}-.mb-{}.prob-{}.anneal-{}.seed-{}.pt" \
+    suffix = "{}.ht-{}.cfg-{}.m-{}.nc-{}.lr-{}-.mb-{}.prob-{}.anneal-{}.seed-{}.pt" \
              .format(args.run_name, args.how_train, config, args.model_str,
-                     args.lr, args.minibatch_size, args.expert_prob,
+                     args.num_channels, args.lr, args.minibatch_size, args.expert_prob,
                      args.anneal_expert_prob, args.seed)
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):

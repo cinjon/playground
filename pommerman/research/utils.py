@@ -92,8 +92,8 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
             'num_episodes': num_episodes,
         }
         save_dict['args'] = vars(args)
-        suffix = "{}.ht-{}.cfg-{}.m-{}.lr-{}-.mb-{}.prob-{}.anneal-{}.num-{}.epoch-{}.steps-{}.seed-{}.pt" \
-                 .format(name, how_train, config, model_str, args.lr, args.minibatch_size,
+        suffix = "{}.ht-{}.cfg-{}.m-{}.nc-{}.lr-{}-.mb-{}.prob-{}.anneal-{}.num-{}.epoch-{}.steps-{}.seed-{}.pt" \
+                 .format(name, how_train, config, model_str, args.num_channels, args.lr, args.minibatch_size,
                         args.expert_prob, args.anneal_expert_prob, num_agent, num_epoch, total_steps, seed)
         torch.save(save_dict, os.path.join(save_dir, suffix))
 
@@ -144,17 +144,17 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
 def log_to_tensorboard_dagger(writer, num_epoch, num_steps, action_loss,
                                 total_reward, success_rate, final_reward):
 
-    writer.add_scalar('final_reward_epoch', num_epoch, final_reward)
-    writer.add_scalar('final_reward_steps', num_steps, final_reward)
+    writer.add_scalar('final_reward_epoch', final_reward, num_epoch)
+    writer.add_scalar('final_reward_steps', final_reward, num_steps)
 
-    writer.add_scalar('total_reward_epoch', num_epoch, total_reward)
-    writer.add_scalar('total_reward_steps', num_steps, total_reward)
+    writer.add_scalar('total_reward_epoch', total_reward, num_epoch)
+    writer.add_scalar('total_reward_steps', total_reward, num_steps)
 
-    writer.add_scalar('action_loss_epoch', num_epoch, action_loss)
-    writer.add_scalar('action_loss_steps', num_steps, action_loss)
+    writer.add_scalar('action_loss_epoch', action_loss, num_epoch)
+    writer.add_scalar('action_loss_steps', action_loss, num_steps)
 
-    writer.add_scalar('success_rate_epoch', num_epoch, success_rate)
-    writer.add_scalar('success_rate_steps', num_steps, success_rate)
+    writer.add_scalar('success_rate_epoch', success_rate, num_epoch)
+    writer.add_scalar('success_rate_steps', success_rate, num_steps)
 
 
 def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
