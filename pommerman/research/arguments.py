@@ -41,7 +41,7 @@ def get_args():
                         help='log interval, one log per n updates (10)')
     parser.add_argument('--save-interval', type=int, default=10,
                         help='save interval, one save per n updates (10)')
-    parser.add_argument('--num-frames', type=int, default=10e6,
+    parser.add_argument('--num-frames', type=int, default=10e7,
                         help='number of frames to train (10e6)')
     parser.add_argument('--log-dir', default='./logs',
                         help='directory to save agent logs (./logs)')
@@ -87,6 +87,8 @@ def get_args():
     parser.add_argument('--anneal-expert-prob', action='store_true', default=False,
                         help='anneal the probability of using the expert')
     parser.add_argument('--minibatch-size', type=int, default=5000,
+                        help='size of the minibatch for training on the aggregated dataset')
+    parser.add_argument('--num-steps-eval', type=int, default=1000,
                         help='size of the minibatch for training on the aggregated dataset')
 
     args = parser.parse_args()

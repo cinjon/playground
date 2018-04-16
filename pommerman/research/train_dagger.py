@@ -99,7 +99,6 @@ def train():
     start = time.time()
 
     for num_epoch in range(start_epoch, num_epochs):
-        # NOTE: moved envs inside the loop so that you get dif init position for the dagger agent each epoch
         envs = env_helpers.make_envs(config, how_train, args.seed,
                                      args.game_state_file, training_agents,
                                      num_stack, num_processes, args.render)
@@ -108,7 +107,7 @@ def train():
             agent_obs = agent_obs.cuda()
 
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
-            utils.save_agents("dagger", num_epoch, training_agents,
+            utils.save_agents("dagger-", num_epoch, training_agents,
                               total_steps, num_episodes, args)
 
         # expert_prob 0.5 --> 0 after 100 epochs with 0.005 annealing factor.
@@ -126,6 +125,15 @@ def train():
         ########
 
         for step in range(args.num_steps):
+            # NOTE: moved envs inside the loop so that you get dif init position for the dagger agent each epoch
+            if step > 0 and done[0][0]:
+                envs = env_helpers.make_envs(config, how_train, args.seed,
+                                             args.game_state_file, training_agents,
+                                             num_stack, num_processes, args.render)
+                agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
+                if args.cuda:
+                    agent_obs = agent_obs.cuda()
+
             expert_obs = envs.get_expert_obs()
             expert_obs = expert_obs[0][0]
             expert_action = expert.act(expert_obs, action_space=action_space)
@@ -159,6 +167,7 @@ def train():
             agent_obs = torch.from_numpy(obs).float().squeeze(0)
             if args.cuda:
                 agent_obs = agent_obs.cuda()
+
 
         total_steps += num_processes * num_steps
 
@@ -313,6 +322,7 @@ def train():
             total_reward_mean = total_reward_mean / args.num_steps_eval
             success_rate = success_rate / args.num_steps_eval
 
+
             end = time.time()
             steps_per_sec = 1.0 * total_steps / (end - start)
             epochs_per_sec = 1.0 * num_epoch / (end - start)
@@ -324,6 +334,9 @@ def train():
 
             utils.log_to_tensorboard_dagger(writer, num_epoch, total_steps, np.mean(action_losses), \
                                             total_reward_mean, success_rate, final_reward_mean)
+
+        if success_rate >= 0.22:   # early stopping when performance is same with SimpleAgent
+            break
 
 
     writer.close()
