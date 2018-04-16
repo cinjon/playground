@@ -23,8 +23,10 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
     for path in paths:
         if path:
             print("Loading path %s as agent." % path)
+            # NOTE: changed loading model to gpu to load model on certain cuda_device to avoid memory/segfault issues
+            # on my local machine when running other stuff on other gpus - always loads model on gpu 0 for some reason
             if args.cuda:
-                loaded_model = torch.load(path)
+                loaded_model = torch.load(path, map_location=lambda storage, loc: storage.cuda(args.cuda_device))
             else:
                 loaded_model = torch.load(path, map_location='cpu')
             model_state_dict = loaded_model['state_dict']
@@ -92,9 +94,9 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
             'num_episodes': num_episodes,
         }
         save_dict['args'] = vars(args)
-        suffix = "{}.ht-{}.cfg-{}.m-{}.nc-{}.lr-{}-.mb-{}.prob-{}.anneal-{}.num-{}.epoch-{}.steps-{}.seed-{}.pt" \
-                 .format(name, how_train, config, model_str, args.num_channels, args.lr, args.minibatch_size,
-                        args.expert_prob, args.anneal_expert_prob, num_agent, num_epoch, total_steps, seed)
+        suffix = "{}.ht-{}.cfg-{}.m-{}.nc-{}.lr-{}-.mb-{}.ns-{}.num-{}.epoch-{}.steps-{}.seed-{}.pt" \
+                 .format(name, how_train, config, model_str, args.num_channels, args.lr, args.num_mini_batch,
+                        args.num_steps, num_agent, num_epoch, total_steps, seed)
         torch.save(save_dict, os.path.join(save_dir, suffix))
 
 
@@ -127,19 +129,23 @@ def get_train_vars(args):
         num_processes, num_epochs
 
 
+
+
 def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     epochs_per_sec, final_rewards, mean_dist_entropy,
-                    mean_value_loss, mean_action_loss):
-    print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, epochs "
-          "per sec {}, mean reward {:.1f}, min/max reward "
+                    mean_value_loss, mean_action_loss, terminal_reward,
+                    success_rate, running_num_episodes):
+    print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, epochs per sec {} "
+          "mean terminal reward {:.1f}, mean success rate {:.1f} "
+          "mean cumulative reward {:.1f}, min/max cumulative reward "
           "{:.1f}/{:.1f}, avg entropy {:.5f}, avg value loss {:.5f}, avg "
           "policy loss {:.5f}"
           .format(num_epoch, num_episodes, total_steps, steps_per_sec,
-                  epochs_per_sec, final_rewards.mean(),
-                  final_rewards.min(),
-                  final_rewards.max(), mean_dist_entropy, mean_value_loss,
+                  epochs_per_sec, 1.0*terminal_reward/running_num_episodes,
+                  1.0*success_rate/running_num_episodes,
+                  final_rewards.mean(), final_rewards.min(), final_rewards.max(),
+                  mean_dist_entropy, mean_value_loss,
                   mean_action_loss))
-
 
 def log_to_tensorboard_dagger(writer, num_epoch, num_steps, action_loss,
                                 total_reward, success_rate, final_reward):
@@ -161,7 +167,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        steps_per_sec, episodes_per_sec, final_rewards,
                        mean_dist_entropy, mean_value_loss, mean_action_loss,
                        std_dist_entropy, std_value_loss, std_action_loss,
-                       count_stats, array_stats, running_num_episodes):
+                       count_stats, array_stats, terminal_reward, success_rate,
+                       running_num_episodes):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -186,9 +193,15 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     #     'std_min': mean_value_loss - std_value_loss,
     # }, num_episodes)
 
-    writer.add_scalar('epochs', num_epoch, num_episodes)
-    writer.add_scalar('steps_per_sec', steps_per_sec, num_episodes)
-    writer.add_scalar('episodes_per_sec', episodes_per_sec, num_episodes)
+    # TODO: is the below calculation right? double-check
+    writer.add_scalar('final_rewards_mean', final_rewards.mean(), num_episodes)
+    writer.add_scalar('cumulative_rewards',
+                        1.0 * final_rewards.sum() / running_num_episodes, num_episodes)
+    writer.add_scalar('terminal_reward',
+                        1.0 * terminal_reward / running_num_episodes, num_episodes)
+    writer.add_scalar('success_rate',
+                        1.0 * success_rate / running_num_episodes, num_episodes)
+
 
     for title, count in count_stats.items():
         if title.startswith('bomb:'):

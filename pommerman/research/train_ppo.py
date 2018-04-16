@@ -32,9 +32,12 @@ import utils
 
 
 def train():
+    args = get_args()
     os.environ['OMP_NUM_THREADS'] = '1'
 
-    args = get_args()
+    torch.cuda.set_device(args.cuda_device)
+    torch.cuda.empty_cache()
+
     assert(args.run_name)
 
     how_train, config, num_agents, num_stack, num_steps, num_processes, \
@@ -46,15 +49,15 @@ def train():
     training_agents = utils.load_agents(
         obs_shape, action_space, num_training_per_episode, args,
         ppo_agent.PPOAgent)
-                                   
     envs = env_helpers.make_envs(config, how_train, args.seed,
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
 
     #####
     # Logging helpers.
-    suffix = "{}.train.ht-{}.cfg-{}.m-{}.seed-{}".format(
-        args.run_name, how_train, config, args.model_str, args.seed)
+    suffix = "ppo-{}.train.ht-{}.cfg-{}.m-{}.nc-{}.lr-{}.mb-{}.ns-{}.seed-{}".format(
+        args.run_name, how_train, config, args.model_str, args.num_channels,
+        args.lr, args.num_mini_batch, args.num_steps, args.seed)
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -75,6 +78,8 @@ def train():
     num_episodes = training_agents[0].num_episodes
 
     running_num_episodes = 0
+    terminal_reward = 0
+    success_rate = 0
     final_action_losses = [[] for agent in range(len(training_agents))]
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
@@ -104,7 +109,7 @@ def train():
                         count_stats[l] += 1
                         if 'bomb' in l:
                             count_stats['bomb'] += 1
-        
+
     current_obs = torch.zeros(num_training_per_episode, num_processes,
                               *obs_shape)
     update_current_obs(envs.reset())
@@ -131,7 +136,7 @@ def train():
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
-            utils.save_agents("ppo", num_epoch, training_agents, total_steps,
+            utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
                               num_episodes, args)
 
         for agent in training_agents:
@@ -165,6 +170,10 @@ def train():
 
             if args.render:
                 envs.render()
+
+            terminal_reward += reward[done.squeeze() == True].sum()
+            success_rate += sum([1 if x else 0 for x in
+                                [(done.squeeze() == True) & (reward.squeeze() > 0)][0] ])
 
             if how_train == 'simple':
                 running_num_episodes += sum([1 if done_ else 0
@@ -219,6 +228,7 @@ def train():
             final_rewards *= masks
             final_rewards += (1 - masks) * episode_rewards
             episode_rewards *= masks
+
 
             if args.cuda:
                 masks = masks.cuda()
@@ -286,7 +296,7 @@ def train():
 
         total_steps += num_processes * num_steps
 
-        if running_num_episodes > args.log_interval:
+        if num_epoch % args.log_interval == 0 and running_num_episodes > args.log_interval:
             end = time.time()
             num_steps_sec = (end - start)
             num_episodes += running_num_episodes
@@ -311,16 +321,18 @@ def train():
                 action_loss for action_loss in final_action_losses])
 
             utils.log_to_console(num_epoch, num_episodes, total_steps,
-                                 steps_per_sec, final_rewards,
-                                 mean_dist_entropy, mean_value_loss)
+                                 steps_per_sec, epochs_per_sec, final_rewards,
+                                 mean_dist_entropy, mean_value_loss, mean_action_loss,
+                                 terminal_reward, success_rate, running_num_episodes)
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
-                                     total_steps, steps_per_sec, final_rewards,
+                                     total_steps, steps_per_sec, episodes_per_sec,
+                                     final_rewards,
                                      mean_dist_entropy, mean_value_loss,
                                      mean_action_loss, std_dist_entropy,
                                      std_value_loss, std_action_loss,
                                      count_stats, array_stats,
-                                     running_num_episodes)
-                                     
+                                     terminal_reward, success_rate, running_num_episodes)
+
             # Reset stats so that plots are per the last log_interval.
             final_action_losses = [[] for agent in range(len(training_agents))]
             final_value_losses =  [[] for agent in range(len(training_agents))]
@@ -331,6 +343,8 @@ def train():
             final_rewards = torch.zeros([num_training_per_episode,
                                          num_processes, 1])
             running_num_episodes = 0
+            terminal_reward = 0
+            success_rate = 0
 
     writer.close()
 

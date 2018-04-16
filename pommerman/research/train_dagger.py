@@ -258,6 +258,9 @@ def train():
             final_reward_mean = 0
             total_reward_mean = 0
             for k in range(args.num_steps_eval):
+                envs = env_helpers.make_envs(config, how_train, args.seed,
+                                             args.game_state_file, training_agents,
+                                             num_stack, num_processes, args.render)
                 dagger_obs = torch.from_numpy(
                     envs.reset().reshape(1, *obs_shape)).float()
                 if args.cuda:
@@ -297,7 +300,7 @@ def train():
 
                 # NOTE: can add this when eval-only / rendering
                 # print("**** episode {} ***** ".format(k))
-                # print("win          {} ".format(success))
+                # print("win          {} ".format(reward[0][0] > 0))
                 # print("final reward {} ".format(reward[0][0]))
                 # print("total reward {} \n".format(total_rewards[0][0][0]))
 
