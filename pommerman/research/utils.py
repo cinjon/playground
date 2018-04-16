@@ -28,7 +28,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
             if args.cuda:
                 loaded_model = torch.load(path, map_location=lambda storage, loc: storage.cuda(args.cuda_device))
             else:
-                loaded_model = torch.load(path, map_location='cpu')
+                loaded_model = torch.load(path, map_location=lambda storage, loc: storage)
             model_state_dict = loaded_model['state_dict']
             optimizer_state_dict = loaded_model['optimizer']
             num_episodes = loaded_model['num_episodes']
@@ -47,6 +47,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
                          num_training_per_episode, num_episodes, total_steps,
                          num_epoch, optimizer_state_dict)
         training_agents.append(agent)
+
     return training_agents
 
 
@@ -95,7 +96,7 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
         }
         save_dict['args'] = vars(args)
         suffix = "{}.ht-{}.cfg-{}.m-{}.nc-{}.lr-{}-.mb-{}.ns-{}.num-{}.epoch-{}.steps-{}.seed-{}.pt" \
-                 .format(name, how_train, config, model_str, args.num_channels, args.lr, args.num_mini_batch,
+                 .format(name, how_train, config, model_str, args.num_channels, args.lr, args.minibatch_size,
                         args.num_steps, num_agent, num_epoch, total_steps, seed)
         torch.save(save_dict, os.path.join(save_dir, suffix))
 

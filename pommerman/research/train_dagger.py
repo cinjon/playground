@@ -99,6 +99,8 @@ def train():
     start = time.time()
 
     for num_epoch in range(start_epoch, num_epochs):
+        if num_epoch > start_epoch:
+            envs.close()
         envs = env_helpers.make_envs(config, how_train, args.seed,
                                      args.game_state_file, training_agents,
                                      num_stack, num_processes, args.render)
@@ -127,6 +129,7 @@ def train():
         for step in range(args.num_steps):
             # NOTE: moved envs inside the loop so that you get dif init position for the dagger agent each epoch
             if step > 0 and done[0][0]:
+                envs.close()
                 envs = env_helpers.make_envs(config, how_train, args.seed,
                                              args.game_state_file, training_agents,
                                              num_stack, num_processes, args.render)
@@ -267,6 +270,7 @@ def train():
             final_reward_mean = 0
             total_reward_mean = 0
             for k in range(args.num_steps_eval):
+                envs.close()
                 envs = env_helpers.make_envs(config, how_train, args.seed,
                                              args.game_state_file, training_agents,
                                              num_stack, num_processes, args.render)
@@ -335,7 +339,7 @@ def train():
             utils.log_to_tensorboard_dagger(writer, num_epoch, total_steps, np.mean(action_losses), \
                                             total_reward_mean, success_rate, final_reward_mean)
 
-        if success_rate >= 0.22:   # early stopping when performance is same with SimpleAgent
+        if success_rate >= 0.24:   # early stopping when performance is same with SimpleAgent
             break
 
 

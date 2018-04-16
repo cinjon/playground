@@ -46,7 +46,7 @@ def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
                       for agent_id in training_agent_ids]
         elif how_train == 'dagger':
             training_agent_ids = [random.randint(0, 3)]
-            print("training agent ids: ", training_agent_ids)
+            # print("training agent ids: ", training_agent_ids)
             agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
             agents.insert(training_agent_ids[0], training_agents[0])
         else:
@@ -75,7 +75,6 @@ def make_envs(config, how_train, seed, game_state_file, training_agents,
         for rank in range(num_processes)
     ]
     return SubprocVecEnv(envs)
-
 
 def get_env_shapes(config, num_stack):
     dummy_env = _make_env(config=config, how_train='dummy', seed=None, rank=-1,
