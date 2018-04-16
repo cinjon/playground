@@ -75,27 +75,18 @@ def get_args():
                         help='number of channels in the convolutional layers')
     parser.add_argument('--render', default=False, action='store_true',
                         help='whether to render the first process.')
+    parser.add_argument('--cuda-device', type=int, default=0,
+                        help='gpu id to be used')
 
-    parser.add_argument('--cims-address', type=str, default='',
-                        help='cims address, e.g. resnick@access.cims.nyu.edu. '
-                        'if empty, then assumed that we are using local.')
-    parser.add_argument('--cims-password', type=str, default='',
-                        help='cims password to copy over the model.')
-    parser.add_argument('--cims-save-model-local', type=str, default='',
-                        help='directory where to save a cims model locally.')
-    parser.add_argument('--num-steps-eval', type=int, default=100,
-                        help='number of steps to run for evaluation')
-    parser.add_argument('--target-eval-paths', type=str, default='',
-                        help='path to saved models being tested, should be in '
-                        'saved-paths as well. if >1, then assumes team.')
 
+    # for Dagger
     parser.add_argument('--expert-prob', type=float, default=0.5,
                         help='probability that the agent will act using the experts action')
     parser.add_argument('--anneal-factor', type=float, default=0.005,
                         help='probability that the agent will act using the experts action')
     parser.add_argument('--anneal-expert-prob', action='store_true', default=False,
                         help='anneal the probability of using the expert')
-    parser.add_argument('--minibatch-size', type=int, default=100,
+    parser.add_argument('--minibatch-size', type=int, default=5000,
                         help='size of the minibatch for training on the aggregated dataset')
 
     args = parser.parse_args()
