@@ -79,8 +79,6 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
             for agent_id in training_agents:
                 with utility.Timer() as t:
                     agent_obs = obs[agent_id]
-                    if args.cuda:
-                        agent_obs = agent_obs.cuda()
                     action = agents[agent_id].act(agent_obs, env.action_space)
                 _update_times(t.interval,
                               '%s-%d' % (str(type(agents[agent_id])), agent_id))

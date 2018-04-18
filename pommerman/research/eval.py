@@ -61,19 +61,25 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
         agent_type, path = info
         if path:
             model_str = args.model_str
-            actor_critic = lambda state, board_size, num_channels: networks.get_actor_critic(model_str)(
-                state, obs_shape[0], action_space, board_size, num_channels)
-
+            actor_critic = lambda state, board_size, num_channels: \
+                networks.get_actor_critic(model_str)(state, obs_shape[0],
+                                                     action_space, board_size,
+                                                     num_channels)
+                    
             print("Loading path %s as agent." % path)
             if args.cuda:
-                loaded_model = torch.load(apath, map_location=lambda storage, loc: storage.cuda(args.cuda_device))
+                loaded_model = torch.load(path, map_location=lambda storage,
+                                          loc: storage.cuda(args.cuda_device))
             else:
-                loaded_model = torch.load(path, map_location=lambda storage, loc: storage)
+                loaded_model = torch.load(path, map_location=lambda storage,
+                                          loc: storage)
             model_state_dict = loaded_model['state_dict']
             args_state_dict = loaded_model['args']
-            model = actor_critic(model_state_dict, args_state_dict['board_size'],
+            model = actor_critic(model_state_dict,
+                                 args_state_dict['board_size'],
                                  args_state_dict['num_channels'])
-            agent = agent_type(model, num_stack=args_state_dict['num_stack'])
+            agent = agent_type(model, num_stack=args_state_dict['num_stack'],
+                               cuda=args.cuda)
             if args.cuda:
                 agent.cuda()
             return agent

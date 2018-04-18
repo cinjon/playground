@@ -20,7 +20,8 @@ class PPOAgent(ResearchAgent):
 
     def cuda(self):
         self._actor_critic.cuda()
-        self._rollout.cuda()
+        if hasattr(self, "_rollout"):
+            self._rollout.cuda()
 
     @property
     def model(self):

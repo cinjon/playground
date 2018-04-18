@@ -17,16 +17,19 @@ class ResearchAgent(BaseAgent):
         super(ResearchAgent, self).__init__(character)
         self._num_stack = kwargs.get('num_stack', 1)
         self._obs_stack = deque([], maxlen=self._num_stack)
+        self._cuda = kwargs.get('cuda', False)
 
     def act(self, obs, action_space):
         obs = networks.featurize3D(obs)
-        obs = torch.from_numpy(obs) # 18,13,13
+        obs = torch.from_numpy(obs)
+        if self._cuda:
+            obs = obs.cuda()
         self._obs_stack.append(obs)
-        stacked_obs = list(self._obs_stack) # [(18,13,13)] --> [(18,13,13)]*2
+        stacked_obs = list(self._obs_stack)
         if len(stacked_obs) < self._num_stack:
             prepend = [stacked_obs[0]]*(self._num_stack - len(stacked_obs))
             stacked_obs = prepend + stacked_obs
-        stacked_obs = torch.cat(stacked_obs).unsqueeze(0).float() # 1,36,13,13
+        stacked_obs = torch.cat(stacked_obs).unsqueeze(0).float()
         masks = torch.ones(1, 1)
         value, action, _, states = self._actor_critic.act(
             Variable(stacked_obs, volatile=True),
