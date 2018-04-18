@@ -13,8 +13,13 @@ in terms of Win/Loss/Tie as well as mean/std of numbers of steps in each kind.
 
 Examples: 
 
+On Cpu:
 python eval.py --eval-targets ppo::/path/to/model.pt --num-battles-eval 100
- --eval-opponents simple::null,simple::null,simple::null
+ --eval-opponents simple::null,simple::null,simple::null --config PommeFFAFast-v3
+
+On Gpu:
+CUDA_VISIBLE_DEVICES=0 python eval.py --eval-targets ppo::/path/to/model.py \
+ --num-battles-eval 200 --config PommeFFAFast-v3 --cuda-device 0
 
 TODO: Include an example using ssh.
 """
