@@ -13,6 +13,7 @@ An example with a docker agent:
 python run_battle.py --agents=player::arrows,docker::pommerman/test-agent,random::null,random::null --config=ffa_v0
 """
 import atexit
+from collections import defaultdict
 import os
 import random
 import time
@@ -22,7 +23,12 @@ import numpy as np
 
 from .. import helpers
 from .. import make
+from .. import utility
 
+
+time_avg = defaultdict(float)
+time_max = defaultdict(float)
+time_cnt = defaultdict(int)
 
 def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
     config = args.config
@@ -47,9 +53,20 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
         assert not os.path.isdir(args.record_json_dir)
         os.makedirs(args.record_json_dir)
 
+    def _update_times(t, key):
+        avg = time_avg[key]
+        cnt = time_cnt[key]
+        new_avg = (float(avg)*float(cnt) + float(t))
+        new_avg /= float(cnt + 1)
+        time_cnt[key] = cnt + 1
+        time_avg[key] = new_avg
+        time_max[key] = max(time_max[key], float(t))
+
     def _run(seed, record_pngs_dir=None, record_json_dir=None):
+        global time_avg
+        global time_max
+        global time_cnt
         env.seed(seed)
-        print("Starting the Game.")
         obs = env.reset()
         steps = 0
         done = False
@@ -60,17 +77,45 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
                            record_json_dir=args.record_json_dir)
             actions = env.act(obs)
             for agent_id in training_agents:
-                action = agents[agent_id].act(obs[agent_id], env.action_space)
+                with utility.Timer() as t:
+                    agent_obs = obs[agent_id]
+                    if args.cuda:
+                        agent_obs = agent_obs.cuda()
+                    action = agents[agent_id].act(agent_obs, env.action_space)
+                _update_times(t.interval,
+                              '%s-%d' % (str(type(agents[agent_id])), agent_id))
                 actions.insert(agent_id, action)
 
             obs, reward, done, info = env.step(actions)
             if type(done) == list:
                 done = all(done)
 
+            if done:
+                print("Agent Run Times:")
+                total = 0.0
+                for k, v in env.model._time_avg.items():
+                    time_avg[k] += v
+                for k, v in env.model._time_cnt.items():
+                    time_cnt[k] += v
+                for k, v in env.model._time_max.items():
+                    time_max[k] = max(time_max[k], v)
+                    
+                for key in sorted(time_avg.keys()):
+                    avg = time_avg[key]
+                    cnt = time_cnt[key]
+                    mx  = time_max[key]
+                    print("\t%s: %.4f (%d) --> %.4f, %.4f" % (key, avg, cnt,
+                                                              avg * cnt, mx))
+                    total += avg * cnt
+                print("\tTotal: %.4f" % total)
+                env.model.reset_times()
+                time_avg = defaultdict(float)
+                time_max = defaultdict(float)
+                time_cnt = defaultdict(int)
+
         for agent in agents:
             agent.episode_end(reward[agent.agent_id])
         
-        print("Final Result: ", info)
         if args.render:
             time.sleep(5) 
             env.render(close=True)
@@ -92,7 +137,7 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
         infos.append(_run(seed, record_pngs_dir_, record_json_dir_))
 
         times.append(time.time() - start)
-        print("Game Time: ", times[-1])
+        print("Game %d final result (%.4f): " % (i, times[-1]), infos[-1])
 
     atexit.register(env.close)
     return infos

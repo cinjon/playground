@@ -3,6 +3,7 @@
 This evironment acts as game manager for Pommerman. Further environments,
 such as in v1.py, will inherit from this.
 """
+from collections import defaultdict
 import json
 import os
 
@@ -17,6 +18,7 @@ from .. import characters
 from .. import constants
 from .. import forward_model
 from .. import utility
+from ..agents import SimpleAgent
 
 
 class Pomme(gym.Env):
@@ -180,6 +182,29 @@ class Pomme(gym.Env):
         info = self._get_info(done, reward)
 
         self._step_count += 1
+        if all(done):
+            time_avg = defaultdict(float)
+            time_max = defaultdict(float)
+            time_cnt = defaultdict(int)
+            for agent in self._agents:
+                if type(agent) == SimpleAgent:
+                    for k, v in agent._time_cnt.items():
+                        time_cnt[k] += v
+                    for k, v in agent._time_avg.items():
+                        time_avg[k] += v
+                    for k, v in agent._time_max.items():
+                        time_max[k] = max(time_max[k], v)
+                    agent.reset_times()
+            print("\nEpisode end times:")
+            total = 0.0
+            for key in sorted(time_avg.keys()):
+                avg = time_avg[key] / 3.0
+                cnt = time_cnt[key]
+                mx  = time_max[key]
+                print("\t%s: %.4f (%d) --> %.4f, %.4f" % (key, avg, cnt,
+                                                          avg * cnt, mx))
+                total += avg * cnt
+            print("\tTotal: %.4f" % total)
         return obs, reward, done, info
 
     def _render_frames(self):

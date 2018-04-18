@@ -1,6 +1,11 @@
+from functools import wraps
+import errno
 import itertools
 import json
+import os
 import random
+import signal
+import time
 
 from gym import spaces
 import numpy as np
@@ -301,3 +306,37 @@ def get_next_position(position, direction):
 
 def make_np_float(feature):
     return np.array(feature).astype(np.float32)
+
+
+def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
+    def decorator(func):
+        def _handle_timeout(signum, frame):
+            raise TimeoutError(error_message)
+
+        def wrapper(*args, **kwargs):
+            signal.signal(signal.SIGALRM, _handle_timeout)
+            signal.setitimer(signal.ITIMER_REAL,seconds)
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+        return wraps(func)(wrapper)
+    return decorator
+
+
+class Timer:
+    """With block timer.
+
+    with Timer() as t:
+      foo = blah()
+    print('Request took %.03f sec.' % t.interval)
+    """
+    def __enter__(self):
+        self.start = time.time()
+        return self
+
+    def __exit__(self, *args):
+        self.end = time.time()
+        self.interval = self.end - self.start
+

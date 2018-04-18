@@ -10,6 +10,23 @@ from .agents import SimpleAgent
 
 class ForwardModel(object):
     """Class for helping with the [forward] modeling of the game state."""
+    def __init__(self):
+        self.reset_times()
+
+    def reset_times(self):
+        self._time_avg = defaultdict(float)
+        self._time_max = defaultdict(float)
+        self._time_cnt = defaultdict(int)
+
+    def _update_times(self, t, key):
+        avg = self._time_avg[key]
+        cnt = self._time_cnt[key]
+        new_avg = (float(avg)*float(cnt) + float(t))
+        new_avg /= float(cnt + 1)
+        self._time_cnt[key] = cnt + 1
+        self._time_avg[key] = new_avg
+        self._time_max[key] = max(self._time_max[key], float(t))
+
     def run(self, num_times, board, agents, bombs, items, flames, is_partially_observable, agent_view_size, action_space, training_agent=None, is_communicative=False):
         """Run the forward model.
 
@@ -64,8 +81,9 @@ class ForwardModel(object):
                 break
         return steps, board, agents, bombs, items, flames, done, info
 
-    @staticmethod
-    def act(agents, obs, action_space, is_communicative=False):
+    # @staticmethod               
+    # def act(agents, obs, action_space, is_communicative=False):
+    def act(self, agents, obs, action_space, is_communicative=False):
         """Returns actions for each agent in this list.
 
         Args:
@@ -76,6 +94,8 @@ class ForwardModel(object):
 
         Returns a list of actions.
         """
+        # TODO: Use a timeout here.
+        # @utils.timeout(0.15)
         def act_ex_communication(agent):
             if agent.is_alive:
                 return agent.act(obs[agent.agent_id], action_space=action_space)
@@ -94,10 +114,13 @@ class ForwardModel(object):
 
         ret = []
         for agent in agents:
-            if is_communicative:
-                ret.append(act_with_communication(agent))
-            else:
-                ret.append(act_ex_communication(agent))
+            with utility.Timer() as t:
+                if is_communicative:
+                    ret.append(act_with_communication(agent))
+                else:
+                    ret.append(act_ex_communication(agent))
+            self._update_times(
+                t.interval, "%s-%d" % (str(type(agent)), agent.agent_id))
         return ret
 
     def step(self, actions, curr_board, curr_agents, curr_bombs, curr_items,
