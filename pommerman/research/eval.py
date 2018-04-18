@@ -65,12 +65,18 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
                 state, obs_shape[0], action_space, board_size, num_channels)
 
             print("Loading path %s as agent." % path)
-            loaded_model = torch.load(path, map_location='cpu')
+            if args.cuda:
+                loaded_model = torch.load(apath, map_location=lambda storage, loc: storage.cuda(args.cuda_device))
+            else:
+                loaded_model = torch.load(path, map_location=lambda storage, loc: storage)
             model_state_dict = loaded_model['state_dict']
             args_state_dict = loaded_model['args']
             model = actor_critic(model_state_dict, args_state_dict['board_size'],
                                  args_state_dict['num_channels'])
-            return agent_type(model, num_stack=args_state_dict['num_stack'])
+            agent = agent_type(model, num_stack=args_state_dict['num_stack'])
+            if args.cuda:
+                agent.cuda()
+            return agent
         else:
             return agent_type()
 
@@ -102,8 +108,11 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
 
 
 def eval():
-    os.environ['OMP_NUM_THREADS'] = '1'
     args = get_args()
+    if args.cuda:
+        os.environ['OMP_NUM_THREADS'] = '1'
+        torch.cuda.empty_cache()
+        torch.cuda.manual_seed(args.seed)
 
     torch.manual_seed(args.seed)
     mode = args.eval_mode
@@ -125,7 +134,6 @@ def eval():
             num_times = args.num_battles_eval // 4
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
-            args.render = (position == 2)
             infos = run_battle.run(args, num_times=num_times, seed=args.seed,
                                    agents=agents, training_agents=[position])
             for info in infos:
