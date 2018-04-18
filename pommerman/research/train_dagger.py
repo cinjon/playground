@@ -56,10 +56,10 @@ def train():
 
     #####
     # Logging helpers.
-    suffix = "{}.ht-{}.cfg-{}.m-{}.nc-{}.lr-{}-.mb-{}.prob-{}.anneal-{}.seed-{}.pt" \
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.prob{}.anneal{}.seed{}.pt" \
              .format(args.run_name, args.how_train, config, args.model_str,
-                     args.num_channels, args.lr, args.minibatch_size, args.expert_prob,
-                     args.anneal_expert_prob, args.seed)
+                     args.num_channels, args.lr, args.minibatch_size,
+                     args.expert_prob, args.anneal_expert_prob, args.seed)
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -122,7 +122,8 @@ def train():
             envs.close()
         envs = env_helpers.make_envs(config, how_train, args.seed,
                                      args.game_state_file, training_agents,
-                                     num_stack, dagger_num_processes, args.render)
+                                     num_stack, dagger_num_processes,
+                                     args.render)
         agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
         if args.cuda:
             agent_obs = agent_obs.cuda()
@@ -146,12 +147,14 @@ def train():
         ########
 
         for step in range(args.num_steps):
-            # NOTE: moved envs inside the loop so that you get dif init position for the dagger agent each epoch
+            # NOTE: moved envs inside the loop so that you get dif init
+            # position for the dagger agent each epoch
             if step > 0 and done[0][0]:
                 envs.close()
-                envs = env_helpers.make_envs(config, how_train, args.seed,
-                                             args.game_state_file, training_agents,
-                                             num_stack, dagger_num_processes, args.render)
+                envs = env_helpers.make_envs(
+                    config, how_train, args.seed, args.game_state_file,
+                    training_agents, num_stack, dagger_num_processes,
+                    args.render)
                 agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
                 if args.cuda:
                     agent_obs = agent_obs.cuda()
@@ -165,7 +168,8 @@ def train():
             agent_states_list.append(agent_obs.squeeze(0))
             expert_actions_list.append(expert_action_tensor)
 
-            # TODO: debug - figure out if expert_obs (for expert) is the same with current_obs (for agent)
+            # TODO: debug - figure out if expert_obs (for expert) is the
+            # same with current_obs (for agent)
             if random.random() <= expert_prob:
                 # take action provided by expert
                 list_expert_action = []
@@ -286,23 +290,27 @@ def train():
         ######
         if num_epoch % args.log_interval == 0:
             st = time.time()
-            dagger_obs = torch.from_numpy(eval_envs.reset()).float().squeeze(0).squeeze(1)
+            dagger_obs = torch.from_numpy(eval_envs.reset())\
+                              .float().squeeze(0).squeeze(1)
             if args.cuda:
                 dagger_obs = dagger_obs.cuda()
             while running_num_episodes < args.num_steps_eval:
-                result = agent.dagger_act(Variable(dagger_obs, volatile=True), \
-                                            Variable(dummy_states_eval, volatile=True), \
-                                            Variable(dummy_masks_eval, volatile=True))
+                result = agent.dagger_act(
+                    Variable(dagger_obs, volatile=True),
+                    Variable(dummy_states_eval, volatile=True), 
+                    Variable(dummy_masks_eval, volatile=True))
                 _, actions, _, _ = result
                 cpu_actions = actions.data.squeeze(1).cpu().numpy()
                 cpu_actions_agents = cpu_actions
                 obs, reward, done, info = eval_envs.step(cpu_actions_agents)
 
-                dagger_obs = torch.from_numpy(obs.reshape(num_processes, *obs_shape)).float()
+                dagger_obs = torch.from_numpy(
+                    obs.reshape(num_processes, *obs_shape)).float()
                 if args.cuda:
                     dagger_obs = dagger_obs.cuda()
 
-                running_num_episodes += sum([1 if done_ else 0 for done_ in done])
+                running_num_episodes += sum([1 if done_ else 0
+                                             for done_ in done])
                 terminal_reward += reward[done.squeeze() == True].sum()
                 success_rate += sum([1 if x else 0 for x in
                                     [(done.squeeze() == True) & (reward.squeeze() > 0)][0] ])
@@ -348,6 +356,7 @@ def train():
             success_rate = 0
 
         if success_rate >= 0.24:   # early stopping when performance is same with SimpleAgent
+            print("STOPPING EARLY :) --> ", success_rate)
             break
 
 
