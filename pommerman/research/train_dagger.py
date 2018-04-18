@@ -130,7 +130,7 @@ def train():
 
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("dagger-", num_epoch, training_agents,
-                              total_steps, num_episodes, args)
+                              total_steps, num_episodes, args, suffix)
 
         # expert_prob 0.5 --> 0 after 100 epochs with 0.005 annealing factor.
         if args.anneal_expert_prob:

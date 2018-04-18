@@ -58,7 +58,7 @@ def is_save_epoch(num_epoch, start_epoch, save_interval):
 
 
 def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
-                args):
+                args, suffix=None):
     """Save the model.
 
     Args:
@@ -67,7 +67,8 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
       training_agents: The agent classes being trained.
       total_steps: The current number of steps.
       num_episodes: The number of episodes thus far.
-      args: The args from arguments.py
+      args: The args from arguments.py.
+      suffix: A given suffix to call each agent's saved model.
     """
     name = prefix + args.run_name
     config = args.config
@@ -95,10 +96,13 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
             'num_episodes': num_episodes,
         }
         save_dict['args'] = vars(args)
-        suffix = "{}.ht-{}.cfg-{}.m-{}.nc-{}.lr-{}-.mb-{}.ns-{}.num-{}.epoch-{}.steps-{}.seed-{}.pt" \
-                 .format(name, how_train, config, model_str, args.num_channels, args.lr, args.minibatch_size,
-                        args.num_steps, num_agent, num_epoch, total_steps, seed)
-        torch.save(save_dict, os.path.join(save_dir, suffix))
+        if not suffix:
+            suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.epoch{}.steps{}.seed{}.pt" \
+                     .format(name, how_train, config, model_str,
+                             args.num_channels, args.lr, args.minibatch_size,
+                             args.num_steps, num_epoch, total_steps, seed)
+        save_path = os.path.join(save_dir, "agent%d-%s" % (num_agent, suffix))
+        torch.save(save_dict, save_path)
 
 
 def scp_model_from_ssh(saved_paths, ssh_address, ssh_password,

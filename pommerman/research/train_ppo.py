@@ -55,7 +55,7 @@ def train():
 
     #####
     # Logging helpers.
-    suffix = "ppo-{}.train.ht-{}.cfg-{}.m-{}.nc-{}.lr-{}.mb-{}.ns-{}.seed-{}".format(
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.seed{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,
         args.lr, args.num_mini_batch, args.num_steps, args.seed)
     log_dir = os.path.join(args.log_dir, suffix)
@@ -138,7 +138,7 @@ def train():
     for num_epoch in range(start_epoch, num_epochs + start_epoch):
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
-                              num_episodes, args)
+                              num_episodes, args, suffix)
 
         for agent in training_agents:
             agent.set_eval()
