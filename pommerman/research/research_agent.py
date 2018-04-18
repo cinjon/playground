@@ -32,7 +32,7 @@ class ResearchAgent(BaseAgent):
             Variable(stacked_obs, volatile=True),
             Variable(self._states, volatile=True),
             Variable(masks, volatile=True),
-        deterministic=False)
+            deterministic=True)
         self._states = states.data
         action = action.data.squeeze(1).cpu().numpy()[0]
         return action

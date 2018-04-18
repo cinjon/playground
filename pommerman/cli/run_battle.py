@@ -59,6 +59,10 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
                 env.render(record_pngs_dir=args.record_pngs_dir,
                            record_json_dir=args.record_json_dir)
             actions = env.act(obs)
+            for agent_id in training_agents:
+                action = agents[agent_id].act(obs[agent_id], env.action_space)
+                actions.insert(agent_id, action)
+
             obs, reward, done, info = env.step(actions)
             if type(done) == list:
                 done = all(done)
@@ -68,9 +72,8 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
         
         print("Final Result: ", info)
         if args.render:
-            time.sleep(5)
-            env.render(record_pngs_dir=args.record_pngs_dir,
-                       record_json_dir=args.record_json_dir, close=True)
+            time.sleep(5) 
+            env.render(close=True)
         return info
 
     infos = []

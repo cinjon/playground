@@ -296,7 +296,7 @@ def get_next_position(position, direction):
         return (x-1, y)
     elif direction == constants.Action.Stop:
         return (x, y)
-    raise constants.InvalidAction("We did not receive a valid direction.")
+    raise constants.InvalidAction("We did not receive a valid direction: ", position, direction)
 
 
 def make_np_float(feature):

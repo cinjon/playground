@@ -130,8 +130,6 @@ def get_train_vars(args):
         num_processes, num_epochs
 
 
-
-
 def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     epochs_per_sec, final_rewards, mean_dist_entropy,
                     mean_value_loss, mean_action_loss,

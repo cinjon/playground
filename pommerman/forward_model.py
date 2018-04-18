@@ -5,11 +5,11 @@ import numpy as np
 from . import constants
 from . import characters
 from . import utility
+from .agents import SimpleAgent
 
 
 class ForwardModel(object):
     """Class for helping with the [forward] modeling of the game state."""
-
     def run(self, num_times, board, agents, bombs, items, flames, is_partially_observable, agent_view_size, action_space, training_agent=None, is_communicative=False):
         """Run the forward model.
 
@@ -265,7 +265,7 @@ class ForwardModel(object):
 
         # Kill these agents.
         for agent in curr_agents:
-            if agent.in_range(exploded_map):
+            if agent.is_alive and agent.in_range(exploded_map):
                 agent.die()
                 self.step_info[agent.agent_id].append('dead')
         exploded_map = np.array(exploded_map)
@@ -349,7 +349,7 @@ class ForwardModel(object):
             training_agents_dead = all([agent not in alive_ids
                                         for agent in training_agents])
             if training_agents and training_agents_dead:
-                # We have training_agents and they aren't all dead.
+                # We have training_agents and they are all dead.
                 return [True]*4 if all_agents else True
             else:
                 if len(alive) <= 1:

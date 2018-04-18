@@ -167,7 +167,6 @@ def train():
             obs, reward, done, info = envs.step(cpu_actions_agents)
             reward = reward.astype(np.float)
 
-
             update_stats(info)
 
             if args.render:

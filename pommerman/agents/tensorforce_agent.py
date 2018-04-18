@@ -12,7 +12,7 @@ class TensorForceAgent(BaseAgent):
         self.algorithm = algorithm
 
     def act(self, obs, action_space):
-        """This agent has its own way of inducing actions. See train_with_tensorforce."""
+        """This agent doesn't use "act". See train_with_tensorforce."""
         return None
 
     def initialize(self, env):
