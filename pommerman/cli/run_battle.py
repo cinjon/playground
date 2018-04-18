@@ -45,6 +45,11 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
 
     env = make(config, agents, game_state_file)
     env.set_training_agents(training_agents)
+    if seed is None:
+        seed = random.randint(0, 1e6)
+    env.seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
     if args.record_pngs_dir:
         assert not os.path.isdir(args.record_pngs_dir)
@@ -66,7 +71,6 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
         global time_avg
         global time_max
         global time_cnt
-        env.seed(seed)
         obs = env.reset()
         steps = 0
         done = False
@@ -123,11 +127,6 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
     times = []
     for i in range(num_times):
         start = time.time()
-        if seed is None:
-            seed = random.randint(0, 1e6)
-        np.random.seed(seed)
-        random.seed(seed)
-
         record_pngs_dir_ = record_pngs_dir + '/%d' % (i+1) \
                            if record_pngs_dir else None
         record_json_dir_ = record_json_dir + '/%d' % (i+1) \
