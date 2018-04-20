@@ -27,8 +27,7 @@ from collections import defaultdict
 import os
 import random
 
-from pommerman import configs
-from pommerman import agents
+import pommerman
 from pommerman.cli import run_battle
 import numpy as np
 import torch
@@ -60,7 +59,7 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
         elif model_type == 'dagger':
             return dagger_agent.DaggerAgent, model_path
         elif model_type == 'simple':
-            return agents.SimpleAgent, None
+            return pommerman.agents.SimpleAgent, None
 
     def _build(info):
         agent_type, path = info
@@ -137,6 +136,7 @@ def eval():
     # Run the model with run_battle.
     if mode == 'ffa':
         print('Starting FFA Battles.')
+        ties = defaultdict(int)
         wins = defaultdict(int)
         deads = defaultdict(list)
         ranks = defaultdict(list)
@@ -145,24 +145,36 @@ def eval():
             num_times = args.num_battles_eval // 4
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
+            training_agents = []
+            if not type(targets[0]) == pommerman.agents.SimpleAgent:
+                training_agents.append(position)
             infos = run_battle.run(args, num_times=num_times, seed=args.seed,
-                                   agents=agents, training_agents=[position])
+                                   agents=agents, training_agents=training_agents)
             for info in infos:
+                if 'result' in info and info['result'] == pommerman.constants.Result.Tie and not info.get('step_info'):
+                    ties[position] += 1
                 if 'winners' in info and info['winners'] == [position]:
                     wins[position] += 1
                 if 'step_info' in info and position in info['step_info']:
                     agent_step_info = info['step_info'][position]
                     for kv in agent_step_info:
-                        k, v = kv.split(':')
-                        if k == 'dead':
-                            deads[position].append(int(v))
-                        elif k == 'rank':
-                            ranks[position].append(int(v))
+                        try:
+                            if ':' not in kv:
+                                continue
+                            k, v = kv.split(':')
+                            if k == 'dead':
+                                deads[position].append(int(v))
+                            elif k == 'rank':
+                                ranks[position].append(int(v))
+                        except ValueError as e:
+                                print("ValueError: ", e, info)
+                                raise
 
             print("Position %d Result: " % position)
             print("Wins: ", wins)
             print("Dead: ", deads)
             print("Ranks: ", ranks)
+            print("Ties: ", ties)
             print("\n")
     elif mode == 'homogenous_team':
         print('Starting Homogenous Team Battles.')
