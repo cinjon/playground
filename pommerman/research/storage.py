@@ -153,10 +153,10 @@ class ReplayBuffer:
         self.buffer_size = size
 
         self.state_buffer = torch.zeros(0, *state_shape)
-        self.action_buffer = torch.zeros(0, *action_shape)
+        self.action_buffer = torch.zeros(0, *action_shape).long()
         self.reward_buffer = torch.zeros(0, 1)
         self.next_state_buffer = torch.zeros(0, *state_shape)
-        self.done_buffer = torch.zeros(0, 1)
+        self.done_buffer = torch.zeros(0, 1).long()
 
         self._size = 0
 
@@ -196,7 +196,7 @@ class ReplayBuffer:
         assert batch_size <= self._size, \
             'Unable to sample {} items, current buffer size {}'.format(batch_size, self._size)
 
-        batch_index = (torch.rand(batch_size) * (self._size + 1)).long()
+        batch_index = (torch.rand(batch_size) * self._size).long()
 
         state_batch = self.state_buffer.index_select(0, batch_index)
         action_batch = self.action_buffer.index_select(0, batch_index)
@@ -205,3 +205,6 @@ class ReplayBuffer:
         done_batch = self.done_buffer.index_select(0, batch_index)
 
         return state_batch, action_batch, reward_batch, next_state_batch, done_batch
+
+    def __len__(self):
+        return self._size
