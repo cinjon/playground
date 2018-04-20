@@ -148,34 +148,33 @@ def eval():
             training_agents = []
             if not type(targets[0]) == pommerman.agents.SimpleAgent:
                 training_agents.append(position)
-            infos = run_battle.run(args, num_times=num_times, seed=args.seed,
-                                   agents=agents, training_agents=training_agents)
+            infos = run_battle.run(
+                args, num_times=num_times, seed=args.seed, agents=agents,
+                training_agents=training_agents)
+                
             for info in infos:
-                if 'result' in info and info['result'] == pommerman.constants.Result.Tie and not info.get('step_info'):
+                if all(['result' in info,
+                        info['result'] == pommerman.constants.Result.Tie,
+                        not info.get('step_info')]):
                     ties[position] += 1
                 if 'winners' in info and info['winners'] == [position]:
                     wins[position] += 1
                 if 'step_info' in info and position in info['step_info']:
                     agent_step_info = info['step_info'][position]
                     for kv in agent_step_info:
-                        try:
-                            if ':' not in kv:
-                                continue
-                            k, v = kv.split(':')
-                            if k == 'dead':
-                                deads[position].append(int(v))
-                            elif k == 'rank':
-                                ranks[position].append(int(v))
-                        except ValueError as e:
-                                print("ValueError: ", e, info)
-                                raise
+                        if ':' not in kv:
+                            continue
+                        k, v = kv.split(':')
+                        if k == 'dead':
+                            deads[position].append(int(v))
+                        elif k == 'rank':
+                            ranks[position].append(int(v))
 
-            print("Position %d Result: " % position)
-            print("Wins: ", wins)
-            print("Dead: ", deads)
-            print("Ranks: ", ranks)
-            print("Ties: ", ties)
-            print("\n")
+        print("Wins: ", wins)
+        print("Dead: ", deads)
+        print("Ranks: ", ranks)
+        print("Ties: ", ties)
+        print("\n")
     elif mode == 'homogenous_team':
         print('Starting Homogenous Team Battles.')
         for position in range(2):
