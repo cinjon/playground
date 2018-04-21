@@ -1,5 +1,4 @@
 """Eval script.
-
 We have a target model ("target") that we are evaluating. The modes considered:
 1. "ffa": Eval "target" against three agents in an FFA.
 2. "homogenous-team": Eval "target" on a team with itself against two other
@@ -7,23 +6,22 @@ We have a target model ("target") that we are evaluating. The modes considered:
  "opp1", "opp2". If "opp2" is None or empty str, then we duplicate "opp1".
 3. "heterogenous-team": In this scenario, there is a second "target2". Aside
  from that, it is the same as #2 above.
-
 In all circumstances, we run 100 battles and record the results afterward
 in terms of Win/Loss/Tie as well as mean/std of numbers of steps in each kind.
-
-Examples: TODO
-
-python eval.py --ssh-save-model-local ~/Code/selfplayground/models \
- --ssh-password $CIMSP --ssh-address $CIMSU \
- --saved-models /path/to/model.pt
-
-python eval.py --saved-models /path/to/model.pt
+Examples:
+On Cpu:
+python eval.py --eval-targets ppo::/path/to/model.pt --num-battles-eval 100
+ --eval-opponents simple::null,simple::null,simple::null --config PommeFFAFast-v3
+On Gpu:
+CUDA_VISIBLE_DEVICES=0 python eval.py --eval-targets ppo::/path/to/model.py \
+ --num-battles-eval 200 --config PommeFFAFast-v3 --cuda-device 0
+TODO: Include an example using ssh.
 """
+from collections import defaultdict
 import os
 import random
 
-from pommerman import configs
-from pommerman import agents
+import pommerman
 from pommerman.cli import run_battle
 import numpy as np
 import torch
@@ -55,22 +53,34 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
         elif model_type == 'dagger':
             return dagger_agent.DaggerAgent, model_path
         elif model_type == 'simple':
-            return agents.SimpleAgent, None
+            return pommerman.agents.SimpleAgent, None
 
     def _build(info):
         agent_type, path = info
         if path:
             model_str = args.model_str
-            actor_critic = lambda state, board_size, num_channels: networks.get_actor_critic(model_str)(
-                state, obs_shape[0], action_space, board_size, num_channels)
+            actor_critic = lambda state, board_size, num_channels: \
+                networks.get_actor_critic(model_str)(state, obs_shape[0],
+                                                     action_space, board_size,
+                                                     num_channels)
 
             print("Loading path %s as agent." % path)
-            loaded_model = torch.load(path, map_location='cpu')
+            if args.cuda:
+                loaded_model = torch.load(path, map_location=lambda storage,
+                                          loc: storage.cuda(args.cuda_device))
+            else:
+                loaded_model = torch.load(path, map_location=lambda storage,
+                                          loc: storage)
             model_state_dict = loaded_model['state_dict']
             args_state_dict = loaded_model['args']
-            model = actor_critic(model_state_dict, args_state_dict['board_size'],
+            model = actor_critic(model_state_dict,
+                                 args_state_dict['board_size'],
                                  args_state_dict['num_channels'])
-            return agent_type(model, num_stack=args_state_dict['num_stack'])
+            agent = agent_type(model, num_stack=args_state_dict['num_stack'],
+                               cuda=args.cuda)
+            if args.cuda:
+                agent.cuda()
+            return agent
         else:
             return agent_type()
 
@@ -102,8 +112,11 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
 
 
 def eval():
-    os.environ['OMP_NUM_THREADS'] = '1'
     args = get_args()
+    if args.cuda:
+        os.environ['OMP_NUM_THREADS'] = '1'
+        torch.cuda.empty_cache()
+        torch.cuda.manual_seed(args.seed)
 
     torch.manual_seed(args.seed)
     mode = args.eval_mode
@@ -117,14 +130,45 @@ def eval():
     # Run the model with run_battle.
     if mode == 'ffa':
         print('Starting FFA Battles.')
+        ties = defaultdict(int)
+        wins = defaultdict(int)
+        deads = defaultdict(list)
+        ranks = defaultdict(list)
         for position in range(4):
             print("Running Battle Position %d..." % position)
             num_times = args.num_battles_eval // 4
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
-            infos = run_battle.run(args, num_times=num_times, seed=args.seed,
-                                   agents=agents, training_agents=[position])
-            print(infos)
+            training_agents = []
+            if not type(targets[0]) == pommerman.agents.SimpleAgent:
+                training_agents.append(position)
+            infos = run_battle.run(
+                args, num_times=num_times, seed=args.seed, agents=agents,
+                training_agents=training_agents)
+
+            for info in infos:
+                if all(['result' in info,
+                        info['result'] == pommerman.constants.Result.Tie,
+                        not info.get('step_info')]):
+                    ties[position] += 1
+                if 'winners' in info and info['winners'] == [position]:
+                    wins[position] += 1
+                if 'step_info' in info and position in info['step_info']:
+                    agent_step_info = info['step_info'][position]
+                    for kv in agent_step_info:
+                        if ':' not in kv:
+                            continue
+                        k, v = kv.split(':')
+                        if k == 'dead':
+                            deads[position].append(int(v))
+                        elif k == 'rank':
+                            ranks[position].append(int(v))
+
+        print("Wins: ", wins)
+        print("Dead: ", deads)
+        print("Ranks: ", ranks)
+        print("Ties: ", ties)
+        print("\n")
     elif mode == 'homogenous_team':
         print('Starting Homogenous Team Battles.')
         for position in range(2):
