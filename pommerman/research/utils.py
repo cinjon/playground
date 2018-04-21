@@ -27,10 +27,14 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
             # on my local machine when running other stuff on other gpus - always loads model on gpu 0 for some reason
             if args.cuda:
                 loaded_model = torch.load(path, map_location=lambda storage, loc: storage.cuda(args.cuda_device))
+                # loaded_model = torch.load(path, map_location=lambda storage, loc: storage.cuda(2))
+                # loaded_model = torch.load(path, map_location={'cuda:2' : 'cuda:0'})
             else:
                 loaded_model = torch.load(path, map_location=lambda storage, loc: storage)
             model_state_dict = loaded_model['state_dict']
-            optimizer_state_dict = loaded_model['optimizer']
+            # TODO: figure out whether when initializing with dagger, we need to load optimizer as well
+            optimizer_state_dict = None
+            # optimizer_state_dict = loaded_model['optimizer']
             num_episodes = loaded_model['num_episodes']
             total_steps = loaded_model['total_steps']
             num_epoch = loaded_model['num_epoch']
@@ -140,7 +144,7 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     cumulative_reward, terminal_reward, success_rate,
                     running_num_episodes):
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, epochs per sec {} "
-          "mean cumulative reward {:.1f} mean terminal reward {:.1f}, mean success rate {:.1f} "
+          "mean cumulative reward {:.3f} mean terminal reward {:.3f}, mean success rate {:.3f} "
           "mean final reward {:.1f}, min/max finals reward "
           "{:.1f}/{:.1f}, avg entropy {:.5f}, avg value loss {:.5f}, avg "
           "policy loss {:.5f}\n"
@@ -176,6 +180,45 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        count_stats, array_stats,
                        cumulative_reward, terminal_reward, success_rate,
                        running_num_episodes):
+
+    # x-axis: # episodes
+    writer.add_scalar('final_reward_epi', final_rewards.mean(), num_episodes)
+    writer.add_scalar('cumulative_reward_epi',
+                        1.0 * cumulative_reward / running_num_episodes, num_episodes)
+    writer.add_scalar('terminal_reward_epi',
+                        1.0 * terminal_reward / running_num_episodes, num_episodes)
+    writer.add_scalar('success_rate_epi',
+                        1.0 * success_rate / running_num_episodes, num_episodes)
+
+
+    for title, count in count_stats.items():
+        if title.startswith('bomb:'):
+            continue
+        writer.add_scalar(title, 1.0 * count / running_num_episodes,
+                          num_episodes)
+
+    # writer.add_scalars('bomb_distances_epi', {
+    #     key.split(':')[1]: 1.0 * count / running_num_episodes
+    #     for key, count in count_stats.items() \
+    #     if key.startswith('bomb:')
+    # }, num_episodes)
+
+    if array_stats.get('rank'):
+        writer.add_scalar('mean_rank_epi', np.mean(array_stats['rank']),
+                          num_episodes)
+
+    if array_stats.get('dead'):
+        writer.add_scalar('mean_dying_step_epi', np.mean(array_stats['dead']),
+                          num_episodes)
+        writer.add_scalar(
+            'percent_dying_per_episode_epi',
+            1.0 * len(array_stats['dead']) / running_num_episodes,
+            num_episodes)
+
+    writer.add_scalar('entropy', mean_dist_entropy, num_episodes)
+    writer.add_scalar('policy_loss', mean_action_loss, num_episodes)
+    writer.add_scalar('value_loss', mean_value_loss, num_episodes)
+
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -201,106 +244,72 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     # }, num_episodes)
 
     # x-axis: # steps
-    writer.add_scalar('final_reward_step', final_rewards.mean(), total_steps)
-    writer.add_scalar('cumulative_reward_step',
-                        1.0 * cumulative_reward / running_num_episodes, total_steps)
-    writer.add_scalar('terminal_reward_step',
-                        1.0 * terminal_reward / running_num_episodes, total_steps)
-    writer.add_scalar('success_rate_step',
-                        1.0 * success_rate / running_num_episodes, total_steps)
+    # writer.add_scalar('final_reward_step', final_rewards.mean(), total_steps)
+    # writer.add_scalar('cumulative_reward_step',
+    #                     1.0 * cumulative_reward / running_num_episodes, total_steps)
+    # writer.add_scalar('terminal_reward_step',
+    #                     1.0 * terminal_reward / running_num_episodes, total_steps)
+    # writer.add_scalar('success_rate_step',
+    #                     1.0 * success_rate / running_num_episodes, total_steps)
+    #
+    # for title, count in count_stats.items():
+    #     if title.startswith('bomb:'):
+    #         continue
+    #     writer.add_scalar(title, 1.0 * count / running_num_episodes,
+    #                       total_steps)
+    #
+    # writer.add_scalars('bomb_distances_step', {
+    #     key.split(':')[1]: 1.0 * count / running_num_episodes
+    #     for key, count in count_stats.items() \
+    #     if key.startswith('bomb:')
+    # }, total_steps)
+    #
+    # if array_stats.get('rank'):
+    #     writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
+    #                       total_steps)
+    #
+    # if array_stats.get('dead'):
+    #     writer.add_scalar('mean_dying_step_step', np.mean(array_stats['dead']),
+    #                       total_steps)
+    #     writer.add_scalar(
+    #         'percent_dying_per_episode_step',
+    #         1.0 * len(array_stats['dead']) / running_num_episodes,
+    #         total_steps)
 
-    for title, count in count_stats.items():
-        if title.startswith('bomb:'):
-            continue
-        writer.add_scalar(title, 1.0 * count / running_num_episodes,
-                          total_steps)
-
-    writer.add_scalars('bomb_distances_step', {
-        key.split(':')[1]: 1.0 * count / running_num_episodes
-        for key, count in count_stats.items() \
-        if key.startswith('bomb:')
-    }, total_steps)
-
-    if array_stats.get('rank'):
-        writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
-                          total_steps)
-
-    if array_stats.get('dead'):
-        writer.add_scalar('mean_dying_step_step', np.mean(array_stats['dead']),
-                          total_steps)
-        writer.add_scalar(
-            'percent_dying_per_episode_step',
-            1.0 * len(array_stats['dead']) / running_num_episodes,
-            total_steps)
-
-
-    # x-axis: # episodes
-    writer.add_scalar('final_reward_epi', final_rewards.mean(), num_episodes)
-    writer.add_scalar('cumulative_reward_epi',
-                        1.0 * cumulative_reward / running_num_episodes, num_episodes)
-    writer.add_scalar('terminal_reward_epi',
-                        1.0 * terminal_reward / running_num_episodes, num_episodes)
-    writer.add_scalar('success_rate_epi',
-                        1.0 * success_rate / running_num_episodes, num_episodes)
-
-
-    for title, count in count_stats.items():
-        if title.startswith('bomb:'):
-            continue
-        writer.add_scalar(title, 1.0 * count / running_num_episodes,
-                          num_episodes)
-
-    writer.add_scalars('bomb_distances_epi', {
-        key.split(':')[1]: 1.0 * count / running_num_episodes
-        for key, count in count_stats.items() \
-        if key.startswith('bomb:')
-    }, num_episodes)
-
-    if array_stats.get('rank'):
-        writer.add_scalar('mean_rank_epi', np.mean(array_stats['rank']),
-                          num_episodes)
-
-    if array_stats.get('dead'):
-        writer.add_scalar('mean_dying_step_epi', np.mean(array_stats['dead']),
-                          num_episodes)
-        writer.add_scalar(
-            'percent_dying_per_episode_epi',
-            1.0 * len(array_stats['dead']) / running_num_episodes,
-            num_episodes)
 
     # x-axis: # epochs / updates
-    writer.add_scalar('final_reward_epoch', final_rewards.mean(), num_epoch)
-    writer.add_scalar('cumulative_reward_epoch',
-                        1.0 * cumulative_reward / running_num_episodes, num_epoch)
-    writer.add_scalar('terminal_reward_epoch',
-                        1.0 * terminal_reward / running_num_episodes, num_epoch)
-    writer.add_scalar('success_rate_epoch',
-                        1.0 * success_rate / running_num_episodes, num_epoch)
-
-
-    for title, count in count_stats.items():
-        if title.startswith('bomb:'):
-            continue
-        writer.add_scalar(title, 1.0 * count / running_num_episodes,
-                          num_epoch)
-
-    writer.add_scalars('bomb_distances_epoch', {
-        key.split(':')[1]: 1.0 * count / running_num_episodes
-        for key, count in count_stats.items() \
-        if key.startswith('bomb:')
-    }, num_epoch)
-
-    if array_stats.get('rank'):
-        writer.add_scalar('mean_rank_epoch', np.mean(array_stats['rank']),
-                          num_epoch)
-
-    if array_stats.get('dead'):
-        writer.add_scalar('mean_dying_step_epoch', np.mean(array_stats['dead']),
-                          num_epoch)
-        writer.add_scalar(
-            'percent_dying_per_episode_epoch',
-            1.0 * len(array_stats['dead']) / running_num_episodes,
-            num_epoch)
+    # writer.add_scalar('final_reward_epoch', final_rewards.mean(), num_epoch)
+    # writer.add_scalar('cumulative_reward_epoch',
+    #                     1.0 * cumulative_reward / running_num_episodes, num_epoch)
+    # writer.add_scalar('terminal_reward_epoch',
+    #                     1.0 * terminal_reward / running_num_episodes, num_epoch)
+    # writer.add_scalar('success_rate_epoch',
+    #                     1.0 * success_rate / running_num_episodes, num_epoch)
+    #
+    #
+    # for title, count in count_stats.items():
+    #     if title.startswith('bomb:'):
+    #         continue
+    #     writer.add_scalar(title, 1.0 * count / running_num_episodes,
+    #                       num_epoch)
+    #
+    # writer.add_scalars('bomb_distances_epoch', {
+    #     key.split(':')[1]: 1.0 * count / running_num_episodes
+    #     for key, count in count_stats.items() \
+    #     if key.startswith('bomb:')
+    # }, num_epoch)
+    #
+    # if array_stats.get('rank'):
+    #     writer.add_scalar('mean_rank_epoch', np.mean(array_stats['rank']),
+    #                       num_epoch)
+    #
+    # if array_stats.get('dead'):
+    #     writer.add_scalar('mean_dying_step_epoch', np.mean(array_stats['dead']),
+    #                       num_epoch)
+    #     writer.add_scalar(
+    #         'percent_dying_per_episode_epoch',
+    #         1.0 * len(array_stats['dead']) / running_num_episodes,
+    #         num_epoch)
 
 
 def validate_how_train(how_train, nagents):

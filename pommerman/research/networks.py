@@ -168,20 +168,20 @@ def featurize3D(obs):
             Passage/Rigid/Wood/Flames/ExtraBomb/IncrRange/Kick/Skull
     """
     map_size = len(obs["board"])
-    
+
     # feature maps with ints for bomb blast strength and life.
     bomb_blast_strength = obs["bomb_blast_strength"] \
                           .astype(np.float32) \
                           .reshape(1, map_size, map_size)
     bomb_life = obs["bomb_life"].astype(np.float32) \
                                 .reshape(1, map_size, map_size)
-    
+
     # position of self. If the agent is dead, then this is all zeros.
     position = np.zeros((map_size, map_size)).astype(np.float32)
     if obs["is_alive"]:
         position[obs["position"][0], obs["position"][1]] = 1
     position = position.reshape(1, map_size, map_size)
-        
+
     # ammo of self agent: constant feature map.
     ammo = np.ones((map_size, map_size)).astype(np.float32) * obs["ammo"]
     ammo = ammo.reshape(1, map_size, map_size)
@@ -215,16 +215,16 @@ def featurize3D(obs):
                 .astype(np.float32)
     for i in range(len(_enemies)):
         enemies[i][np.where(obs["board"] == _enemies[i].value)] = 1
-        
+
     items = np.zeros((8, map_size, map_size))
     for num, i in enumerate([0, 1, 2, 4, 6, 7, 8, 9]):
         items[num][np.where(obs["board"] == i)] = 1
-        
+
     feature_maps = np.concatenate((
         bomb_blast_strength, bomb_life, position, ammo, blast_strength,
         can_kick, items, has_teammate, enemies
     ))
     if teammate is not None:
         feature_maps = np.concatenate((feature_maps, teammate))
-        
+
     return feature_maps

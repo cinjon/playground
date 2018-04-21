@@ -24,6 +24,7 @@ import time
 import numpy as np
 from tensorboardX import SummaryWriter
 import torch
+import random
 
 from arguments import get_args
 import envs as env_helpers
@@ -35,10 +36,14 @@ def train():
     args = get_args()
     os.environ['OMP_NUM_THREADS'] = '1'
 
-    torch.cuda.set_device(args.cuda_device)
-    torch.cuda.empty_cache()
+    if args.cuda:
+        torch.cuda.empty_cache()
+        # torch.cuda.set_device(args.cuda_device)
 
     assert(args.run_name)
+    print("\n###############")
+    print("args ", args)
+    print("##############\n")
 
     how_train, config, num_agents, num_stack, num_steps, num_processes, \
         num_epochs = utils.get_train_vars(args)
@@ -52,6 +57,10 @@ def train():
     envs = env_helpers.make_envs(config, how_train, args.seed,
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
+
+    dagger_agent = utils.load_agents(
+        obs_shape, action_space, num_training_per_episode, args,
+        ppo_agent.PPOAgent)[0]
 
     #####
     # Logging helpers.
@@ -84,11 +93,12 @@ def train():
     final_action_losses = [[] for agent in range(len(training_agents))]
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
-    #####
 
+
+    #####
     # NOTE: These four funcs have side effects where they set variable values.
     def update_current_obs(obs):
-        current_obs = torch.from_numpy(obs).float()
+        return torch.from_numpy(obs).float().transpose(0,1)
 
     def update_actor_critic_results(result):
         value, action, action_log_prob, states = result
@@ -111,12 +121,10 @@ def train():
                         if 'bomb' in l:
                             count_stats['bomb'] += 1
 
-    current_obs = torch.zeros(num_training_per_episode, num_processes,
-                              *obs_shape)
-    update_current_obs(envs.reset())
-
+    current_obs = update_current_obs(envs.reset())
     # TODO: Update this when we implement heterogenous.
     training_agents[0].update_rollouts(obs=current_obs, timestep=0)
+    dagger_agent.update_rollouts(obs=current_obs, timestep=0)
     if how_train == 'homogenous':
         # We use agent_died_now to keep track of which agents are dead in order
         # to feed them their teammate's reward.
@@ -133,15 +141,20 @@ def train():
         current_obs = current_obs.cuda()
         for agent in training_agents:
             agent.cuda()
+        dagger_agent.cuda()  # NOTE: we may not need thi?
 
     start = time.time()
-    for num_epoch in range(start_epoch, num_epochs + start_epoch):
+    for num_epoch in range(start_epoch, num_epochs):
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
                               num_episodes, args, suffix)
 
         for agent in training_agents:
             agent.set_eval()
+        dagger_agent.set_eval()
+
+        if args.distill_dagger_ppo:
+            dagger_prob = args.init_dagger_prob - (num_epoch - start_epoch) * args.dagger_anneal_factor
 
         for step in range(num_steps):
             value_agents = []
@@ -152,7 +165,11 @@ def train():
             cpu_actions_agents = []
 
             if how_train == 'simple':
-                result = training_agents[0].actor_critic_act(step, 0)
+                prob = random.random()
+                if args.distill_dagger_ppo and prob < dagger_prob:
+                    result = dagger_agent.actor_critic_act(step, 0, deterministic=True)
+                else:
+                    result = training_agents[0].actor_critic_act(step, 0)
                 cpu_actions_agents = update_actor_critic_results(result)
             elif how_train == 'homogenous':
                 cpu_actions_agents = [[] for _ in range(num_processes)]
@@ -172,20 +189,26 @@ def train():
             if args.render:
                 envs.render()
 
-
             if how_train == 'simple':
+                running_num_episodes += sum([int(done_)
+                                        for done_ in done])
                 terminal_reward += reward[done.squeeze() == True].sum()
-                success_rate += sum([1 if x else 0 for x in
+
+                success_rate += sum([int(s) for s in
                                     [(done.squeeze() == True) & (reward.squeeze() > 0)][0] ])
-                running_num_episodes += sum([1 if done_ else 0
-                                             for done_ in done])
+
                 masks = torch.FloatTensor([
                     [0.0]*num_training_per_episode if done_ \
                     else [1.0]*num_training_per_episode
                 for done_ in done])
             elif how_train == 'homogenous':
                 running_num_episodes += sum([int(done_.all())
-                                             for done_ in done])
+                                            for done_ in done])
+                terminal_reward += reward[np.array([done_.all()
+                                        for done_ in done]) == True].sum()
+                success_rate += sum([int(s) for s in
+                                    [np.array([done_.all() == True for done_ in done]) &
+                                    np.array([reward_.all() > 0 for reward_ in reward])][0] ])
 
                 # We want the masks to satisfy the following:
                 # 1. If the agent is alive --> 1.0.
@@ -231,10 +254,17 @@ def train():
             episode_rewards *= masks
 
             final_reward_arr = np.array(final_rewards.squeeze(0))
-            cumulative_reward += final_reward_arr[done.squeeze() == True].sum()
+            if args.how_train == 'simple':
+                cumulative_reward += final_reward_arr[done.squeeze() == True].sum()
+            elif args.how_train == 'homogenous':
+                cumulative_reward += final_reward_arr.squeeze().transpose()[
+                                    np.array([done_.all() for done_ in done]) == True].sum()
 
+            # TODO: figure out if the masking is done right
+            current_obs = update_current_obs(obs)
             if args.cuda:
                 masks = masks.cuda()
+                current_obs = current_obs.cuda()
 
             # Mask out observations of completed agents from the prior round.
             # NOTE: we are ok with leaving in observations from agents that
@@ -246,7 +276,6 @@ def train():
             elif how_train == 'homogenous':
                 masks_all = masks
                 current_obs *= masks_all.unsqueeze(2)
-            update_current_obs(obs)
 
             reward_all = reward.unsqueeze(2)
             states_all = utils.torch_numpy_stack(states_agents)
@@ -256,6 +285,9 @@ def train():
             value_all = utils.torch_numpy_stack(value_agents)
 
             training_agents[0].insert_rollouts(
+                step, current_obs, states_all, action_all, action_log_prob_all,
+                value_all, reward_all, masks_all)
+            dagger_agent.insert_rollouts(
                 step, current_obs, states_all, action_all, action_log_prob_all,
                 value_all, reward_all, masks_all)
 
@@ -283,19 +315,19 @@ def train():
             ]
 
         # Run PPO Optimization.
-        # for num_agent, agent in enumerate(training_agents):
-        #     agent.set_train()
-        #
-        #     for _ in range(args.ppo_epoch):
-        #         result = agent.ppo(advantages[num_agent], args.num_mini_batch,
-        #                            num_steps, args.clip_param,
-        #                            args.entropy_coef, args.max_grad_norm)
-        #         action_losses, value_losses, dist_entropies = result
-        #         final_action_losses[num_agent].extend(result[0])
-        #         final_value_losses[num_agent].extend(result[1])
-        #         final_dist_entropies[num_agent].extend(result[2])
-        #
-        #     agent.after_epoch()
+        for num_agent, agent in enumerate(training_agents):
+            agent.set_train()
+
+            for _ in range(args.ppo_epoch):
+                result = agent.ppo(advantages[num_agent], args.num_mini_batch,
+                                   num_steps, args.clip_param,
+                                   args.entropy_coef, args.max_grad_norm,) # anneal=True, lr=lr_anneal, eps=args.eps)
+                action_losses, value_losses, dist_entropies = result
+                final_action_losses[num_agent].extend(result[0])
+                final_value_losses[num_agent].extend(result[1])
+                final_dist_entropies[num_agent].extend(result[2])
+
+            agent.after_epoch()
 
         total_steps += num_processes * num_steps
 

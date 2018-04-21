@@ -11,19 +11,14 @@ We have a target model ("target") that we are evaluating. The modes considered:
 In all circumstances, we run 100 battles and record the results afterward
 in terms of Win/Loss/Tie as well as mean/std of numbers of steps in each kind.
 
-Examples: 
+Examples: TODO
 
-On Cpu:
-python eval.py --eval-targets ppo::/path/to/model.pt --num-battles-eval 100
- --eval-opponents simple::null,simple::null,simple::null --config PommeFFAFast-v3
+python eval.py --ssh-save-model-local ~/Code/selfplayground/models \
+ --ssh-password $CIMSP --ssh-address $CIMSU \
+ --saved-models /path/to/model.pt
 
-On Gpu:
-CUDA_VISIBLE_DEVICES=0 python eval.py --eval-targets ppo::/path/to/model.py \
- --num-battles-eval 200 --config PommeFFAFast-v3 --cuda-device 0
-
-TODO: Include an example using ssh.
+python eval.py --saved-models /path/to/model.pt
 """
-from collections import defaultdict
 import os
 import random
 
@@ -66,28 +61,16 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
         agent_type, path = info
         if path:
             model_str = args.model_str
-            actor_critic = lambda state, board_size, num_channels: \
-                networks.get_actor_critic(model_str)(state, obs_shape[0],
-                                                     action_space, board_size,
-                                                     num_channels)
-                    
+            actor_critic = lambda state, board_size, num_channels: networks.get_actor_critic(model_str)(
+                state, obs_shape[0], action_space, board_size, num_channels)
+
             print("Loading path %s as agent." % path)
-            if args.cuda:
-                loaded_model = torch.load(path, map_location=lambda storage,
-                                          loc: storage.cuda(args.cuda_device))
-            else:
-                loaded_model = torch.load(path, map_location=lambda storage,
-                                          loc: storage)
+            loaded_model = torch.load(path, map_location='cpu')
             model_state_dict = loaded_model['state_dict']
             args_state_dict = loaded_model['args']
-            model = actor_critic(model_state_dict,
-                                 args_state_dict['board_size'],
+            model = actor_critic(model_state_dict, args_state_dict['board_size'],
                                  args_state_dict['num_channels'])
-            agent = agent_type(model, num_stack=args_state_dict['num_stack'],
-                               cuda=args.cuda)
-            if args.cuda:
-                agent.cuda()
-            return agent
+            return agent_type(model, num_stack=args_state_dict['num_stack'])
         else:
             return agent_type()
 
@@ -119,11 +102,8 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
 
 
 def eval():
+    os.environ['OMP_NUM_THREADS'] = '1'
     args = get_args()
-    if args.cuda:
-        os.environ['OMP_NUM_THREADS'] = '1'
-        torch.cuda.empty_cache()
-        torch.cuda.manual_seed(args.seed)
 
     torch.manual_seed(args.seed)
     mode = args.eval_mode
@@ -137,9 +117,6 @@ def eval():
     # Run the model with run_battle.
     if mode == 'ffa':
         print('Starting FFA Battles.')
-        wins = defaultdict(int)
-        deads = defaultdict(list)
-        ranks = defaultdict(list)
         for position in range(4):
             print("Running Battle Position %d..." % position)
             num_times = args.num_battles_eval // 4
@@ -147,23 +124,7 @@ def eval():
             agents.insert(position, targets[0])
             infos = run_battle.run(args, num_times=num_times, seed=args.seed,
                                    agents=agents, training_agents=[position])
-            for info in infos:
-                if 'winners' in info and info['winners'] == [position]:
-                    wins[position] += 1
-                if 'step_info' in info and position in info['step_info']:
-                    agent_step_info = info['step_info'][position]
-                    for kv in agent_step_info:
-                        k, v = kv.split(':')
-                        if k == 'dead':
-                            deads[position].append(int(v))
-                        elif k == 'rank':
-                            ranks[position].append(int(v))
-
-            print("Position %d Result: " % position)
-            print("Wins: ", wins)
-            print("Dead: ", deads)
-            print("Ranks: ", ranks)
-            print("\n")
+            print(infos)
     elif mode == 'homogenous_team':
         print('Starting Homogenous Team Battles.')
         for position in range(2):

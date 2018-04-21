@@ -53,7 +53,11 @@ def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
 
         env = pommerman.make(config, agents, game_state_file)
         env.set_training_agents(training_agent_ids)
-        env.seed(seed)
+        # import pdb; pdb.set_trace()
+        if rank != -1:
+            env.seed(seed + rank)
+        else:
+            env.seed(seed)
         env.rank = rank
 
         env = WrapPomme(env, how_train)
