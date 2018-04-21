@@ -145,7 +145,6 @@ def eval():
             infos = run_battle.run(
                 args, num_times=num_times, seed=args.seed, agents=agents,
                 training_agents=training_agents)
-
             for info in infos:
                 if all(['result' in info,
                         info['result'] == pommerman.constants.Result.Tie,
