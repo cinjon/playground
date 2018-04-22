@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
-
+from collections import deque
+import random
 
 class RolloutStorage(object):
     def __init__(self, num_steps, num_processes, obs_shape, action_space,
@@ -165,6 +166,7 @@ class ReplayBuffer:
         self.action_buffer.cuda()
         self.reward_buffer.cuda()
         self.next_state_buffer.cuda()
+        self.done_buffer.cuda()
 
     def push(self, state, action, reward, next_state, done, *args, **kwargs):
         incoming_size = state.shape[0]
@@ -208,3 +210,38 @@ class ReplayBuffer:
 
     def __len__(self):
         return self._size
+
+
+class EpisodeBuffer:
+    def __init__(self, size=5000):
+        self.state_buffer = deque(maxlen=size)
+        self.action_buffer = deque(maxlen=size)
+        self.reward_buffer = deque(maxlen=size)
+        self.next_state_buffer = deque(maxlen=size)
+        self.done_buffer = deque(maxlen=size)
+
+    def extend(self, state_history, action_history, reward_history, next_state_history, done_history):
+        self.state_buffer.extend(state_history)
+        self.action_buffer.extend(action_history)
+        self.reward_buffer.extend(reward_history)
+        self.next_state_buffer.extend(next_state_history)
+        self.done_buffer.extend(done_history)
+
+    def clear(self):
+        self.state_buffer.clear()
+        self.action_buffer.clear()
+        self.reward_buffer.clear()
+        self.next_state_buffer.clear()
+        self.done_buffer.clear()
+
+    def sample(self, batch_size):
+        assert batch_size <= self.__len__(), \
+            'Unable to sample {} items, current buffer size {}'.format(batch_size, self.__len__())
+
+        batch_index = random.sample(range(self.__len__()), batch_size)
+        for index in batch_index:
+            yield self.state_buffer[index], self.action_buffer[index], self.reward_buffer[index], \
+                  self.next_state_buffer[index], self.done_buffer[index]
+
+    def __len__(self):
+        return len(self.state_buffer)
