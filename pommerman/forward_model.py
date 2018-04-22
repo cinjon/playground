@@ -409,7 +409,7 @@ class ForwardModel(object):
             if done and len(alive) > 1:
                 return {
                     'result': constants.Result.Tie,
-                    'alive': alive
+                    'alive': [agent.agent_id for agent in alive]
                 }
             elif done:
                 return {
@@ -426,7 +426,7 @@ class ForwardModel(object):
             if rewards == [-1]*4:
                 return {
                     'result': constants.Result.Tie,
-                    'alive': alive
+                    'alive': [agent.agent_id for agent in alive]
                 }
             else:
                 return {
