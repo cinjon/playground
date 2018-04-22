@@ -172,9 +172,6 @@ class Pomme(gym.Env):
         return [seed]
 
     def step(self, actions):
-        print("STEP: ")
-        for agent in self._agents:
-            print(agent, type(agent))
         result = self.model.step(actions, self._board, self._agents,
                                  self._bombs, self._items, self._flames)
         self._board, self._agents, self._bombs = result[:3]

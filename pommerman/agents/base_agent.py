@@ -1,5 +1,4 @@
 from .. import characters
-import traceback
 
 
 class BaseAgent:
@@ -10,9 +9,6 @@ class BaseAgent:
         self._is_initialized = False
 
     def __getattr__(self, attr):
-        if not hasattr(self._character, attr):
-            print("WTF: ", attr)
-            traceback.print_stack()
         return getattr(self._character, attr)
 
     def act(self, obs, action_space):
