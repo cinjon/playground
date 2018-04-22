@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+import dagger_agent
 import networks
 
 
@@ -23,12 +24,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
     for path in paths:
         if path:
             print("Loading path %s as agent." % path)
-            # NOTE: changed loading model to gpu to load model on certain cuda_device to avoid memory/segfault issues
-            # on my local machine when running other stuff on other gpus - always loads model on gpu 0 for some reason
-            if args.cuda:
-                loaded_model = torch.load(path, map_location=lambda storage, loc: storage.cuda(args.cuda_device))
-            else:
-                loaded_model = torch.load(path, map_location=lambda storage, loc: storage)
+            loaded_model = torch_load(path, args.cuda, args.cuda_device)
             model_state_dict = loaded_model['state_dict']
             optimizer_state_dict = loaded_model['optimizer']
             num_episodes = loaded_model['num_episodes']
@@ -49,6 +45,20 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
         training_agents.append(agent)
 
     return training_agents
+
+
+def load_distill_agent(obs_shape, action_space, args):
+    model_type, path = args.distill_target.split('::')
+    if model_type == 'dagger':
+        print("Loading %s as distill agent." % path)
+        loaded_model = torch_load(path, args.cuda, args.cuda_device)
+        model_state_dict = loaded_model['state_dict']
+        model = networks.get_actor_critic(args.model_str)(
+            model_state_dict, obs_shape[0], action_space, args.board_size,
+            args.num_channels)
+        return dagger_agent.DaggerAgent(model)
+    else:
+        raise ValueError("We do not support distilling from %s." % model_type)
 
 
 def is_save_epoch(num_epoch, start_epoch, save_interval):
@@ -321,3 +331,12 @@ def validate_how_train(how_train, nagents):
 def torch_numpy_stack(value, data=True):
     return torch.from_numpy(np.stack([x.data if data else x for x in value])) \
                 .float()
+
+
+def torch_load(path, cuda, cuda_device):
+    if cuda:
+        # NOTE: we specify the cuda_device to avoid memory/segfault issues.
+        return torch.load(path, map_location=lambda storage,
+                          loc: storage.cuda(cuda_device))
+    else:
+        return torch.load(path, map_location=lambda storage, loc: storage)

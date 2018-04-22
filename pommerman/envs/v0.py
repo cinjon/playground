@@ -172,10 +172,14 @@ class Pomme(gym.Env):
         return [seed]
 
     def step(self, actions):
+        print("STEP: ")
+        for agent in self._agents:
+            print(agent, type(agent))
         result = self.model.step(actions, self._board, self._agents,
                                  self._bombs, self._items, self._flames)
-        self._board, self._agents, self._bombs, self._items, self._flames = \
-                                                                        result
+        self._board, self._agents, self._bombs = result[:3]
+        self._items, self._flames = result[3:]
+
         done = self._get_done()
         obs = self.get_observations()
         reward = self._get_rewards()
@@ -205,6 +209,7 @@ class Pomme(gym.Env):
                                                           avg * cnt, mx))
                 total += avg * cnt
             print("\tTotal: %.4f" % total)
+
         return obs, reward, done, info
 
     def _render_frames(self):

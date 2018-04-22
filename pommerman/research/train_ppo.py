@@ -13,8 +13,14 @@ processes/workers collecting data.
 
 Example:
 
-python train.py --how-train simple --num-processes 10 --run-name test \
+python train_ppo.py --how-train simple --num-processes 10 --run-name test \
  --num-steps 50 --log-interval 5
+
+Distillation Example:
+
+python train_ppo.py --how-train simple --num-processes 10 --run-name distill \
+ --num-steps 100 --log-interval 5 \
+ --distill-epochs 100 --distill-target dagger::/path/to/model.pt
 """
 
 from collections import defaultdict
@@ -58,19 +64,30 @@ def train():
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
 
-    dagger_agent = utils.load_agents(
-        obs_shape, action_space, num_training_per_episode, args,
-        ppo_agent.PPOAgent)[0]
-
-    #####
-    # Logging helpers.
     suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.seed{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,
         args.lr, args.num_mini_batch, args.num_steps, args.seed)
+
+    distill_target = args.distill_target
+    distill_epochs = args.distill_epochs
+    do_distill = distill_target is not '' and \
+                 distill_epochs > training_agents[0].num_epoch
+    do_distill = False
+    if do_distill:
+        distill_agent = utils.load_distill_agent(obs_shape, action_space, args)
+        distill_agent.set_eval()
+        # NOTE: We have to call init_agent, but the agent_id won't matter
+        # because we will use the observations from the ppo_agent.
+        distill_agent.init_agent(0, envs.get_game_type())
+        distill_type = distill_target.split('::')[0]
+        suffix += "dstl{}-dstlepi{}".format(distill_type, distill_epochs)
+
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
+    #####
+    # Logging helpers.
     writer = SummaryWriter(log_dir)
     count_stats = defaultdict(int)
     array_stats = defaultdict(list)
@@ -78,6 +95,7 @@ def train():
                                    num_processes, 1])
     final_rewards = torch.zeros([num_training_per_episode,
                                  num_processes, 1])
+
     def update_final_rewards(final_rewards, masks, episode_rewards):
         return final_rewards
 
@@ -93,6 +111,7 @@ def train():
     final_action_losses = [[] for agent in range(len(training_agents))]
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
+    #####
 
     def update_current_obs(obs):
         return torch.from_numpy(obs).float().transpose(0,1)
@@ -122,7 +141,6 @@ def train():
     current_obs = update_current_obs(envs.reset())
     # TODO: Update this when we implement heterogenous.
     training_agents[0].update_rollouts(obs=current_obs, timestep=0)
-    dagger_agent.update_rollouts(obs=current_obs, timestep=0)
     if how_train == 'homogenous':
         # We use agent_died_now to keep track of which agents are dead in order
         # to feed them their teammate's reward.
@@ -139,20 +157,22 @@ def train():
         current_obs = current_obs.cuda()
         for agent in training_agents:
             agent.cuda()
-        dagger_agent.cuda()  # NOTE: we may not need thi?
+        if do_distill:
+            distill_agent.cuda()
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
+        print("Starting epoch %d." % num_epoch)
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
                               num_episodes, args, suffix)
 
         for agent in training_agents:
             agent.set_eval()
-        dagger_agent.set_eval()
 
-        if args.distill_dagger_ppo:
-            dagger_prob = args.init_dagger_prob - (num_epoch - start_epoch) * args.dagger_anneal_factor
+        if do_distill:
+            distill_prob = 1.0 * (distill_epochs - num_epoch) / distill_epochs
+            distill_prob = max(distill_prob, 0.0)
 
         for step in range(num_steps):
             value_agents = []
@@ -163,11 +183,13 @@ def train():
             cpu_actions_agents = []
 
             if how_train == 'simple':
-                prob = random.random()
-                if args.distill_dagger_ppo and prob < dagger_prob:
-                    result = dagger_agent.actor_critic_act(step, 0, deterministic=True)
+                training_agent = training_agents[0]
+                if do_distill and random.random() < distill_prob:
+                    data = training_agent.get_rollout_data(step, 0)
+                    result = distill_agent.act_on_data(*data,
+                                                       deterministic=True)
                 else:
-                    result = training_agents[0].actor_critic_act(step, 0)
+                    result = training_agent.actor_critic_act(step, 0)
                 cpu_actions_agents = update_actor_critic_results(result)
             elif how_train == 'homogenous':
                 cpu_actions_agents = [[] for _ in range(num_processes)]
@@ -188,13 +210,11 @@ def train():
                 envs.render()
 
             if how_train == 'simple':
-                running_num_episodes += sum([int(done_)
-                                        for done_ in done])
+                running_num_episodes += sum([int(done_) for done_ in done])
                 terminal_reward += reward[done.squeeze() == True].sum()
-
                 success_rate += sum([int(s) for s in
-                                    [(done.squeeze() == True) & (reward.squeeze() > 0)][0] ])
-
+                                    [(done.squeeze() == True) & 
+                                     (reward.squeeze() > 0)][0] ])
                 masks = torch.FloatTensor([
                     [0.0]*num_training_per_episode if done_ \
                     else [1.0]*num_training_per_episode
@@ -204,9 +224,10 @@ def train():
                                             for done_ in done])
                 terminal_reward += reward[np.array([done_.all()
                                         for done_ in done]) == True].sum()
-                success_rate += sum([int(s) for s in
-                                    [np.array([done_.all() == True for done_ in done]) &
-                                    np.array([reward_.all() > 0 for reward_ in reward])][0] ])
+                success_rate += sum(
+                    [int(s) for s in
+                     [np.array([done_.all() == True for done_ in done]) &
+                      np.array([reward_.all() > 0 for reward_ in reward])][0]])
 
                 # We want the masks to satisfy the following:
                 # 1. If the agent is alive --> 1.0.
@@ -253,10 +274,11 @@ def train():
 
             final_reward_arr = np.array(final_rewards.squeeze(0))
             if args.how_train == 'simple':
-                cumulative_reward += final_reward_arr[done.squeeze() == True].sum()
+                cumulative_reward += final_reward_arr[done.squeeze() == True] \
+                                     .sum()
             elif args.how_train == 'homogenous':
                 cumulative_reward += final_reward_arr.squeeze().transpose()[
-                                    np.array([done_.all() for done_ in done]) == True].sum()
+                    np.array([done_.all() for done_ in done]) == True].sum()
 
             # TODO: figure out if the masking is done right
             current_obs = update_current_obs(obs)
@@ -264,10 +286,6 @@ def train():
                 masks = masks.cuda()
                 current_obs = current_obs.cuda()
 
-            # Mask out observations of completed agents from the prior round.
-            # NOTE: we are ok with leaving in observations from agents that
-            # died this round because their position mask is zeroed out, so
-            # there is signal in the observations that they are dead.
             if how_train == 'simple':
                 masks_all = masks.transpose(0,1).unsqueeze(2)
                 current_obs *= masks_all.unsqueeze(2).unsqueeze(2)
@@ -282,10 +300,8 @@ def train():
                 action_log_prob_agents)
             value_all = utils.torch_numpy_stack(value_agents)
 
+            # TODO: Update when we incorporate heterogenous.
             training_agents[0].insert_rollouts(
-                step, current_obs, states_all, action_all, action_log_prob_all,
-                value_all, reward_all, masks_all)
-            dagger_agent.insert_rollouts(
                 step, current_obs, states_all, action_all, action_log_prob_all,
                 value_all, reward_all, masks_all)
 
@@ -302,14 +318,14 @@ def train():
 
         # Compute the advantage values.
         if how_train == 'simple' or how_train == 'homogenous':
-            agent = training_agents[0]
+            training_agent = training_agents[0]
             next_value_agents = [
-                agent.actor_critic_call(step=-1, num_agent=num_agent)
+                training_agent.actor_critic_call(step=-1, num_agent=num_agent)
                 for num_agent in range(num_training_per_episode)
             ]
             advantages = [
-                agent.compute_advantages(next_value_agents, args.use_gae,
-                                         args.gamma, args.tau)
+                training_agent.compute_advantages(
+                    next_value_agents, args.use_gae, args.gamma, args.tau)
             ]
 
         # Run PPO Optimization.
@@ -319,7 +335,7 @@ def train():
             for _ in range(args.ppo_epoch):
                 result = agent.ppo(advantages[num_agent], args.num_mini_batch,
                                    num_steps, args.clip_param,
-                                   args.entropy_coef, args.max_grad_norm,) # anneal=True, lr=lr_anneal, eps=args.eps)
+                                   args.entropy_coef, args.max_grad_norm)
                 action_losses, value_losses, dist_entropies = result
                 final_action_losses[num_agent].extend(result[0])
                 final_value_losses[num_agent].extend(result[1])

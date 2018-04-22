@@ -53,6 +53,15 @@ def get_args():
                         help='port to run the server on (8097)')
     parser.add_argument('--run-name', default='',
                         help='save this run with this name. must be set')
+    parser.add_argument('--distill-target', type=str, default='',
+                        help='local path to target model and model type to '
+                        'which we will distill the PPO agent, e.g. '
+                        'dagger::/path/to/model.pt.')
+    parser.add_argument('--distill-epochs', type=int, default=0,
+                        help='the number of training epochs over which we '
+                        'distill the distill-target into the model. at epoch '
+                        '0, the probability is 1.0 (i.e. only use target), at '
+                        'epoch distill-step and onwards, it is 0.0.')
 
     # specific to Pommerman
     parser.add_argument('--board_size', type=int, default=13,

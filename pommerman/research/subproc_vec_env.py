@@ -34,8 +34,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.render('rgb_array')))
         elif cmd == 'get_expert_obs':
             remote.send((env.get_expert_obs()))
-        elif cmd == 'get_agent_obs':
-            remote.send((env.get_agent_obs()))
+        elif cmd == 'get_game_type':
+            remote.send((env.get_game_type()))
         else:
             raise NotImplementedError
 
@@ -201,7 +201,6 @@ class SubprocVecEnv(_VecEnv):
             remote.send(('get_expert_obs', None))
         return [remote.recv() for remote in self.remotes]
 
-    def get_agent_obs(self):
-        for remote in self.remotes:
-            remote.send(('get_agent_obs', None))
-        return [remote.recv() for remote in self.remotes]
+    def get_game_type(self):
+        self.remotes[0].send(('get_game_type', None))
+        return self.remotes[0].recv()

@@ -55,8 +55,10 @@ class PPOAgent(ResearchAgent):
         Returns:
           See the actor_critic's act function in model.py.
         """
-        observations, states, masks = self._rollout_data(step, num_agent)
-        return self._actor_critic.act(observations, states, masks)
+        return self._actor_critic.act(*self.get_rollout_data(step, num_agent))
+
+    def get_rollout_data(self, step, num_agent):
+        return self._rollout_data(step, num_agent)
 
     def actor_critic_call(self, step, num_agent=0):
         observations, states, masks = self._rollout_data(step, num_agent)

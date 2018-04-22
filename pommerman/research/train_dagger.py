@@ -163,7 +163,7 @@ def train():
                 arr_expert_action = np.array(list_expert_action)
                 obs, reward, done, info = envs.step(arr_expert_action)
             else:
-                result = agent.dagger_act(
+                result = agent.act_on_data(
                     Variable(agent_obs, volatile=True),
                     Variable(dummy_states, volatile=True),
                     Variable(dummy_masks, volatile=True))
@@ -252,7 +252,7 @@ def train():
             if args.cuda:
                 dagger_obs = dagger_obs.cuda()
             while running_num_episodes < args.num_steps_eval:
-                result_eval = agent.dagger_act(
+                result_eval = agent.act_on_data(
                     Variable(dagger_obs, volatile=True),
                     Variable(dummy_states_eval, volatile=True),
                     Variable(dummy_masks_eval, volatile=True),

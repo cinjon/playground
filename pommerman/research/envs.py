@@ -53,7 +53,6 @@ def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
 
         env = pommerman.make(config, agents, game_state_file)
         env.set_training_agents(training_agent_ids)
-        # import pdb; pdb.set_trace()
         if rank != -1:
             env.seed(seed + rank)
         else:
@@ -79,10 +78,11 @@ def make_envs(config, how_train, seed, game_state_file, training_agents,
     ]
     return SubprocVecEnv(envs)
 
+
 def get_env_shapes(config, num_stack):
     dummy_env = _make_env(config=config, how_train='dummy', seed=None, rank=-1,
-                         game_state_file=None, training_agents=[],
-                         num_stack=num_stack)()
+                          game_state_file=None, training_agents=[],
+                          num_stack=num_stack)()
     envs_shape = dummy_env.observation_space.shape[1:]
     obs_shape = (envs_shape[0], *envs_shape[1:])
     action_space = dummy_env.action_space
@@ -117,8 +117,8 @@ class WrapPomme(gym.ObservationWrapper):
     def get_expert_obs(self):
         return self._filter(self.env.get_observations())
 
-    def get_agent_obs(self):
-        return self.observation(self.env.get_observations())
+    def get_game_type(self):
+        return self.env._game_type
 
     def step(self, actions):
         if self._how_train == 'simple' or self._how_train == 'dagger':

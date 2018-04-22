@@ -25,8 +25,9 @@ class DaggerAgent(ResearchAgent):
     def optimizer(self):
         return self._optimizer
 
-    def dagger_act(self, observations, states, masks, deterministic=False):
-        return self._actor_critic.act(observations, states, masks, deterministic)
+    def act_on_data(self, observations, states, masks, deterministic=False):
+        return self._actor_critic.act(observations, states, masks,
+                                      deterministic)
 
     def set_eval(self):
         self._actor_critic.eval()
