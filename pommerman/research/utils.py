@@ -136,11 +136,14 @@ def get_train_vars(args):
     num_steps = args.num_steps
     num_processes = args.num_processes
     num_epochs = int(args.num_frames // num_steps // num_processes)
-    print("NumEpochs {} NumFrames {} NumSteps {} NumProcesses {} Cuda {}\n"
-          .format(num_epochs, args.num_frames, num_steps, num_processes,
-                  args.cuda))
+    reward_sharing = args.reward_sharing
+    s = "NumEpochs {} NumFrames {} NumSteps {} NumProcesses {} Cuda {} " \
+        "RewardSharing {}\n" \
+        .format(num_epochs, args.num_frames, num_steps, num_processes,
+                args.cuda, reward_sharing)
+    print(s)
     return how_train, config, num_agents, num_stack, num_steps, \
-        num_processes, num_epochs
+        num_processes, num_epochs, reward_sharing
 
 
 def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,

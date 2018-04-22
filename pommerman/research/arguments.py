@@ -120,9 +120,11 @@ def get_args():
                         "the game. Doesn't record if None.")
 
     ### Team Specific
-    parser.add_argument('--team-reward-sharing', type=float, default=0.0,
-                        help='what percent of the reward is blended between '
-                        'among the team.')
+    parser.add_argument('--reward-sharing', type=float, default=0.5,
+                        help="what percent p of the reward is blended between "
+                        "the team. agent a's reward is p*r_b + (1-p)*r_a. the "
+                        "default is 0.5, which means that the agents share "
+                        "all the rewards. 0.0 would be selfish, 1.0 selfless.")
 
     # for Dagger
     parser.add_argument('--expert-prob', type=float, default=0.5,

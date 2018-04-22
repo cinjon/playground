@@ -52,7 +52,7 @@ def train():
     print("##############\n")
 
     how_train, config, num_agents, num_stack, num_steps, num_processes, \
-        num_epochs = utils.get_train_vars(args)
+        num_epochs, reward_sharing = utils.get_train_vars(args)
 
     obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
     num_training_per_episode = utils.validate_how_train(how_train, num_agents)
@@ -137,17 +137,9 @@ def train():
     # Start the environment and set the current_obs appropriately.
     current_obs = update_current_obs(envs.reset())
 
-    # TODO: Update this when we implement heterogenous.
-    training_agents[0].update_rollouts(obs=current_obs, timestep=0)
-    if how_train == 'homogenous':
-        # We use agent_died_now to keep track of which agents are dead in order
-        # to feed them their teammate's reward.
-        agent_died_now = [[False]*4 for _ in range(num_processes)]
-        # We use agent_died_prior to keep track of which agents died in a prior
-        # round of num_steps. If this is true, then we do NOT give them their
-        # teammate's reward and instead mask their observations to be 0 so that
-        # we can't get any training signal from it.
-        agent_died_prior = [[False]*4 for _ in range(num_processes)]
+    if how_train == 'simple' or how_train == 'homogenous':
+        # NOTE: Here, we put the first observation into the rollouts.
+        training_agents[0].update_rollouts(obs=current_obs, timestep=0)
 
     torch.manual_seed(args.seed)
     if args.cuda:
@@ -191,9 +183,16 @@ def train():
                 cpu_actions_agents = update_actor_critic_results(result)
             elif how_train == 'homogenous':
                 cpu_actions_agents = [[] for _ in range(num_processes)]
+                random_prob = random.random()
                 for num_agent in range(4):
-                    result = training_agents[0].actor_critic_act(
-                        step=step, num_agent=num_agent)
+                    if do_distill and random_prob < distill_prob:
+                        data = training_agents[0].get_rollout_data(
+                            step=step, num_agent=num_agent)
+                        result = distill_agent.act_on_data(*data,
+                                                           deterministic=True)
+                    else:
+                        result = training_agents[0].actor_critic_act(
+                            step=step, num_agent=num_agent)
                     cpu_actions = update_actor_critic_results(result)
                     for num_process in range(num_processes):
                         cpu_actions_agents[num_process].append(
@@ -213,80 +212,66 @@ def train():
                 success_rate += sum([int(s) for s in \
                                      [(done.squeeze() == True) &
                                       (reward.squeeze() > 0)][0]])
+
+                # NOTE: The masking for simple should be such that:
+                # - final_rewards is masked out on every step except for the
+                # last step of a process. at that point, it becomes the
+                # episode_rewards.
+                # - episode_rewards accumulates the rewards at every step and
+                # is masked out only at the last step of a process.
+                # - current_obs consists of the num_stack observations. when
+                # the game resets, the observations do as well, so we won't
+                # have an issue with the frames overlapping. this means that we
+                # shouldn't be using the masking on the current_obs.
                 masks = torch.FloatTensor([
                     [0.0]*num_training_per_episode if done_ \
                     else [1.0]*num_training_per_episode
                 for done_ in done])
             elif how_train == 'homogenous':
                 running_num_episodes += sum([int(done_.all())
-                                            for done_ in done])
-                terminal_reward += reward[np.array([done_.all()
-                                        for done_ in done]) == True].sum()
-                success_rate += sum(
-                    [int(s) for s in
-                     [np.array([done_.all() == True for done_ in done]) &
-                      np.array([reward_.all() > 0 for reward_ in reward])][0]])
+                                             for done_ in done])
 
-                # We want the masks to satisfy the following:
-                # 1. If the agent is alive --> 1.0.
-                # 2. If the agent died this round (agent_died_now) --> 1.0.
-                # 3. If the agent died prior (agent_died_prior) --> 0.0.
-                masks = [[None]*4 for _ in range(num_processes)]
-
-                # We update so that if an agent dies, then it receives its
-                # teammate's reward for the rest of this num_steps round. After
-                # that, it gets masked out until the episode ends.
+                # NOTE: The masking for homogenous should be such that:
+                # 1. If the agent is alive, then it follows the same process as
+                # in `simple`. This means that it's 1.0.
+                # 2. If the agent died, then it's still going to get rewards
+                # according to the team_reward_sharing attribute. This means
+                # that masking should be 1.0 as well. However, note that this
+                # could be problematic for the rollout if the agent's
+                # observations don't specify that it's dead. That's why we
+                # amended the featurize3D function in networks to be a zero map
+                # for the agent's position if it's not alive.
+                # TODO: Consider additionally changing the agent's action and
+                # associated log probs to be the Stop action.
+                masks = torch.FloatTensor([[0.0]*4 if done_.all() else [1.0]*4
+                                           for done_ in done]) \
+                             .transpose(0, 1).unsqueeze(2).unsqueeze(2)
                 for num_process in range(num_processes):
-                    masks[num_process] = [1.0]*4
                     for id_ in range(4):
                         tid = (id_ + 2) % 4
-                        if agent_died_now[num_process][id_]:
-                            # Give the agent its teammate's reward because it
-                            # died in this round.
-                            reward[num_process][id_] = reward[num_process][tid]
-                        elif done[num_process][id_]:
-                            if agent_died_prior[num_process][id_]:
-                                # The agent died in a prior round. No reward
-                                # and masks this out.
-                                masks[num_process][id_] = 0.0
-                            else:
-                                # The agent just died. Give it its teammate's
-                                # reward AND update agent_died_now to be True.
-                                reward[num_process][id_] = reward[num_process][tid]
-                                agent_died_now[num_process][id_] = True
-
-                masks = torch.FloatTensor(masks) \
-                             .transpose(0, 1).unsqueeze(2).unsqueeze(2)
-
-                # If the process completed, reset the agent_died_* vars.
-                for num_process in range(num_processes):
-                    if done[num_process].all():
-                        agent_died_now[num_process] = [False]*4
-                        agent_died_prior[num_process] = [False]*4
+                        self_reward = reward[num_process][id_]
+                        teammate_reward = reward[num_process][tid]
+                        my_reward = (1 - reward_sharing) * self_reward + \
+                                    reward_sharing * teammate_reward
+                        reward[num_process][id_] = my_reward
 
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
+            # NOTE: These don't mean anything for homogenous training
             episode_rewards += reward
             final_rewards *= masks
             final_rewards += (1 - masks) * episode_rewards
             episode_rewards *= masks
 
             final_reward_arr = np.array(final_rewards.squeeze(0))
-            if args.how_train == 'simple':
-                cumulative_reward += final_reward_arr[done.squeeze() == True] \
-                                     .sum()
-            elif args.how_train == 'homogenous':
-                cumulative_reward += final_reward_arr.squeeze().transpose()[
-                    np.array([done_.all() for done_ in done]) == True].sum()
+            if how_train == 'simple':
+                final_sum = final_reward_arr[done.squeeze() == True].sum()
+                cumulative_reward += final_sum
+            elif how_train == 'homogenous':
+                where_done = np.array([done_.all() for done_ in done]) == True
+                final_sum = final_reward_arr.squeeze().transpose()
+                final_sum = final_sum[where_done].sum()
+                cumulative_reward += final_sum
 
-            # The masking for simple should be such that:
-            # - final_rewards is masked out on every step except for the last
-            # step of a process. at that point, it becomes the episode_rewards.
-            # - episode_rewards accumulates the rewards at every step and is
-            # masked out only at the last step of a process.
-            # - current_obs consists of the num_stack observations. when the
-            # game resets, the observations do as well, so we won't have an
-            # issue with the frames overlapping. this means that we shouldn't
-            # be using the masking on the current_obs.
             current_obs = update_current_obs(obs)
             if args.cuda:
                 masks = masks.cuda()
@@ -304,21 +289,10 @@ def train():
                 action_log_prob_agents)
             value_all = utils.torch_numpy_stack(value_agents)
 
-            # TODO: Update when we incorporate heterogenous.
-            training_agents[0].insert_rollouts(
-                step, current_obs, states_all, action_all, action_log_prob_all,
-                value_all, reward_all, masks_all)
-
-        if how_train == 'homogenous':
-            # Update the agent trackers so that if one of the agents has died,
-            # then that is passed through to the next block.
-            for num_process in range(num_processes):
-                for id_ in range(4):
-                    agent_died_prior[num_process][id_] = any([
-                        agent_died_prior[num_process][id_],
-                        agent_died_now[num_process][id_]
-                    ])
-                    agent_died_now[num_process][id_] = False
+            if how_train == 'simple' or how_train == 'homogenous':
+                training_agents[0].insert_rollouts(
+                    step, current_obs, states_all, action_all,
+                    action_log_prob_all, value_all, reward_all, masks_all)
 
         # Compute the advantage values.
         if how_train == 'simple' or how_train == 'homogenous':
