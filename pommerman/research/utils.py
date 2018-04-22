@@ -148,19 +148,18 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     mean_value_loss, mean_action_loss,
                     cumulative_reward, terminal_reward, success_rate,
                     running_num_episodes):
-    print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, epochs per sec {} "
-          "mean cumulative reward {:.1f} mean terminal reward {:.1f}, mean success rate {:.1f} "
-          "mean final reward {:.1f}, min/max finals reward "
-          "{:.1f}/{:.1f}, avg entropy {:.5f}, avg value loss {:.5f}, avg "
-          "policy loss {:.5f}\n"
+    print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
+          "epochs per sec {} mean cumulative reward {:.3f} "
+          "mean terminal reward {:.3f}, mean success rate {:.3f} "
+          "mean final reward {:.3f}, min/max finals reward {:.3f}/{:.3f}, avg "
+          "entropy {:.3f}, avg value loss {:.3f}, avg policy loss {:.3f}\n"
           .format(num_epoch, num_episodes, total_steps, steps_per_sec,
-                  epochs_per_sec,
-                  1.0*cumulative_reward/running_num_episodes,
+                  epochs_per_sec, 1.0*cumulative_reward/running_num_episodes,
                   1.0*terminal_reward/running_num_episodes,
-                  1.0*success_rate/running_num_episodes,
-                  final_rewards.mean(), final_rewards.min(), final_rewards.max(),
-                  mean_dist_entropy, mean_value_loss,
-                  mean_action_loss))
+                  1.0*success_rate/running_num_episodes, final_rewards.mean(),
+                  final_rewards.min(), final_rewards.max() ,mean_dist_entropy,
+                  mean_value_loss, mean_action_loss))
+                  
 
 def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
                                 total_reward, success_rate, final_reward):

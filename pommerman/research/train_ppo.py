@@ -72,7 +72,6 @@ def train():
     distill_epochs = args.distill_epochs
     do_distill = distill_target is not '' and \
                  distill_epochs > training_agents[0].num_epoch
-    do_distill = False
     if do_distill:
         distill_agent = utils.load_distill_agent(obs_shape, action_space, args)
         distill_agent.set_eval()
@@ -80,7 +79,7 @@ def train():
         # because we will use the observations from the ppo_agent.
         distill_agent.init_agent(0, envs.get_game_type())
         distill_type = distill_target.split('::')[0]
-        suffix += "dstl{}-dstlepi{}".format(distill_type, distill_epochs)
+        suffix += ".dstl{}.dstlepi{}".format(distill_type, distill_epochs)
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
@@ -95,9 +94,6 @@ def train():
                                    num_processes, 1])
     final_rewards = torch.zeros([num_training_per_episode,
                                  num_processes, 1])
-
-    def update_final_rewards(final_rewards, masks, episode_rewards):
-        return final_rewards
 
     # TODO: When we implement heterogenous, change this to be per agent.
     start_epoch = training_agents[0].num_epoch
@@ -138,7 +134,9 @@ def train():
                         if 'bomb' in l:
                             count_stats['bomb'] += 1
 
+    # Start the environment and set the current_obs appropriately.
     current_obs = update_current_obs(envs.reset())
+
     # TODO: Update this when we implement heterogenous.
     training_agents[0].update_rollouts(obs=current_obs, timestep=0)
     if how_train == 'homogenous':
@@ -212,9 +210,9 @@ def train():
             if how_train == 'simple':
                 running_num_episodes += sum([int(done_) for done_ in done])
                 terminal_reward += reward[done.squeeze() == True].sum()
-                success_rate += sum([int(s) for s in
-                                    [(done.squeeze() == True) & 
-                                     (reward.squeeze() > 0)][0] ])
+                success_rate += sum([int(s) for s in \
+                                     [(done.squeeze() == True) &
+                                      (reward.squeeze() > 0)][0]])
                 masks = torch.FloatTensor([
                     [0.0]*num_training_per_episode if done_ \
                     else [1.0]*num_training_per_episode
@@ -280,7 +278,15 @@ def train():
                 cumulative_reward += final_reward_arr.squeeze().transpose()[
                     np.array([done_.all() for done_ in done]) == True].sum()
 
-            # TODO: figure out if the masking is done right
+            # The masking for simple should be such that:
+            # - final_rewards is masked out on every step except for the last
+            # step of a process. at that point, it becomes the episode_rewards.
+            # - episode_rewards accumulates the rewards at every step and is
+            # masked out only at the last step of a process.
+            # - current_obs consists of the num_stack observations. when the
+            # game resets, the observations do as well, so we won't have an
+            # issue with the frames overlapping. this means that we shouldn't
+            # be using the masking on the current_obs.
             current_obs = update_current_obs(obs)
             if args.cuda:
                 masks = masks.cuda()
@@ -288,10 +294,8 @@ def train():
 
             if how_train == 'simple':
                 masks_all = masks.transpose(0,1).unsqueeze(2)
-                current_obs *= masks_all.unsqueeze(2).unsqueeze(2)
             elif how_train == 'homogenous':
                 masks_all = masks
-                current_obs *= masks_all.unsqueeze(2)
 
             reward_all = reward.unsqueeze(2)
             states_all = utils.torch_numpy_stack(states_agents)

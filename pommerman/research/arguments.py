@@ -57,7 +57,7 @@ def get_args():
                         help='local path to target model and model type to '
                         'which we will distill the PPO agent, e.g. '
                         'dagger::/path/to/model.pt.')
-    parser.add_argument('--distill-epochs', type=int, default=0,
+    parser.add_argument('--distill-epochs', type=int, default=200,
                         help='the number of training epochs over which we '
                         'distill the distill-target into the model. at epoch '
                         '0, the probability is 1.0 (i.e. only use target), at '
