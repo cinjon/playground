@@ -318,5 +318,6 @@ def validate_how_train(how_train, nagents):
         return None
 
 
-def torch_numpy_stack(value):
-    return torch.from_numpy(np.stack([x.data for x in value])).float()
+def torch_numpy_stack(value, data=True):
+    return torch.from_numpy(np.stack([x.data if data else x for x in value])) \
+                .float()

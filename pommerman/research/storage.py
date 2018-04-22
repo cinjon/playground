@@ -145,9 +145,8 @@ class RolloutStorage(object):
 
 
 class ReplayBuffer:
-    """
-    This class implements a GPU-ready replay buffer
-    """
+    """This class implements a GPU-ready replay buffer."""
+
     def __init__(self, state_shape, action_shape, size=100000):
         self.state_shape = state_shape
         self.action_shape = action_shape
@@ -161,6 +160,9 @@ class ReplayBuffer:
 
         self._size = 0
 
+    def __len__(self):
+        return len(self.state_buffer)
+
     def cuda(self):
         self.state_buffer.cuda()
         self.action_buffer.cuda()
@@ -171,9 +173,12 @@ class ReplayBuffer:
     def push(self, state, action, reward, next_state, done, *args, **kwargs):
         incoming_size = state.shape[0]
 
-        assert incoming_size == action.shape[0] and incoming_size == reward.shape[0] and \
-            incoming_size == next_state.shape[0] and incoming_size == done.shape[0], \
-            'Input tensors shape mismatch, all arguments must have the same dimension 0'
+        assert all([incoming_size == action.shape[0],
+                    incoming_size == reward.shape[0],
+                    incoming_size == next_state.shape[0],
+                    incoming_size == done.shape[0]]), \
+                    'Input tensors shape mismatch in dimension 0.'
+                    
 
         self._size += incoming_size
 
@@ -191,12 +196,14 @@ class ReplayBuffer:
         self.state_buffer = torch.cat([self.state_buffer, state], dim=0)
         self.action_buffer = torch.cat([self.action_buffer, action], dim=0)
         self.reward_buffer = torch.cat([self.reward_buffer, reward], dim=0)
-        self.next_state_buffer = torch.cat([self.next_state_buffer, next_state], dim=0)
+        self.next_state_buffer = torch.cat(
+            [self.next_state_buffer, next_state], dim=0)
         self.done_buffer = torch.cat([self.done_buffer, done], dim=0)
 
     def sample(self, batch_size):
         assert batch_size <= self._size, \
-            'Unable to sample {} items, current buffer size {}'.format(batch_size, self._size)
+            'Unable to sample {} items, current buffer size {}'.format(
+                batch_size, self._size)
 
         batch_index = (torch.rand(batch_size) * self._size).long()
 
@@ -206,7 +213,8 @@ class ReplayBuffer:
         next_state_batch = self.next_state_buffer.index_select(0, batch_index)
         done_batch = self.done_buffer.index_select(0, batch_index)
 
-        return state_batch, action_batch, reward_batch, next_state_batch, done_batch
+        return state_batch, action_batch, reward_batch, next_state_batch, \
+            done_batch
 
     def __len__(self):
         return self._size
@@ -220,7 +228,8 @@ class EpisodeBuffer:
         self.next_state_buffer = deque(maxlen=size)
         self.done_buffer = deque(maxlen=size)
 
-    def extend(self, state_history, action_history, reward_history, next_state_history, done_history):
+    def extend(self, state_history, action_history, reward_history,
+               next_state_history, done_history):
         self.state_buffer.extend(state_history)
         self.action_buffer.extend(action_history)
         self.reward_buffer.extend(reward_history)
@@ -236,12 +245,11 @@ class EpisodeBuffer:
 
     def sample(self, batch_size):
         assert batch_size <= self.__len__(), \
-            'Unable to sample {} items, current buffer size {}'.format(batch_size, self.__len__())
+            'Unable to sample {} items, current buffer size {}'.format(
+                batch_size, self.__len__())
 
         batch_index = random.sample(range(self.__len__()), batch_size)
         for index in batch_index:
-            yield self.state_buffer[index], self.action_buffer[index], self.reward_buffer[index], \
-                  self.next_state_buffer[index], self.done_buffer[index]
-
-    def __len__(self):
-        return len(self.state_buffer)
+            yield self.state_buffer[index], self.action_buffer[index], \
+                self.reward_buffer[index], self.next_state_buffer[index], \
+                self.done_buffer[index]

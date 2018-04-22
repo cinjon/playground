@@ -94,9 +94,6 @@ def train():
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
 
-
-    #####
-    # NOTE: These four funcs have side effects where they set variable values.
     def update_current_obs(obs):
         return torch.from_numpy(obs).float().transpose(0,1)
 
@@ -109,6 +106,7 @@ def train():
         return action.data.squeeze(1).cpu().numpy()
 
     def update_stats(info):
+        # NOTE: This func has a side effect where it sets variable values.
         # TODO: Change this stats computation when we use heterogenous.
         for i in info:
             for lst in i.get('step_info', {}).values():
