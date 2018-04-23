@@ -150,7 +150,7 @@ class PPOAgent(ResearchAgent):
 
             if anneal:
                 self.optimize_anneal(value_loss, action_loss, dist_entropy,
-                               entropy_coef, max_grad_norm, lr, eps)
+                                     entropy_coef, max_grad_norm, lr, eps)
             else:
                 self._optimize(value_loss, action_loss, dist_entropy,
                                entropy_coef, max_grad_norm)
@@ -158,7 +158,6 @@ class PPOAgent(ResearchAgent):
             action_losses.append(action_loss.data[0])
             value_losses.append(value_loss.data[0])
             dist_entropies.append(dist_entropy.data[0])
-
 
         return action_losses, value_losses, dist_entropies
 

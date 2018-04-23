@@ -160,7 +160,9 @@ def featurize3D(obs):
     Returns:
         A 3D Feature Map where each map is bsXbs. The 19 features are:
         - (2) Bomb blast strength and Bomb life.
-        - (4) Agent position, ammo, blast strength, can_kick.
+        - (1) Agent position, a single 1 on the map specifying the agent's
+            location. This is all zeros if the agent is dead.
+        - (3) Agent ammo, blast strength, can_kick.
         - (1) Whether has teammate.
         - (1 / 0) If teammate, then the teammate's position.
         - (2 / 3) Enemies' positions.
