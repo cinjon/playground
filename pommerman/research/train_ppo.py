@@ -345,18 +345,19 @@ def train():
 
             utils.log_to_console(num_epoch, num_episodes, total_steps,
                                  steps_per_sec, epochs_per_sec, final_rewards,
-                                 mean_dist_entropy, mean_value_loss, mean_action_loss,
-                                 cumulative_reward, terminal_reward, success_rate,
+                                 mean_dist_entropy, mean_value_loss,
+                                 mean_action_loss, cumulative_reward,
+                                 terminal_reward, success_rate,
                                  running_num_episodes)
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
-                                     total_steps, steps_per_sec, episodes_per_sec,
-                                     final_rewards,
+                                     total_steps, steps_per_sec,
+                                     episodes_per_sec, final_rewards,
                                      mean_dist_entropy, mean_value_loss,
                                      mean_action_loss, std_dist_entropy,
                                      std_value_loss, std_action_loss,
                                      count_stats, array_stats,
-                                     cumulative_reward, terminal_reward, success_rate,
-                                     running_num_episodes)
+                                     cumulative_reward, terminal_reward,
+                                     success_rate, running_num_episodes)
 
             # Reset stats so that plots are per the last log_interval.
             final_action_losses = [[] for agent in range(len(training_agents))]
