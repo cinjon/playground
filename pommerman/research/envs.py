@@ -48,6 +48,11 @@ def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
             training_agent_ids = [random.randint(0, 3)]
             agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
             agents.insert(training_agent_ids[0], training_agents[0])
+        elif how_train == 'qmix':
+            training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)] # randomly pick team [0,2] or [1,3]
+            agents = [pommerman.agents.SimpleAgent() for _ in range(2)]
+            agents.insert(training_agent_ids[0], training_agents[0])
+            agents.insert(training_agent_ids[1], training_agents[1])
         else:
             raise
 
@@ -125,7 +130,7 @@ class WrapPomme(gym.ObservationWrapper):
             obs = self.env.get_observations()
             all_actions = self.env.act(obs)
             all_actions.insert(self.env.training_agents[0], actions)
-        elif self._how_train == 'homogenous':
+        elif self._how_train == 'homogenous' or self._how_train == 'qmix':
             all_actions = actions
 
         observation, reward, done, info = self.env.step(all_actions)

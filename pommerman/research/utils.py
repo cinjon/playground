@@ -320,6 +320,9 @@ def validate_how_train(how_train, nagents):
         # Homogenous trains a single agent against itself (self-play).
         assert(nagents == 1), "Homogenous training should have one agent."
         return 4
+    elif how_train == 'qmix':
+        assert nagents == 2
+        return 2
     elif how_train == 'heterogenous':
         s = "Heterogenous training should have multiple agents."
         assert(nagents > 1), s

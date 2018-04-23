@@ -216,9 +216,6 @@ class ReplayBuffer:
         return state_batch, action_batch, reward_batch, next_state_batch, \
             done_batch
 
-    def __len__(self):
-        return self._size
-
 
 class EpisodeBuffer:
     def __init__(self, size=5000):
@@ -253,3 +250,6 @@ class EpisodeBuffer:
             yield self.state_buffer[index], self.action_buffer[index], \
                 self.reward_buffer[index], self.next_state_buffer[index], \
                 self.done_buffer[index]
+
+    def __len__(self):
+        return len(self.state_buffer)
