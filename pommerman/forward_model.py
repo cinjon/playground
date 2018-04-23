@@ -94,13 +94,15 @@ class ForwardModel(object):
         # @utils.timeout(0.15)
         def act_ex_communication(agent):
             if agent.is_alive:
-                return agent.act(obs[agent.agent_id], action_space=action_space)
+                return agent.act(obs[agent.agent_id],
+                                 action_space=action_space)
             else:
                 return constants.Action.Stop.value
 
         def act_with_communication(agent):
             if agent.is_alive:
-                action = agent.act(obs[agent.agent_id], action_space=action_space)
+                action = agent.act(obs[agent.agent_id],
+                                   action_space=action_space)
                 if type(action) == int:
                     action = [action] + [0, 0]
                 assert(type(action) == list)
@@ -428,6 +430,7 @@ class ForwardModel(object):
                     'result': constants.Result.Win,
                     'winners': [num for num, reward in enumerate(rewards) \
                                 if reward == 1],
+                    'alive': [agent.agent_id for agent in alive]
                 }
         else:
             return {

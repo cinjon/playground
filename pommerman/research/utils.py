@@ -98,6 +98,7 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
     except OSError:
         pass
 
+    ret = []
     for num_agent, agent in enumerate(training_agents):
         model = agent.model
         optimizer = agent.optimizer
@@ -119,6 +120,8 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
             suffix += '.pt'
         save_path = os.path.join(save_dir, "agent%d-%s" % (num_agent, suffix))
         torch.save(save_dict, save_path)
+    ret.append(save_path)
+    return ret
 
 
 def scp_model_from_ssh(saved_paths, ssh_address, ssh_password,

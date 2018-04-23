@@ -1,33 +1,40 @@
 """Train script for ppo learning.
-Currently tested for how_train = "simple".
-TODO: Get homogenous training working s.t. the reward is properly updated for
-an agent in a team game that dies before the end of the game.
-TODO: Test that homogenous training works.
+
 TODO: Implement heterogenous training.
+
 The number of samples used for an epoch is:
 horizon * num_workers = num_steps * num_processes where num_steps is the number
 of steps in a rollout (horizon) and num_processes is the number of parallel
 processes/workers collecting data.
-Example:
+
+Simple Example:
 python train_ppo.py --how-train simple --num-processes 10 --run-name test \
  --num-steps 50 --log-interval 5
+
 Distillation Example:
 python train_ppo.py --how-train simple --num-processes 10 --run-name distill \
  --num-steps 100 --log-interval 5 \
  --distill-epochs 100 --distill-target dagger::/path/to/model.pt
-"""
 
+Homogenous Example:
+python train_ppo.py --how-train homogenous --num-processes 10 \
+ --run-name distill --num-steps 100 --log-interval 5 --distill-epochs 100 \
+ --distill-target dagger::/path/to/model.pt --config PommeTeam-v0 \
+ --eval-mode homogenous --num-battles-eval 100 --seed 100
+"""
 from collections import defaultdict
 import os
 import time
 
 import numpy as np
+from pommerman.agents import SimpleAgent
 from tensorboardX import SummaryWriter
 import torch
 import random
 
 from arguments import get_args
 import envs as env_helpers
+from eval import eval as run_eval
 import ppo_agent
 import utils
 
@@ -57,6 +64,10 @@ def train():
     envs = env_helpers.make_envs(config, how_train, args.seed,
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
+    if how_train == 'homogenous':
+        bad_guys = [SimpleAgent(), SimpleAgent()]
+        good_guys = [training_agents[0]]*2
+        eval_round = 0
 
     suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.seed{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,
@@ -74,6 +85,7 @@ def train():
         distill_agent.init_agent(0, envs.get_game_type())
         distill_type = distill_target.split('::')[0]
         suffix += ".dstl{}.dstlepi{}".format(distill_type, distill_epochs)
+        bad_guys = [distill_agent, distill_agent]
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
@@ -147,8 +159,10 @@ def train():
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
-        # print("Starting epoch %d." % num_epoch)
-        if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
+        if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval) \
+           and how_train == 'simple':
+            # Only save at regular epochs if using "simple". The others save
+            # upon successful evaluation.
             utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
                               num_episodes, args, suffix)
 
@@ -342,6 +356,36 @@ def train():
                 action_loss for action_loss in final_action_losses])
             std_action_loss = np.std([
                 action_loss for action_loss in final_action_losses])
+
+            if how_train == 'homogenous':
+                wins, dead, ties = run_eval(
+                    args=args, targets=good_guys, opponents=bad_guys)
+                descriptor = 'homogenous_eval_round%d/' % eval_round
+                num_battles = args.num_battles_eval
+                win_count = sum(wins.values())
+                tie_count = sum(ties.values())
+                one_dead  = sum(dead.values())
+
+                win_rate = 1.0*win_count/num_battles
+                tie_rate = 1.0*tie_count/num_battles
+                one_dead_per_battle = 1.0*one_dead/num_battles
+                one_dead_per_win = 1.0*one_dead/win_count if win_count else 0
+                writer.add_scalar('%s/win_rate' % (descriptor, win_rate))
+                writer.add_scalar('%s/tie_rate' % (descriptor, tie_rate))
+                writer.add_scalar('%s/one_dead_per_battle' % (
+                    descriptor, one_dead_per_battle))
+                writer.add_scalar('%s/one_dead_per_win' % (
+                    descriptor, one_dead_per_win))
+                if win_rate >= .65: # TODO: Is this too high?
+                    saved_paths = utils.save_agents(
+                        "ppo-", num_epoch, training_agents, total_steps,
+                        num_episodes, args, suffix + ".evlrnd%d" % eval_round)
+                    eval_round += 1
+                    bad_guys = [
+                        utils.torch_load(saved_paths[0], args.cuda,
+                                         args.cuda_device)
+                        for _ in range(2)
+                    ]
 
             utils.log_to_console(num_epoch, num_episodes, total_steps,
                                  steps_per_sec, epochs_per_sec, final_rewards,

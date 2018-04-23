@@ -35,84 +35,86 @@ import ppo_agent
 import utils
 
 
-def build_agents(mode, targets, opponents, obs_shape, action_space, args):
-    def _get_info(inp):
-        model_type, model_path = inp.split('::')
-        if all([model_path, model_path != 'null',
-                not os.path.exists(model_path)]):
-            print("Retrieving model %s from %s..." % \
-                  (model_path, args.ssh_address))
-            model_path = utils.scp_model_from_ssh(
-                model_path,
-                args.ssh_address,
-                args.ssh_password,
-                args.ssh_save_model_local)
+def _get_info(inp, args):
+    model_type, model_path = inp.split('::')
+    if all([model_path, model_path != 'null',
+            not os.path.exists(model_path)]):
+        print("Retrieving model %s from %s..." % \
+              (model_path, ssh_address))
+        model_path = utils.scp_model_from_ssh(model_path,
+                                              args.ssh_address,
+                                              args.ssh_password,
+                                              args.ssh_save_model_local)
+    if model_type == 'ppo':
+        return ppo_agent.PPOAgent, model_path
+    elif model_type == 'dagger':
+        return dagger_agent.DaggerAgent, model_path
+    elif model_type == 'simple':
+        return pommerman.agents.SimpleAgent, None
 
-        if model_type == 'ppo':
-            return ppo_agent.PPOAgent, model_path
-        elif model_type == 'dagger':
-            return dagger_agent.DaggerAgent, model_path
-        elif model_type == 'simple':
-            return pommerman.agents.SimpleAgent, None
 
-    def _build(info):
-        agent_type, path = info
-        if path:
-            model_str = args.model_str
-            actor_critic = lambda state, board_size, num_channels: \
-                networks.get_actor_critic(model_str)(state, obs_shape[0],
-                                                     action_space, board_size,
-                                                     num_channels)
+def _build(info, obs_shape, action_space, cuda, cuda_device):
+    agent_type, path = info
+    if path:
+        model_str = args.model_str
+        actor_critic = lambda state, board_size, num_channels: \
+            networks.get_actor_critic(model_str)(state, obs_shape[0],
+                                                 action_space, board_size,
+                                                 num_channels)
 
-            print("Loading path %s as agent." % path)
-            if args.cuda:
-                loaded_model = torch.load(path, map_location=lambda storage,
-                                          loc: storage.cuda(args.cuda_device))
-            else:
-                loaded_model = torch.load(path, map_location=lambda storage,
-                                          loc: storage)
-            model_state_dict = loaded_model['state_dict']
-            args_state_dict = loaded_model['args']
-            model = actor_critic(model_state_dict,
-                                 args_state_dict['board_size'],
-                                 args_state_dict['num_channels'])
-            agent = agent_type(model, num_stack=args_state_dict['num_stack'],
-                               cuda=args.cuda)
-            if args.cuda:
-                agent.cuda()
-            return agent
+        print("Loading path %s as agent." % path)
+        if cuda:
+            loaded_model = torch.load(path, map_location=lambda storage,
+                                      loc: storage.cuda(cuda_device))
         else:
-            return agent_type()
+            loaded_model = torch.load(path, map_location=lambda storage,
+                                      loc: storage)
+        model_state_dict = loaded_model['state_dict']
+        args_state_dict = loaded_model['args']
+        model = actor_critic(model_state_dict,
+                             args_state_dict['board_size'],
+                             args_state_dict['num_channels'])
+        agent = agent_type(model, num_stack=args_state_dict['num_stack'],
+                           cuda=cuda)
+        if cuda:
+            agent.cuda()
+        return agent
+    else:
+        return agent_type()
 
+
+def build_agents(mode, targets, opponents, obs_shape, action_space, args):
     targets = targets.split(',')
     opponents = opponents.split(',')
 
     if mode == 'ffa':
         assert(len(targets) == 1), "Exactly 1 target for ffa."
         assert(len(opponents) == 3), "Exactly 3 opponents for ffa."
-    elif mode == 'homogenous_team':
-        assert(len(targets) == 1), "Exactly 1 target for homogenous-team."
+    elif mode == 'homogenous':
+        assert(len(targets) == 1), "Exactly 1 target for homogenous."
         assert(len(opponents) in [1, 2]), \
-            "Exactly 1 or 2 opponents for homogenous-team."
+            "Exactly 1 or 2 opponents for homogenous."
         targets += targets
         if len(opponents) == 1:
             opponents += opponents
-    elif mode == 'heterogenous_team':
-        assert(len(targets) == 1), "Exactly 2 targets for heterogenous-team."
+    elif mode == 'heterogenous':
+        assert(len(targets) == 1), "Exactly 2 targets for heterogenous."
         assert(len(opponents) in [1, 2]), \
-            "Exactly 1 or 2 opponents for heterogenous-team."
+            "Exactly 1 or 2 opponents for heterogenous."
         if len(opponents) == 1:
             opponents += opponents
     else:
         raise ValueError
 
-    targets = [_build(_get_info(agent)) for agent in targets]
-    opponents = [_build(_get_info(agent)) for agent in opponents]
+    targets = [_build(_get_info(agent, args), obs_shape, action_space,
+                      args.cuda, args.cuda_device) for agent in targets]
+    opponents = [_build(_get_info(agent, args), obs_shape, action_space,
+                        args.cuda, args.cuda_device) for agent in opponents]
     return targets, opponents
 
 
-def eval():
-    args = get_args()
+def eval(args=None, targets=None, opponents=None):
+    args = args or get_args()
     if args.cuda:
         os.environ['OMP_NUM_THREADS'] = '1'
         torch.cuda.empty_cache()
@@ -122,10 +124,12 @@ def eval():
     mode = args.eval_mode
     obs_shape, action_space = env_helpers.get_env_shapes(args.config,
                                                          args.num_stack)
-    targets = args.eval_targets
-    opponents = args.eval_opponents
-    targets, opponents = build_agents(mode, targets, opponents, obs_shape,
-                                      action_space, args)
+
+    if not targets and not opponents:
+        targets = args.eval_targets
+        opponents = args.eval_opponents
+        targets, opponents = build_agents(mode, targets, opponents, obs_shape,
+                                          action_space, args)
 
     # Run the model with run_battle.
     if mode == 'ffa':
@@ -168,8 +172,12 @@ def eval():
         print("Ranks: ", ranks)
         print("Ties: ", ties)
         print("\n")
-    elif mode == 'homogenous_team':
-        print('Starting Homogenous Team Battles.')
+        return wins, deads, ties, ranks
+    elif mode == 'homogenous':
+        print('Starting Homogenous Battles.') 
+        ties = defaultdict(int)
+        wins = defaultdict(int)
+        one_dead = defaultdict(int)
         for position in range(2):
             training_agents = [position, position+2]
             print("Running Battle Position %d..." % position)
@@ -177,11 +185,34 @@ def eval():
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
             agents.insert(position+2, targets[1])
+            acting_agents = sorted([
+                agent.agent_id for agent in agents if \
+                type(agent) != pommerman.agents.SimpleAgent])
             infos = run_battle.run(
                 args, num_times=num_times, seed=args.seed, agents=agents,
-                training_agents=training_agents)
-            print(infos)
-    elif mode == 'heterogenous_team':
+                training_agents=training_agents, acting_agents=acting_agents)
+            for info in infos:
+                if info['result'] == pommerman.constants.Result.Tie:
+                    ties[position] += 1
+                else:
+                    winners = info['winners']
+
+                    is_win = False
+                    if position in winners:
+                        wins[position] += 1
+
+                    # Count the number of times that one died and not other.
+                    if is_win:
+                        for id_ in [position, position+2]:
+                            if id_ not in info['alive']:
+                                dead[position] += 1
+
+        print("Wins: ", wins)
+        print("Dead: ", dead)
+        print("Ties: ", ties)
+        print("\n")
+        return wins, dead, ties
+    elif mode == 'heterogenous':
         print('Starting Heterogenous Team Battles.')
         for position in range(2):
             print("Running Battle Position %d..." % position)

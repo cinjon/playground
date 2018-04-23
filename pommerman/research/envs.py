@@ -46,7 +46,6 @@ def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
                       for agent_id in training_agent_ids]
         elif how_train == 'dagger':
             training_agent_ids = [random.randint(0, 3)]
-            # print("training agent ids: ", training_agent_ids)
             agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
             agents.insert(training_agent_ids[0], training_agents[0])
         elif how_train == 'qmix':
@@ -100,7 +99,6 @@ class WrapPomme(gym.ObservationWrapper):
         super(WrapPomme, self).__init__(env)
         self._how_train = how_train
 
-        # TODO: make obs_shape an argument.
         obs_shape = (18, 13, 13)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]

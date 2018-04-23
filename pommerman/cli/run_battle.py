@@ -26,7 +26,21 @@ time_avg = defaultdict(float)
 time_max = defaultdict(float)
 time_cnt = defaultdict(int)
 
-def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
+def run(args, num_times=1, seed=None, agents=None, training_agents=[],
+        acting_agents=None):
+    """Run the game a number of times.
+
+    Args:
+      args: The arguments we are passing through from CLI.
+      num_times: The number of times to run the battle.
+      seed: The random seed to use for the battles.
+      agents: What agents to use. If not, we will make them from the args.
+      training_agents: Which ids are the training_agents.
+      acting_agents: Which, if any agents, use an act function.
+
+    Returns:
+      infos: The list of information dicts returned from these games.
+    """
     config = args.config
     record_pngs_dir = args.record_pngs_dir
     record_json_dir = args.record_json_dir
@@ -76,7 +90,7 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[]):
                 env.render(record_pngs_dir=args.record_pngs_dir,
                            record_json_dir=args.record_json_dir)
             actions = env.act(obs)
-            for agent_id in training_agents:
+            for agent_id in acting_agents:
                 with utility.Timer() as t:
                     agent_obs = obs[agent_id]
                     action = agents[agent_id].act(agent_obs, env.action_space)
