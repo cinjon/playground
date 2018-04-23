@@ -26,11 +26,16 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
             print("Loading path %s as agent." % path)
             loaded_model = torch_load(path, args.cuda, args.cuda_device)
             model_state_dict = loaded_model['state_dict']
-            optimizer_state_dict = loaded_model['optimizer']
-            num_episodes = loaded_model['num_episodes']
-            total_steps = loaded_model['total_steps']
-            num_epoch = loaded_model['num_epoch']
             model = actor_critic(model_state_dict)
+            optimizer_state_dict = loaded_model['optimizer']
+            if args.restart_counts:
+                num_episodes = 0
+                total_steps = 0
+                num_epoch = 0
+            else:
+                num_episodes = loaded_model['num_episodes']
+                total_steps = loaded_model['total_steps']
+                num_epoch = loaded_model['num_epoch']
         else:
             num_episodes = 0
             total_steps = 0
