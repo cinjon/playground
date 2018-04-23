@@ -110,6 +110,8 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
                      .format(name, how_train, config, model_str,
                              args.num_channels, args.lr, args.minibatch_size,
                              args.num_steps, num_epoch, total_steps, seed)
+        if not suffix.endswith('.pt'):
+            suffix += '.pt'
         save_path = os.path.join(save_dir, "agent%d-%s" % (num_agent, suffix))
         torch.save(save_dict, save_path)
 
