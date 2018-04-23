@@ -53,7 +53,7 @@ def train():
     args.num_agents = 2
 
     how_train, config, num_agents, num_stack, num_steps, num_processes, \
-        num_epochs = utils.get_train_vars(args)
+        num_epochs, reward_sharing = utils.get_train_vars(args)
 
     obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
     num_training_per_episode = utils.validate_how_train(how_train, num_agents)
