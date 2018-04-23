@@ -46,12 +46,10 @@ class PPOAgent(ResearchAgent):
 
     def actor_critic_act(self, step, num_agent=0, use_act=False):
         """Uses the actor_critic to take action.
-
         Args:
           step: The int timestep that we are acting.
           num_agent: Agent id that's running. Non-zero when agent has copies.
           use_act: Whether to call act or just run the actor_critic.
-
         Returns:
           See the actor_critic's act function in model.py.
         """
@@ -69,9 +67,12 @@ class PPOAgent(ResearchAgent):
                                                    actions)
 
     def _optimize(self, value_loss, action_loss, dist_entropy, entropy_coef,
-                  max_grad_norm):
+                  max_grad_norm, use_kl=False, kl_loss=None, kl_factor=1.0):
         self._optimizer.zero_grad()
-        (value_loss + action_loss - dist_entropy * entropy_coef).backward()
+        if use_kl:
+            (value_loss + action_loss - dist_entropy * entropy_coef - kl_factor * kl_loss).backward()
+        else:
+            (value_loss + action_loss - dist_entropy * entropy_coef).backward()
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
         self._optimizer.step()
 
@@ -117,7 +118,8 @@ class PPOAgent(ResearchAgent):
                              action_log_prob, value, reward, mask)
 
     def ppo(self, advantages, num_mini_batch, num_steps, clip_param,
-            entropy_coef, max_grad_norm, anneal=False, lr=1e-4, eps=1e-5):
+            entropy_coef, max_grad_norm, anneal=False, lr=1e-4, eps=1e-5,
+            use_kl=False, kl_factor=1.0):
         action_losses = []
         value_losses = []
         dist_entropies = []
@@ -148,12 +150,16 @@ class PPOAgent(ResearchAgent):
             value_loss = (Variable(return_batch) - values) \
                          .pow(2).mean()
 
+            # NOTE: loss(outputs, labels); outputs: log_probabilities, labels: probabilities
+            kl_loss = nn.KLDivLoss(action_log_probs, dagger_actions)
+
             if anneal:
                 self.optimize_anneal(value_loss, action_loss, dist_entropy,
                                      entropy_coef, max_grad_norm, lr, eps)
             else:
                 self._optimize(value_loss, action_loss, dist_entropy,
-                               entropy_coef, max_grad_norm)
+                               entropy_coef, max_grad_norm,
+                               use_kl, kl_loss, kl_factor)
 
             action_losses.append(action_loss.data[0])
             value_losses.append(value_loss.data[0])
@@ -163,7 +169,6 @@ class PPOAgent(ResearchAgent):
 
     def copy_ex_model(self):
         """Creates a copy that without the model.
-
         This is for operating with homogenous training.
         """
         return PPOAgent(None, self._character)

@@ -1,5 +1,4 @@
 """The baseline Pommerman environment.
-
 This evironment acts as game manager for Pommerman. Further environments,
 such as in v1.py, will inherit from this.
 """
@@ -66,7 +65,6 @@ class Pomme(gym.Env):
 
     def _set_observation_space(self):
         """The Observation Space for each agent.
-
         There are a total of 3*board_size^2+12 observations:
         - all of the board (board_size^2)
         - bomb blast strength (board_size^2).
@@ -94,7 +92,6 @@ class Pomme(gym.Env):
 
     def set_init_game_state(self, game_state_file):
         """Set the initial game state.
-
         The expected game_state_file JSON format is:
           - agents: list of agents serialized (agent_id, is_alive, position,
             ammo, blast_strength, can_kick)
@@ -105,7 +102,6 @@ class Pomme(gym.Env):
           - flames: list of flames serialized (position, life)
           - items: list of item by position
           - step_count: step count
-
         Args:
           game_state_file: JSON File input.
         """
@@ -289,7 +285,7 @@ class Pomme(gym.Env):
         if record_pngs_dir:
             Image.fromarray(img).save(
                 os.path.join(record_pngs_dir, '%d.png' % self._step_count))
-                                                   
+
         if record_json_dir:
             info = self.get_json_info()
             with open(os.path.join(record_json_dir,
@@ -371,11 +367,10 @@ class Pomme(gym.Env):
             self._bombs.append(characters.Bomb(
                 bomber, tuple(b['position']), int(b['life']),
                 int(b['blast_strength']), b['moving_direction']))
-                                    
+
 
         self._flames = []
         flameArray = json.loads(self._init_game_state['flames'])
         for f in flameArray:
             self._flames.append(
                 characters.Flame(tuple(f['position']), f['life']))
-                                                 

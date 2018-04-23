@@ -37,9 +37,9 @@ def get_args():
                         help='ppo clip parameter (0.2)')
     parser.add_argument('--num-stack', type=int, default=2,
                         help='number of frames to stack (2)')
-    parser.add_argument('--log-interval', type=int, default=10,
+    parser.add_argument('--log-interval', type=int, default=100,
                         help='log interval, one log per n updates (10)')
-    parser.add_argument('--save-interval', type=int, default=10,
+    parser.add_argument('--save-interval', type=int, default=1000,
                         help='save interval, one save per n updates (10)')
     parser.add_argument('--num-frames', type=int, default=10e7,
                         help='number of frames to train (10e6)')

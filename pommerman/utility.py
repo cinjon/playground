@@ -34,7 +34,6 @@ class PommermanJSONEncoder(json.JSONEncoder):
 
 def make_board(size, num_rigid=0, num_wood=0):
     """Make the random but symmetric board.
-
     The numbers refer to the Item enum in constants. This is:
      0 - passage
      1 - rigid wall
@@ -47,12 +46,10 @@ def make_board(size, num_rigid=0, num_wood=0):
      8 - kick
      9 - skull
      10 - 13: agents
-
     Args:
       size: The dimension of the board, i.e. it's sizeXsize.
       num_rigid: The number of rigid walls on the board. This should be even.
       num_wood: Similar to above but for wood walls.
-
     Returns:
       board: The resulting random board.
     """
@@ -175,7 +172,7 @@ def inaccessible_passages(board, agent_positions):
             seen.add(next_position)
             Q.append(next_position)
     return positions
-    
+
 
 def is_valid_direction(board, position, direction, invalid_values=None):
     row, col = position
@@ -271,7 +268,6 @@ def position_on_board(board, position):
 
 def get_direction(position, next_position):
     """Get the direction such that position --> next_position.
-
     We assume that they are adjacent.
     """
     x, y = position
@@ -327,7 +323,6 @@ def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
 
 class Timer:
     """With block timer.
-
     with Timer() as t:
       foo = blah()
     print('Request took %.03f sec.' % t.interval)
@@ -339,4 +334,3 @@ class Timer:
     def __exit__(self, *args):
         self.end = time.time()
         self.interval = self.end - self.start
-

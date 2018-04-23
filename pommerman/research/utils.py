@@ -169,7 +169,7 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                   1.0*success_rate/running_num_episodes, final_rewards.mean(),
                   final_rewards.min(), final_rewards.max() ,mean_dist_entropy,
                   mean_value_loss, mean_action_loss))
-                  
+
 
 def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
                                 total_reward, success_rate, final_reward):

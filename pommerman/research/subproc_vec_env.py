@@ -188,7 +188,7 @@ class SubprocVecEnv(_VecEnv):
         if self.closed:
             return
         if self.waiting:
-            for remote in self.remotes:            
+            for remote in self.remotes:
                 remote.recv()
         for remote in self.remotes:
             remote.send(('close', None))

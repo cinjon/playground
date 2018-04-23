@@ -1,23 +1,17 @@
 """Train script for ppo learning.
-
 Currently tested for how_train = "simple".
 TODO: Get homogenous training working s.t. the reward is properly updated for
 an agent in a team game that dies before the end of the game.
 TODO: Test that homogenous training works.
 TODO: Implement heterogenous training.
-
 The number of samples used for an epoch is:
 horizon * num_workers = num_steps * num_processes where num_steps is the number
 of steps in a rollout (horizon) and num_processes is the number of parallel
 processes/workers collecting data.
-
 Example:
-
 python train_ppo.py --how-train simple --num-processes 10 --run-name test \
  --num-steps 50 --log-interval 5
-
 Distillation Example:
-
 python train_ppo.py --how-train simple --num-processes 10 --run-name distill \
  --num-steps 100 --log-interval 5 \
  --distill-epochs 100 --distill-target dagger::/path/to/model.pt
@@ -104,6 +98,7 @@ def train():
     cumulative_reward = 0
     terminal_reward = 0
     success_rate = 0
+    prev_epoch = start_epoch
     final_action_losses = [[] for agent in range(len(training_agents))]
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
@@ -152,7 +147,7 @@ def train():
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
-        print("Starting epoch %d." % num_epoch)
+        # print("Starting epoch %d." % num_epoch)
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
                               num_episodes, args, suffix)
@@ -313,7 +308,8 @@ def train():
             for _ in range(args.ppo_epoch):
                 result = agent.ppo(advantages[num_agent], args.num_mini_batch,
                                    num_steps, args.clip_param,
-                                   args.entropy_coef, args.max_grad_norm)
+                                   args.entropy_coef, args.max_grad_norm,
+                                   use_kl=do_distill, kl_factor=distill_prob)
                 action_losses, value_losses, dist_entropies = result
                 final_action_losses[num_agent].extend(result[0])
                 final_value_losses[num_agent].extend(result[1])
@@ -329,7 +325,7 @@ def train():
             num_episodes += running_num_episodes
 
             steps_per_sec = 1.0 * total_steps / (end - start)
-            epochs_per_sec = 1.0 * args.log_interval / (end - start)
+            epochs_per_sec = 1.0 * (num_epoch - prev_epoch) / (end - start)
             episodes_per_sec =  1.0 * num_episodes / (end - start)
 
             mean_dist_entropy = np.mean([
@@ -375,6 +371,7 @@ def train():
             cumulative_reward = 0
             terminal_reward = 0
             success_rate = 0
+            prev_epoch = num_epoch
 
     writer.close()
 
