@@ -151,7 +151,13 @@ def get_args():
 
     # for QMIX
     parser.add_argument('--episode-batch', type=int, default=16,
-                        help='number of episodes to sample from the episode buffer for training')
+                        help='number of episodes to sample from the episode buffer for training (default 1.0)')
+    parser.add_argument('--eps-max', type=float, default=1.0,
+                        help='maximum epsilon for epsilon-greedy action selection (default 1.0)')
+    parser.add_argument('--eps-min', type=float, default=0.05,
+                        help='minimum epsilon for epsilon-greedy action selection (default 0.05)')
+    parser.add_argument('--eps-max-steps', type=int, default=50000,
+                        help='maximum number of steps to anneal epsilon over (default 50000)')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()

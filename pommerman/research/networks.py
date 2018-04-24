@@ -6,7 +6,8 @@ import pommerman
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from torch.autograd import Variable
+from torch.distributions import Categorical as TorchCategorical
 from distributions import Categorical
 
 
@@ -202,11 +203,12 @@ class QMIXNet(nn.Module):
 
         self.agent_q_net = nn.Linear(512, action_space.n)
 
-        self.hypernet_1 = nn.Linear(
-            self.num_channels * self.num_agents * self.board_size * self.board_size,
+        # @TODO need global state shape, until then manual entry for first two operands
+        self.hyper_net1 = nn.Linear(
+            (num_inputs // 2) * 4 * self.board_size**2,
             self.num_agents * self.mixing_hidden_size)
-        self.hypernet_2 = nn.Linear(
-            self.num_channels * self.num_agents * self.board_size * self.board_size,
+        self.hyper_net2 = nn.Linear(
+            (num_inputs // 2) * 4 * self.board_size ** 2,
             self.mixing_hidden_size)
 
         self.train()
@@ -231,32 +233,58 @@ class QMIXNet(nn.Module):
         self.fc1.weight.data.mul_(relu_gain)
         self.fc2.weight.data.mul_(relu_gain)
 
-    def forward(self, state):
-        x = F.relu(self.conv1(state)) # 2x256x13x13
-        x = F.relu(self.conv2(x)) # 2x256x13x13
-        x = F.relu(self.conv3(x)) # 2x256x13x13
-        x = F.relu(self.conv4(x)) # 2x256x13x13
+    def _epsilon_greedy(self, num_actions, max_actions, eps):
+        batch_size = max_actions.shape[0]
+        dist = np.ones((batch_size, num_actions), dtype=np.float32) * eps / num_actions
+        dist[np.arange(batch_size), max_actions.data.numpy()] += 1.0 - eps
+        dist = TorchCategorical(Variable(torch.from_numpy(dist).float()))
+        return dist.sample()
+
+    def forward(self, global_state, agent_state, eps=-1.0):
+        """
+        :param global_state: batch_size x 4 x 18 x 13 x 13
+        :param agent_state: batch_size x num_agents x 36 x 13 x 13
+        :param eps: parameter for the epsilon greedy action selection, negative if don't want it
+        :return:
+        """
+        batch_size, num_agents, *agent_obs_shape = agent_state.shape
+        agents_flattened = agent_state.view(-1, *agent_obs_shape)
+        global_state_flattened = global_state.view(batch_size, -1)
+        x = F.relu(self.conv1(agents_flattened))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
 
         x = x.view(-1, self.num_channels * self.board_size**2)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
 
-        q_n = self.agent_q_net(x)
-        q_n_max = self.agent_ff_out(q_n).max(dim=1)[0]
+        # Q-values for each agent across the action space
+        agent_q_n = self.agent_q_net(x)
+        max_q, max_actions = agent_q_n.max(dim=1)
+
+        # During DQN batch update, we shouldn't do epsilon greedy and take what the network gives
+        if eps > 0.0:
+            max_actions = self._epsilon_greedy(self.action_space.n, max_actions, eps)
+            max_q = agent_q_n.gather(1, max_actions.unsqueeze(1))
+
+        # Q-values for all agents in each batch
+        batched_max_q = max_q.view(batch_size, -1).unsqueeze(1)
+        batched_actions = max_actions.view(batch_size, -1)
 
         # Weights for the Mixing Network (absolute for monotonicity)
-        w1 = self.hyper_net1(state).abs()
-        w2 = self.hyper_net2(state).abs()
+        w1 = self.hyper_net1(global_state_flattened).abs()
+        w2 = self.hyper_net2(global_state_flattened).abs()
 
         # Reshape for Mixing Network
-        w1 = w1.view(self.num_agents, self.mixing_hidden_size)
-        w2 = w2.view(self.mixing_hidden_size, 1)
+        w1 = w1.view(batch_size, self.num_agents, self.mixing_hidden_size)
+        w2 = w2.view(batch_size, self.mixing_hidden_size, 1)
 
         # Calculate mixing of agent values for q_tot
-        q_tot = F.elu(torch.mm(q_n, w1))
-        q_tot = F.elu(torch.mm(q_tot, w2))
+        batched_q_tot = F.elu(torch.bmm(batched_max_q, w1))
+        batched_q_tot = F.elu(torch.bmm(batched_q_tot, w2))
 
-        return q_n, q_tot
+        return batched_q_tot, batched_actions
 
 
 def featurize3D(obs):

@@ -119,6 +119,9 @@ def train():
             agent.cuda()
 
     start = time.time()
+
+    eps = args.eps_max
+    eps_steps = 0
     for num_epoch in range(start_epoch, num_epochs):
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("qmix-", num_epoch, training_agents, total_steps,
@@ -147,15 +150,18 @@ def train():
         ]
 
         # Run all episodes until the end
+
         while True:
-            current_obs = torch.FloatTensor(current_obs).unsqueeze(1)
-            current_global_obs = torch.FloatTensor(current_global_obs).unsqueeze(1)
+            eps = args.eps_max + (args.eps_min - args.eps_max) / args.eps_max_steps * eps_steps
 
-            # actions = training_agents[0].act(current_global_obs, current_obs)
+            # Ignore critic values during trajectory generation
+            _, actions = training_agents[0].act(
+                torch.FloatTensor(current_global_obs),
+                torch.FloatTensor(current_obs), eps=eps)
 
-            # @TODO get training actions from QMIX agents and others from SimpleAgents
+            # @TODO get remaining actions from remaining agents
             cpu_actions_agents = list(map(lambda _: random.sample(list(range(6)) * 100, 4), range(num_processes)))
-            training_agent_actions = list(map(lambda x: [x[0], x[2]], cpu_actions_agents))
+            training_agent_actions = actions.data.numpy()
 
             obs, reward, done, info = envs.step(cpu_actions_agents)
             global_obs = envs.get_global_obs()
@@ -166,8 +172,8 @@ def train():
             if args.render:
                 envs.render()
 
-            global_state_tensor = torch.FloatTensor(current_global_obs)
-            state_tensor = torch.FloatTensor(current_obs)
+            global_state_tensor = torch.FloatTensor(current_global_obs).unsqueeze(1)
+            state_tensor = torch.FloatTensor(current_obs).unsqueeze(1)
             action_tensor = torch.LongTensor(training_agent_actions).unsqueeze(1)
             reward_tensor = torch.from_numpy(reward).float().unsqueeze(1)
             next_global_state_tensor = torch.FloatTensor(global_obs).unsqueeze(1)
@@ -189,9 +195,12 @@ def train():
 
                 total_steps += 1
 
+            # Update for next step
+            eps_steps = min(eps_steps + 1, args.eps_max_steps)
             current_obs = obs
             current_global_obs = global_obs
 
+            # Break loop if all parallel actors have finished their episodes
             all_episodes_done = True
             for episode_info in info:
                 if episode_info['result'] == pommerman.constants.Result.Incomplete:
