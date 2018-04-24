@@ -45,7 +45,6 @@ def train():
 
     if args.cuda:
         torch.cuda.empty_cache()
-        # torch.cuda.set_device(args.cuda_device)
 
     assert(args.run_name)
     print("\n###############")
@@ -85,7 +84,8 @@ def train():
         distill_agent.init_agent(0, envs.get_game_type())
         distill_type = distill_target.split('::')[0]
         suffix += ".dstl{}.dstlepi{}".format(distill_type, distill_epochs)
-        bad_guys = [distill_agent, distill_agent]
+        if how_train == 'homogenous':
+            bad_guys = [distill_agent, distill_agent]
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
@@ -122,18 +122,17 @@ def train():
         return torch.from_numpy(obs).float().transpose(0,1)
 
     def update_actor_critic_results(result):
-        value, action, action_log_prob, states = result
+        value, action, action_log_prob, states, _, log_probs = result
         value_agents.append(value)
         action_agents.append(action)
         action_log_prob_agents.append(action_log_prob)
         states_agents.append(states)
+        action_log_prob_distr.append(log_probs)
         return action.data.squeeze(1).cpu().numpy()
 
     def update_dagger_results(result):
-        _, dagger_action, _, _ = result
-        dagger_action_agents.append(dagger_action)
-        return dagger_action.data.squeeze(1).cpu().numpy()
-
+        _, _, _, _, probs, _ = result
+        dagger_prob_distr.append(probs)
 
     def update_stats(info):
         # NOTE: This func has a side effect where it sets variable values.
@@ -179,9 +178,10 @@ def train():
 
         if do_distill:
             distill_factor = 1.0 * (distill_epochs - num_epoch) / distill_epochs
-            if num_epoch % args.log_interval == 0:
-                print("distill factor: ", distill_factor)
             distill_factor = max(distill_factor, 0.0)
+            if num_epoch % args.log_interval == 0:
+                print("Epoch %d - distill factor %.3f." % (
+                    num_epoch, distill_factor))
         else:
             distill_factor = 0
 
@@ -192,16 +192,17 @@ def train():
             states_agents = []
             episode_reward = []
             cpu_actions_agents = []
-            dagger_action_agents = []
+            action_log_prob_distr = []
+            dagger_prob_distr = []
 
             if how_train == 'simple':
                 training_agent = training_agents[0]
 
                 if do_distill:
                     data = training_agent.get_rollout_data(step, 0)
-                    dagger_result = distill_agent.act_on_data(*data,
-                                                       deterministic=True)
-                    dagger_action = update_dagger_results(dagger_result)
+                    dagger_result = distill_agent.act_on_data(
+                        *data, deterministic=True)
+                    update_dagger_results(dagger_result)
 
                 result = training_agent.actor_critic_act(step, 0)
                 cpu_actions_agents = update_actor_critic_results(result)
@@ -321,17 +322,20 @@ def train():
             action_log_prob_all = utils.torch_numpy_stack(
                 action_log_prob_agents)
             if do_distill:
-                dagger_action_all = utils.torch_numpy_stack(
-                    dagger_action_agents)
+                dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
+                action_log_prob_distr = utils.torch_numpy_stack(
+                    action_log_prob_distr)
             else:
-                dagger_action_all = None
+                dagger_prob_distr = None
+                action_log_prob_distr = None
 
             value_all = utils.torch_numpy_stack(value_agents)
 
             if how_train == 'simple' or how_train == 'homogenous':
                 training_agents[0].insert_rollouts(
                     step, current_obs, states_all, action_all,
-                    action_log_prob_all, value_all, reward_all, masks_all, dagger_action_all)
+                    action_log_prob_all, value_all, reward_all, masks_all,
+                    action_log_prob_distr, dagger_prob_distr)
 
         # Compute the advantage values.
         if how_train == 'simple' or how_train == 'homogenous':
@@ -420,13 +424,6 @@ def train():
                                          args.cuda_device)
                         for _ in range(2)
                     ]
-
-            utils.log_to_console(num_epoch, num_episodes, total_steps,
-                                 steps_per_sec, epochs_per_sec, final_rewards,
-                                 mean_dist_entropy, mean_value_loss,
-                                 mean_action_loss, cumulative_reward,
-                                 terminal_reward, success_rate,
-                                 running_num_episodes)
 
             if do_distill:
                 mean_kl_loss = np.mean([

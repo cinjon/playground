@@ -50,6 +50,7 @@ class PPOAgent(ResearchAgent):
           step: The int timestep that we are acting.
           num_agent: Agent id that's running. Non-zero when agent has copies.
           use_act: Whether to call act or just run the actor_critic.
+
         Returns:
           See the actor_critic's act function in model.py.
         """
@@ -69,10 +70,10 @@ class PPOAgent(ResearchAgent):
     def _optimize(self, value_loss, action_loss, dist_entropy, entropy_coef,
                   max_grad_norm, kl_loss=None, kl_factor=0):
         self._optimizer.zero_grad()
+        loss = value_loss + action_loss - dist_entropy * entropy_coef
         if kl_factor > 0:
-            (value_loss + action_loss - dist_entropy * entropy_coef + kl_factor * kl_loss).backward()
-        else:
-            (value_loss + action_loss - dist_entropy * entropy_coef).backward()
+            loss += kl_factor * kl_loss
+        loss.backward()
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
         self._optimizer.step()
 
@@ -104,9 +105,11 @@ class PPOAgent(ResearchAgent):
         self._rollout.observations[timestep, :, :, :, :, :].copy_(obs)
 
     def insert_rollouts(self, step, current_obs, states, action,
-                        action_log_prob, value, reward, mask, dagger_action=None):
+                        action_log_prob, value, reward, mask,
+                        action_log_prob_distr=None, dagger_prob_distr=None):
         self._rollout.insert(step, current_obs, states, action,
-                             action_log_prob, value, reward, mask, dagger_action)
+                             action_log_prob, value, reward, mask,
+                             action_log_prob_distr, dagger_prob_distr)
 
     def ppo(self, advantages, num_mini_batch, num_steps, clip_param,
             entropy_coef, max_grad_norm, anneal=False, lr=1e-4, eps=1e-5,
@@ -121,7 +124,7 @@ class PPOAgent(ResearchAgent):
                 advantages, num_mini_batch, num_steps, kl_factor):
             observations_batch, states_batch, actions_batch, return_batch, \
                 masks_batch, old_action_log_probs_batch, adv_targ, \
-                dagger_actions = sample
+                action_log_probs_distr_batch, dagger_probs_distr_batch = sample
 
             # Reshape to do in a single forward pass for all steps
             result = self._evaluate_actions(
@@ -147,7 +150,8 @@ class PPOAgent(ResearchAgent):
             # NOTE: loss(outputs, labels); outputs: log_probabilities, labels: probabilities
             if kl_factor > 0:
                 criterion = nn.KLDivLoss()
-                kl_loss = criterion(action_log_probs, Variable(dagger_actions))
+                kl_loss = criterion(Variable(action_log_probs_distr_batch),
+                                    Variable(dagger_probs_distr_batch))
 
             self._optimize(value_loss, action_loss, dist_entropy,
                            entropy_coef, max_grad_norm,
