@@ -391,7 +391,6 @@ def train():
             std_action_loss = np.std([
                 action_loss for action_loss in final_action_losses])
 
-<<<<<<< 7ec2fb1fed192640b0588d8aa2cabc665d2d66c2
             if how_train == 'homogenous':
                 wins, dead, ties = run_eval(
                     args=args, targets=good_guys, opponents=bad_guys)
