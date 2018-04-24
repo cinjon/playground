@@ -15,6 +15,7 @@ class ResearchAgent(BaseAgent):
     """The TensorForceAgent. Acts through the algorith, not here."""
     def __init__(self, character=characters.Bomber, **kwargs):
         super(ResearchAgent, self).__init__(character)
+        print("RAGENT kwargs: ", kwargs)
         # NOTE: This is assuming that our num_stack size is 2.
         self._num_stack = kwargs.get('num_stack', 2)
         self._obs_stack = deque([], maxlen=self._num_stack)

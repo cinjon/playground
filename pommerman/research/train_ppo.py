@@ -231,11 +231,9 @@ def train():
                         for num_process in range(num_processes):
                             cpu_actions_agents[num_process].append(
                                 cpu_actions[num_process])
-                print("Time to do homogenous: ", t.interval)
 
             with utility.Timer() as t:
                 obs, reward, done, info = envs.step(cpu_actions_agents)
-            print("Time to do step: ", t.interval)
             reward = reward.astype(np.float)
 
             update_stats(info)
@@ -362,7 +360,6 @@ def train():
                                        num_steps, args.clip_param,
                                        args.entropy_coef, args.max_grad_norm,
                                        kl_factor=distill_factor)
-                print("Time to do each PPO: ", t.interval)
                 action_losses, value_losses, dist_entropies, kl_losses = result
 
                 final_action_losses[num_agent].extend(result[0])

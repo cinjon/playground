@@ -14,10 +14,12 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
                 agent_type, network_type='ac'):
     if network_type == 'qmix':
         net = lambda state: networks.get_q_network(args.model_str)(
-            state, obs_shape[0], action_space, args.board_size, args.num_channels, args.num_agents)
+            state, obs_shape[0], action_space, args.board_size,
+            args.num_channels, args.num_agents)
     else:
         net = lambda state: networks.get_actor_critic(args.model_str)(
-            state, obs_shape[0], action_space, args.board_size, args.num_channels)
+            state, obs_shape[0], action_space, args.board_size,
+            args.num_channels)
 
     paths = args.saved_paths
     if not type(paths) == list:
@@ -48,7 +50,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
             optimizer_state_dict = None
             model = net(None)
 
-        agent = agent_type(model)
+        agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda)
         agent.initialize(args, obs_shape, action_space,
                          num_training_per_episode, num_episodes, total_steps,
                          num_epoch, optimizer_state_dict)
@@ -66,7 +68,8 @@ def load_distill_agent(obs_shape, action_space, args):
         model = networks.get_actor_critic(args.model_str)(
             model_state_dict, obs_shape[0], action_space, args.board_size,
             args.num_channels)
-        return dagger_agent.DaggerAgent(model)
+        return dagger_agent.DaggerAgent(model, cuda=args.cuda,
+                                        num_stack=args.num_stack)
     else:
         raise ValueError("We do not support distilling from %s." % model_type)
 
