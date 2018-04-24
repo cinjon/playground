@@ -1,10 +1,5 @@
-"""Train script for ppo learning.
-
-Currently tested for how_train = "simple".
-TODO: Get homogenous training working s.t. the reward is properly updated for
-an agent in a team game that dies before the end of the game.
-TODO: Test that homogenous training works.
-TODO: Implement heterogenous training.
+"""
+Train script for qmix learning.
 
 The number of samples used for an epoch is:
 horizon * num_workers = num_steps * num_processes where num_steps is the number
@@ -13,7 +8,7 @@ processes/workers collecting data.
 
 Example:
 
-python train.py --how-train simple --num-processes 10 --run-name test \
+python train.py --how-train qmix --num-processes 10 --run-name test \
  --num-steps 50 --log-interval 5
 """
 
@@ -29,7 +24,7 @@ import random
 from storage import EpisodeBuffer
 from arguments import get_args
 import envs as env_helpers
-import ppo_agent
+import qmix_agent
 import utils
 import pommerman
 
@@ -38,29 +33,32 @@ def train():
     args = get_args()
     os.environ['OMP_NUM_THREADS'] = '1'
 
-    if args.cuda:
-        torch.cuda.empty_cache()
-        # torch.cuda.set_device(args.cuda_device)
-
-    # assert(args.run_name)
-    print("\n###############")
-    print("args ", args)
-    print("##############\n")
-
     ## CLI params, hard-coded for now
     args.how_train = 'qmix'
     args.config = 'PommeTeam-v0'
     args.num_agents = 2
+    args.run_name = 'qmix-train'
+    args.model_str = 'QMIXNet'
+
+    if args.cuda:
+        torch.cuda.empty_cache()
+        # torch.cuda.set_device(args.cuda_device)
+
+    assert args.run_name
+    print("\n###############")
+    print("args ", args)
+    print("##############\n")
 
     how_train, config, num_agents, num_stack, num_steps, num_processes, \
         num_epochs, reward_sharing = utils.get_train_vars(args)
 
     obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
+    global_obs_shape = (4, obs_shape[0] // 2, *obs_shape[1:]) # @TODO a better way?
     num_training_per_episode = utils.validate_how_train(how_train, num_agents)
 
     training_agents = utils.load_agents(
         obs_shape, action_space, num_training_per_episode, args,
-        ppo_agent.PPOAgent)
+        qmix_agent.QMIXMetaAgent, network_type='qmix')
     envs = env_helpers.make_envs(config, how_train, args.seed,
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
@@ -81,8 +79,8 @@ def train():
                                    num_processes, 1])
     final_rewards = torch.zeros([num_training_per_episode,
                                  num_processes, 1])
-    def update_final_rewards(final_rewards, masks, episode_rewards):
-        return final_rewards
+
+    episode_buffer = EpisodeBuffer(size=5000)
 
     # TODO: When we implement heterogenous, change this to be per agent.
     start_epoch = training_agents[0].num_epoch
@@ -97,9 +95,6 @@ def train():
     final_value_losses =  [[] for agent in range(len(training_agents))]
 
 
-    def update_current_obs(obs):
-        return torch.from_numpy(obs).float().transpose(0,1)
-
     def update_stats(info):
         # TODO: Change this stats computation when we use heterogenous.
         for i in info:
@@ -113,7 +108,8 @@ def train():
                         if 'bomb' in l:
                             count_stats['bomb'] += 1
 
-    current_obs = update_current_obs(envs.reset())
+    current_obs = envs.reset()
+    current_global_obs = envs.get_global_obs()
 
     torch.manual_seed(args.seed)
     if args.cuda:
@@ -121,8 +117,6 @@ def train():
         current_obs = current_obs.cuda()
         for agent in training_agents:
             agent.cuda()
-
-    episode_buffer = EpisodeBuffer(size=5000)
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
@@ -133,29 +127,38 @@ def train():
         for agent in training_agents:
             agent.set_eval()
 
-        #############################################
-
         ##
         # Each history is Python list is of length num_processes. This is a list because not all
         # episodes are of the same length and we don't want information of an episode
         # after it has ended. Each history item has the first dimension as time step, second
         # dimension as the number of training agents and then appropriate shape for the item
         #
-        state_history = [torch.zeros(0, num_training_per_episode, *obs_shape) for _ in range(num_processes)]
-        action_history = [torch.zeros(0, num_training_per_episode).long() for _ in range(num_processes)]
-        reward_history = [torch.zeros(0, num_training_per_episode) for _ in range(num_processes)]
-        next_state_history = [torch.zeros(0, num_training_per_episode, *obs_shape) for _ in range(num_processes)]
-        done_history = [torch.zeros(0, num_training_per_episode).long() for _ in range(num_processes)]
-
-        #############################################
+        history = [
+            [
+                torch.zeros(0, *global_obs_shape), # 0: current global state
+                torch.zeros(0, num_training_per_episode, *obs_shape), # 1: current agent(s) state
+                torch.zeros(0, num_training_per_episode).long(), # 2: action
+                torch.zeros(0, num_training_per_episode), # 3: reward
+                torch.zeros(0, *global_obs_shape),  # 4: next global state
+                torch.zeros(0, num_training_per_episode, *obs_shape),  # 5: next agent(s) state
+                torch.zeros(0, num_training_per_episode).long(), # 6: done
+            ]
+            for _ in range(num_processes)
+        ]
 
         # Run all episodes until the end
         while True:
+            current_obs = torch.FloatTensor(current_obs).unsqueeze(1)
+            current_global_obs = torch.FloatTensor(current_global_obs).unsqueeze(1)
+
+            # actions = training_agents[0].act(current_global_obs, current_obs)
+
             # @TODO get training actions from QMIX agents and others from SimpleAgents
             cpu_actions_agents = list(map(lambda _: random.sample(list(range(6)) * 100, 4), range(num_processes)))
             training_agent_actions = list(map(lambda x: [x[0], x[2]], cpu_actions_agents))
 
             obs, reward, done, info = envs.step(cpu_actions_agents)
+            global_obs = envs.get_global_obs()
             reward = reward.astype(np.float)
 
             update_stats(info)
@@ -163,33 +166,31 @@ def train():
             if args.render:
                 envs.render()
 
-            ############################################
-            current_obs.transpose_(0, 1)
-
+            global_state_tensor = torch.FloatTensor(current_global_obs)
+            state_tensor = torch.FloatTensor(current_obs)
             action_tensor = torch.LongTensor(training_agent_actions).unsqueeze(1)
             reward_tensor = torch.from_numpy(reward).float().unsqueeze(1)
-            next_state_tensor = torch.from_numpy(obs).float()
+            next_global_state_tensor = torch.FloatTensor(global_obs).unsqueeze(1)
+            next_state_tensor = torch.from_numpy(obs).float().unsqueeze(1)
             done_tensor = torch.from_numpy(done.astype(np.int)).long().unsqueeze(1)
 
             for i in range(num_processes):
-                # Ignore history if all done
-                if len(done_history[i]) and torch.sum(done_history[i][-1]) == num_training_per_episode:
-                    continue
+                # Ignore history if done
+                # if info[i]['result'] == pommerman.constants.Result.Incomplete:
+                #     continue
 
-                state_history[i] = torch.cat([state_history[i], current_obs[i].unsqueeze(0)], dim=0)
-                action_history[i] = torch.cat([action_history[i], action_tensor[i]], dim=0)
-                reward_history[i] = torch.cat([reward_history[i], reward_tensor[i]], dim=0)
-                next_state_history[i] = torch.cat([next_state_history[i], next_state_tensor[i].unsqueeze(0)], dim=0)
-                done_history[i] = torch.cat([done_history[i], done_tensor[i]], dim=0)
+                history[i][0] = torch.cat([history[i][0], global_state_tensor[i]], dim=0)
+                history[i][1] = torch.cat([history[i][1], state_tensor[i]], dim=0)
+                history[i][2] = torch.cat([history[i][2], action_tensor[i]], dim=0)
+                history[i][3] = torch.cat([history[i][3], reward_tensor[i]], dim=0)
+                history[i][4] = torch.cat([history[i][4], next_global_state_tensor[i]], dim=0)
+                history[i][5] = torch.cat([history[i][5], next_state_tensor[i]], dim=0)
+                history[i][6] = torch.cat([history[i][6], done_tensor[i]], dim=0)
 
                 total_steps += 1
 
-            current_obs.transpose_(0, 1)
-            ###############################################
-
-            current_obs = update_current_obs(obs)
-            if args.cuda:
-                current_obs = current_obs.cuda()
+            current_obs = obs
+            current_global_obs = global_obs
 
             all_episodes_done = True
             for episode_info in info:
@@ -200,9 +201,15 @@ def train():
             if all_episodes_done:
                 break
 
-        episode_buffer.extend(state_history, action_history, reward_history, next_state_history, done_history)
+        episode_buffer.extend(history)
 
-        # @TODO: Sample from buffer and run DQN for each episode full rollout
+        # @DQN on the episode rollout
+        def train_dqn(global_state, state, action, reward, next_global_state, next_state, done):
+            pass
+
+        if len(episode_buffer) >= args.episode_batch:
+            for episode in episode_buffer.sample(args.episode_batch):
+                train_dqn(*episode)
 
         if running_num_episodes > args.log_interval:
             end = time.time()

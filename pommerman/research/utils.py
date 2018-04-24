@@ -6,13 +6,18 @@ import torch
 import torch.nn as nn
 
 import dagger_agent
+import qmix_agent
 import networks
 
 
 def load_agents(obs_shape, action_space, num_training_per_episode, args,
-                agent_type):
-    actor_critic = lambda state: networks.get_actor_critic(args.model_str)(
-        state, obs_shape[0], action_space, args.board_size, args.num_channels)
+                agent_type, network_type='ac'):
+    if network_type == 'qmix':
+        net = lambda state: networks.get_q_network(args.model_str)(
+            state, obs_shape[0], action_space, args.board_size, args.num_channels, args.num_agents)
+    else:
+        net = lambda state: networks.get_actor_critic(args.model_str)(
+            state, obs_shape[0], action_space, args.board_size, args.num_channels)
 
     paths = args.saved_paths
     if not type(paths) == list:
@@ -26,7 +31,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
             print("Loading path %s as agent." % path)
             loaded_model = torch_load(path, args.cuda, args.cuda_device)
             model_state_dict = loaded_model['state_dict']
-            model = actor_critic(model_state_dict)
+            model = net(model_state_dict)
             optimizer_state_dict = loaded_model['optimizer']
             if args.restart_counts:
                 num_episodes = 0
@@ -41,7 +46,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
             total_steps = 0
             num_epoch = 0
             optimizer_state_dict = None
-            model = actor_critic(None)
+            model = net(None)
 
         agent = agent_type(model)
         agent.initialize(args, obs_shape, action_space,

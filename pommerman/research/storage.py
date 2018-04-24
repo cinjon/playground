@@ -219,26 +219,13 @@ class ReplayBuffer:
 
 class EpisodeBuffer:
     def __init__(self, size=5000):
-        self.state_buffer = deque(maxlen=size)
-        self.action_buffer = deque(maxlen=size)
-        self.reward_buffer = deque(maxlen=size)
-        self.next_state_buffer = deque(maxlen=size)
-        self.done_buffer = deque(maxlen=size)
+        self.buffer = deque(maxlen=size)
 
-    def extend(self, state_history, action_history, reward_history,
-               next_state_history, done_history):
-        self.state_buffer.extend(state_history)
-        self.action_buffer.extend(action_history)
-        self.reward_buffer.extend(reward_history)
-        self.next_state_buffer.extend(next_state_history)
-        self.done_buffer.extend(done_history)
+    def extend(self, history):
+        self.buffer.extend(history)
 
     def clear(self):
-        self.state_buffer.clear()
-        self.action_buffer.clear()
-        self.reward_buffer.clear()
-        self.next_state_buffer.clear()
-        self.done_buffer.clear()
+        self.buffer.clear()
 
     def sample(self, batch_size):
         assert batch_size <= self.__len__(), \
@@ -247,9 +234,7 @@ class EpisodeBuffer:
 
         batch_index = random.sample(range(self.__len__()), batch_size)
         for index in batch_index:
-            yield self.state_buffer[index], self.action_buffer[index], \
-                self.reward_buffer[index], self.next_state_buffer[index], \
-                self.done_buffer[index]
+            yield self.buffer[index]
 
     def __len__(self):
-        return len(self.state_buffer)
+        return len(self.buffer)

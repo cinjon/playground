@@ -149,6 +149,10 @@ def get_args():
     parser.add_argument('--weight-scale-factor', type=float, default=0.5,
                         help='factor for scaling the weights before each training loop (0.5)')
 
+    # for QMIX
+    parser.add_argument('--episode-batch', type=int, default=16,
+                        help='number of episodes to sample from the episode buffer for training')
+
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     return args

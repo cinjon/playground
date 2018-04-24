@@ -52,6 +52,19 @@ def get_actor_critic(model):
     return None
 
 
+def get_q_network(model):
+    """Gets an actor critic from this """
+    q_nets = ['QMIXNet']
+
+    for name, obj in inspect.getmembers(sys.modules[__name__]):
+        if name not in q_nets:
+            continue
+
+        if name == model:
+            return obj
+    return None
+
+
 def _weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1 or classname.find('Linear') != -1:
@@ -150,6 +163,98 @@ class PommeCNNPolicySmall(_FFPolicy):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         return self.critic_linear(x), x, states
+
+
+class QMIXNet(nn.Module):
+    """Class implementing a policy.
+
+    Args:
+      state_dict: The state dict from which we are loading. If this is None,
+        then initializes anew.
+      num_inputs: The int number of inputs to the convnet.
+      action_space: The action space from the environment.
+      board_size: The size of the game board (13).
+      num_channels: The number of channels to use in the convnet.
+    """
+    def __init__(self, state_dict, num_inputs, action_space, board_size,
+                 num_channels, num_agents):
+        super(QMIXNet, self).__init__()
+        self.board_size = board_size
+        self.num_channels = num_channels
+        self.num_agents = num_agents
+        self.action_space = action_space
+        self.mixing_hidden_size = 32
+
+        self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
+                               padding=1)
+        self.conv2 = nn.Conv2d(self.num_channels, self.num_channels, 3,
+                               stride=1, padding=1)
+        self.conv3 = nn.Conv2d(self.num_channels, self.num_channels, 3,
+                               stride=1, padding=1)
+        self.conv4 = nn.Conv2d(self.num_channels, self.num_channels, 3,
+                               stride=1, padding=1)
+
+        self.fc1 = nn.Linear(
+            self.num_channels*self.board_size*self.board_size, 1024)
+        self.fc2 = nn.Linear(1024, 512)
+
+        self.agent_q_net = nn.Linear(512, action_space.n)
+
+        self.hypernet_1 = nn.Linear(
+            self.num_channels * self.num_agents * self.board_size * self.board_size,
+            self.num_agents * self.mixing_hidden_size)
+        self.hypernet_2 = nn.Linear(
+            self.num_channels * self.num_agents * self.board_size * self.board_size,
+            self.mixing_hidden_size)
+
+        self.train()
+        self.reset_parameters()
+        if state_dict:
+            self.load_state_dict(state_dict)
+
+    @property
+    def state_size(self):
+        return 1
+
+    def reset_parameters(self):
+        self.apply(_weights_init)
+
+        relu_gain = nn.init.calculate_gain('relu')
+
+        self.conv1.weight.data.mul_(relu_gain)
+        self.conv2.weight.data.mul_(relu_gain)
+        self.conv3.weight.data.mul_(relu_gain)
+        self.conv4.weight.data.mul_(relu_gain)
+
+        self.fc1.weight.data.mul_(relu_gain)
+        self.fc2.weight.data.mul_(relu_gain)
+
+    def forward(self, state):
+        x = F.relu(self.conv1(state)) # 2x256x13x13
+        x = F.relu(self.conv2(x)) # 2x256x13x13
+        x = F.relu(self.conv3(x)) # 2x256x13x13
+        x = F.relu(self.conv4(x)) # 2x256x13x13
+
+        x = x.view(-1, self.num_channels * self.board_size**2)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+
+        q_n = self.agent_q_net(x)
+        q_n_max = self.agent_ff_out(q_n).max(dim=1)[0]
+
+        # Weights for the Mixing Network (absolute for monotonicity)
+        w1 = self.hyper_net1(state).abs()
+        w2 = self.hyper_net2(state).abs()
+
+        # Reshape for Mixing Network
+        w1 = w1.view(self.num_agents, self.mixing_hidden_size)
+        w2 = w2.view(self.mixing_hidden_size, 1)
+
+        # Calculate mixing of agent values for q_tot
+        q_tot = F.elu(torch.mm(q_n, w1))
+        q_tot = F.elu(torch.mm(q_tot, w2))
+
+        return q_n, q_tot
 
 
 def featurize3D(obs):

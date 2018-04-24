@@ -34,6 +34,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.render('rgb_array')))
         elif cmd == 'get_expert_obs':
             remote.send((env.get_expert_obs()))
+        elif cmd == 'get_global_obs':
+            remote.send((env.get_global_obs()))
         elif cmd == 'get_game_type':
             remote.send((env.get_game_type()))
         else:
@@ -199,6 +201,11 @@ class SubprocVecEnv(_VecEnv):
     def get_expert_obs(self):
         for remote in self.remotes:
             remote.send(('get_expert_obs', None))
+        return [remote.recv() for remote in self.remotes]
+
+    def get_global_obs(self):
+        for remote in self.remotes:
+            remote.send(('get_global_obs', None))
         return [remote.recv() for remote in self.remotes]
 
     def get_game_type(self):
