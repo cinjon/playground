@@ -1,10 +1,13 @@
 """Run a battle among agents.
 Call this with a config, a game, and a list of agents. The script will start separate threads to operate the agents
 and then report back the result.
+
 An example with all four test agents running ffa:
 python run_battle.py --agents=test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent --config=ffa_v0
+
 An example with one player, two random agents, and one test agent:
 python run_battle.py --agents=player::arrows,test::agents.SimpleAgent,random::null,random::null --config=ffa_v0
+
 An example with a docker agent:
 python run_battle.py --agents=player::arrows,docker::pommerman/test-agent,random::null,random::null --config=ffa_v0
 """
@@ -77,7 +80,7 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[],
         time_avg[key] = new_avg
         time_max[key] = max(time_max[key], float(t))
 
-    def _run(seed, record_pngs_dir=None, record_json_dir=None):
+    def _run(seed, acting_agents, record_pngs_dir=None, record_json_dir=None):
         global time_avg
         global time_max
         global time_cnt
@@ -136,14 +139,14 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[],
     infos = []
     times = []
     for i in range(num_times):
-        start = time.time()
         record_pngs_dir_ = record_pngs_dir + '/%d' % (i+1) \
                            if record_pngs_dir else None
         record_json_dir_ = record_json_dir + '/%d' % (i+1) \
                            if record_json_dir else None
-        infos.append(_run(seed, record_pngs_dir_, record_json_dir_))
-
-        times.append(time.time() - start)
+        with utility.Timer() as t:
+            info = _run(seed, acting_agents, record_pngs_dir_, record_json_dir_)
+        infos.append(info)
+        times.append(t.interval)
         print("Game %d final result (%.4f): " % (i, times[-1]), infos[-1])
 
     atexit.register(env.close)

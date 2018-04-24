@@ -36,7 +36,7 @@ class RolloutStorage(object):
         self.value_preds = self.value_preds.cuda()
         self.returns = self.returns.cuda()
         self.action_log_probs = self.action_log_probs.cuda()
-        self.action_log_probs_distr = self.action_log_probs.cuda()
+        self.action_log_probs_distr = self.action_log_probs_distr.cuda()
         self.actions = self.actions.cuda()
         self.masks = self.masks.cuda()
         self.dagger_probs_distr = self.dagger_probs_distr.cuda()

@@ -185,8 +185,9 @@ def eval(args=None, targets=None, opponents=None):
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
             agents.insert(position+2, targets[1])
+            print("Eval: ", agents)
             acting_agents = sorted([
-                agent.agent_id for agent in agents if \
+                num for num, agent in enumerate(agents) if \
                 type(agent) != pommerman.agents.SimpleAgent])
             infos = run_battle.run(
                 args, num_times=num_times, seed=args.seed, agents=agents,

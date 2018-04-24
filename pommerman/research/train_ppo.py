@@ -28,6 +28,7 @@ import time
 
 import numpy as np
 from pommerman.agents import SimpleAgent
+from pommerman import utility
 from tensorboardX import SummaryWriter
 import torch
 import random
@@ -176,7 +177,7 @@ def train():
             distill_factor = distill_epochs - num_epoch
             distill_factor = 1.0 * distill_factor / distill_epochs
             distill_factor = max(distill_factor, 0.0)
-            if num_epoch % args.log_interval == 0:
+            if True or num_epoch % args.log_interval == 0:
                 print("Epoch %d - distill factor %.3f." % (
                     num_epoch, distill_factor))
         else:
@@ -203,26 +204,38 @@ def train():
                 result = training_agent.actor_critic_act(step, 0)
                 cpu_actions_agents = update_actor_critic_results(result)
             elif how_train == 'homogenous':
-                cpu_actions_agents = [[] for _ in range(num_processes)]
-                if do_distill:
-                    dagger_actions_agents = [[] for _ in range(num_processes)]
-                random_prob = random.random()
-                for num_agent in range(4):
+                # Reshape to do computation once rather than four times.
+                with utility.Timer() as t:
+                    cpu_actions_agents = [[] for _ in range(num_processes)]
+                    data = training_agents[0].get_rollout_data(
+                        step=step, num_agent=0, num_agent_end=4)
+                    observations, states, masks = data
+                    observations = observations.view([num_processes * 4,
+                                                      *observations.shape[2:]])
+                    states = states.view([num_processes * 4, *states.shape[2:]])
+                    masks = masks.view([num_processes * 4, *masks.shape[2:]])
                     if do_distill:
-                        data = training_agents[0].get_rollout_data(
-                            step=step, num_agent=num_agent)
                         _, _, _, _, probs, _ = distill_agent.act_on_data(
-                            *data, deterministic=True)
-                        dagger_prob_distr.append(probs)
+                            observations, states, masks, deterministic=True)
+                        probs = probs.view([num_processes, 4, *probs.shape[1:]])
+                        for num_agent in range(4):
+                            dagger_prob_distr.append(probs[:, num_agent])
 
-                    result = training_agents[0].actor_critic_act(
-                        step=step, num_agent=num_agent)
-                    cpu_actions = update_actor_critic_results(result)
-                    for num_process in range(num_processes):
-                        cpu_actions_agents[num_process].append(
-                            cpu_actions[num_process])
+                    result = training_agents[0].act_on_data(
+                        observations, states, masks, deterministic=False)
+                    result = [datum.view([num_processes, 4, *datum.shape[1:]])
+                              for datum in result]
+                    for num_agent in range(4):
+                        agent_result = [datum[:, num_agent] for datum in result]
+                        cpu_actions = update_actor_critic_results(agent_result)
+                        for num_process in range(num_processes):
+                            cpu_actions_agents[num_process].append(
+                                cpu_actions[num_process])
+                print("Time to do homogenous: ", t.interval)
 
-            obs, reward, done, info = envs.step(cpu_actions_agents)
+            with utility.Timer() as t:
+                obs, reward, done, info = envs.step(cpu_actions_agents)
+            print("Time to do step: ", t.interval)
             reward = reward.astype(np.float)
 
             update_stats(info)
@@ -344,10 +357,12 @@ def train():
             agent.set_train()
 
             for _ in range(args.ppo_epoch):
-                result = agent.ppo(advantages[num_agent], args.num_mini_batch,
-                                   num_steps, args.clip_param,
-                                   args.entropy_coef, args.max_grad_norm,
-                                   kl_factor=distill_factor)
+                with utility.Timer() as t:
+                    result = agent.ppo(advantages[num_agent], args.num_mini_batch,
+                                       num_steps, args.clip_param,
+                                       args.entropy_coef, args.max_grad_norm,
+                                       kl_factor=distill_factor)
+                print("Time to do each PPO: ", t.interval)
                 action_losses, value_losses, dist_entropies, kl_losses = result
 
                 final_action_losses[num_agent].extend(result[0])
@@ -386,8 +401,12 @@ def train():
                 action_loss for action_loss in final_action_losses])
 
             if how_train == 'homogenous':
-                wins, dead, ties = run_eval(
-                    args=args, targets=good_guys, opponents=bad_guys)
+                print("Starting eval...")
+                with utility.Timer() as t:
+                    wins, dead, ties = run_eval(
+                        args=args, targets=good_guys, opponents=bad_guys)
+                print("Eval took %.4fs." % t.interval)
+
                 descriptor = 'homogenous_eval_round%d/' % eval_round
                 num_battles = args.num_battles_eval
                 win_count = sum(wins.values())

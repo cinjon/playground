@@ -401,8 +401,8 @@ class ForwardModel(object):
         if type(done) == list:
             done = all(done)
 
+        alive = [agent for agent in agents if agent.is_alive]
         if game_type == constants.GameType.FFA:
-            alive = [agent for agent in agents if agent.is_alive]
             if done and len(alive) > 1:
                 return {
                     'result': constants.Result.Tie,

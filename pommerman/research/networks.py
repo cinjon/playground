@@ -276,6 +276,7 @@ def featurize3D(obs):
         - (8) Positions for:
             Passage/Rigid/Wood/Flames/ExtraBomb/IncrRange/Kick/Skull
     """
+    agent_dummy = pommerman.constants.Item.AgentDummy
     map_size = len(obs["board"])
 
     # feature maps with ints for bomb blast strength and life.
@@ -305,7 +306,7 @@ def featurize3D(obs):
     can_kick *= float(obs["can_kick"])
     can_kick = can_kick.reshape(1, map_size, map_size)
 
-    if obs["teammate"] == pommerman.constants.Item.AgentDummy:
+    if obs["teammate"] == agent_dummy:
         has_teammate = np.zeros((map_size, map_size)) \
                          .astype(np.float32) \
                          .reshape(1, map_size, map_size)
@@ -319,7 +320,7 @@ def featurize3D(obs):
         teammate = teammate.reshape(1, map_size, map_size)
 
     # Enemy feature maps.
-    _enemies = obs["enemies"]
+    _enemies = [e for e in obs["enemies"] if e != agent_dummy]
     enemies = np.zeros((len(_enemies), map_size, map_size)) \
                 .astype(np.float32)
     for i in range(len(_enemies)):

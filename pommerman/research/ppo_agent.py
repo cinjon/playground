@@ -1,4 +1,6 @@
 """PPO Agent using IKostrikov's approach for the ppo algorithm."""
+from collections import deque
+
 from pommerman import characters
 import torch
 from torch.autograd import Variable
@@ -14,9 +16,6 @@ class PPOAgent(ResearchAgent):
     def __init__(self, actor_critic, character=characters.Bomber, **kwargs):
         self._actor_critic = actor_critic
         super(PPOAgent, self).__init__(character, **kwargs)
-        if self._actor_critic is not None:
-            # This caveat is so that it works with both train and eval.
-            self._states = torch.zeros(1, self._actor_critic.state_size)
 
     def cuda(self):
         self._actor_critic.cuda()
@@ -37,27 +36,40 @@ class PPOAgent(ResearchAgent):
     def set_train(self):
         self._actor_critic.train()
 
-    def _rollout_data(self, step, num_agent):
-        observations = Variable(self._rollout.observations[step, num_agent],
-                                volatile=True)
-        states = Variable(self._rollout.states[step, num_agent], volatile=True)
-        masks = Variable(self._rollout.masks[step, num_agent], volatile=True)
+    def _rollout_data(self, step, num_agent, num_agent_end=None):
+        if num_agent_end is not None:
+            assert(num_agent_end > num_agent)
+            observations = Variable(
+                self._rollout.observations[step, num_agent:num_agent_end],
+                volatile=True)
+            states = Variable(
+                self._rollout.states[step, num_agent:num_agent_end],
+                volatile=True)
+            masks = Variable(
+                self._rollout.masks[step, num_agent:num_agent_end],
+                volatile=True)
+        else:
+            observations = Variable(
+                self._rollout.observations[step, num_agent], volatile=True)
+            states = Variable(self._rollout.states[step, num_agent],
+                              volatile=True)
+            masks = Variable(self._rollout.masks[step, num_agent],
+                             volatile=True)
         return observations, states, masks
 
-    def actor_critic_act(self, step, num_agent=0, use_act=False):
+    def actor_critic_act(self, step, num_agent=0):
         """Uses the actor_critic to take action.
         Args:
           step: The int timestep that we are acting.
           num_agent: Agent id that's running. Non-zero when agent has copies.
-          use_act: Whether to call act or just run the actor_critic.
 
         Returns:
           See the actor_critic's act function in model.py.
         """
         return self._actor_critic.act(*self.get_rollout_data(step, num_agent))
 
-    def get_rollout_data(self, step, num_agent):
-        return self._rollout_data(step, num_agent)
+    def get_rollout_data(self, step, num_agent, num_agent_end=None):
+        return self._rollout_data(step, num_agent, num_agent_end)
 
     def actor_critic_call(self, step, num_agent=0):
         observations, states, masks = self._rollout_data(step, num_agent)
