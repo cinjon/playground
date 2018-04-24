@@ -38,7 +38,7 @@ class SimpleAgent(BaseAgent):
         self._time_cnt[key] = cnt + 1
         self._time_avg[key] = new_avg
         self._time_max[key] = max(self._time_max[key], float(t))
-        
+
     def act(self, obs, action_space):
         def convert_bombs(bomb_map):
             ret = []
@@ -241,7 +241,7 @@ class SimpleAgent(BaseAgent):
             while not Q.empty():
                 dist, position = Q.get()
                 seen.add(position)
-                
+
                 px, py = position
                 if nx != px and ny != py:
                     is_stuck = False
@@ -255,13 +255,13 @@ class SimpleAgent(BaseAgent):
                     new_position = (row + px, col + py)
                     if new_position in seen:
                         continue
-                    
+
                     if not utility.position_on_board(next_board, new_position):
                         continue
 
                     if not utility.position_is_passable(next_board, new_position, enemies):
                         continue
- 
+
                     dist = abs(row + px - nx) + abs(col + py - ny)
                     Q.put((dist, new_position))
             return is_stuck
@@ -332,7 +332,6 @@ class SimpleAgent(BaseAgent):
     @staticmethod
     def _maybe_bomb(ammo, blast_strength, items, dist, my_position):
         """Returns whether we can safely bomb right now.
-
         Decides this based on:
         1. Do we have ammo?
         2. If we laid a bomb right now, will we be stuck?
@@ -410,7 +409,7 @@ class SimpleAgent(BaseAgent):
 
     # @classmethod
     # def _near_wood(cls, my_position, items, dist, prev, radius):
-    def _near_wood(self, my_position, items, dist, prev, radius): 
+    def _near_wood(self, my_position, items, dist, prev, radius):
         objs = [constants.Item.Wood]
         with utility.Timer() as t:
             nearest_item_position = self._nearest_position(dist, objs, items, radius)

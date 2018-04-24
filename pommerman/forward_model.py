@@ -29,7 +29,6 @@ class ForwardModel(object):
 
     def run(self, num_times, board, agents, bombs, items, flames, is_partially_observable, agent_view_size, action_space, training_agent=None, is_communicative=False):
         """Run the forward model.
-
         Args:
           num_times: The number of times to run it for. This is a maximum and it will stop early if we reach a done.
           board: The board state to run it from.
@@ -42,7 +41,6 @@ class ForwardModel(object):
           action_space: The actions that each agent can take.
           training_agent: The training agent to pass to done.
           is_communicative: Whether the action depends on communication observations as well.
-
         Returns:
           steps: The list of step results, which are each a dict of "obs", "next_obs", "reward", "action".
           board: Updated board.
@@ -81,30 +79,30 @@ class ForwardModel(object):
                 break
         return steps, board, agents, bombs, items, flames, done, info
 
-    # @staticmethod               
+    # @staticmethod
     # def act(agents, obs, action_space, is_communicative=False):
     def act(self, agents, obs, action_space, is_communicative=False):
         """Returns actions for each agent in this list.
-
         Args:
           agents: A list of agent objects.
           obs: A list of matching observations per agent.
           action_space: The action space for the environment using this model.
           is_communicative: Whether the action depends on communication observations as well.
-
         Returns a list of actions.
         """
         # TODO: Use a timeout here.
         # @utils.timeout(0.15)
         def act_ex_communication(agent):
             if agent.is_alive:
-                return agent.act(obs[agent.agent_id], action_space=action_space)
+                return agent.act(obs[agent.agent_id],
+                                 action_space=action_space)
             else:
                 return constants.Action.Stop.value
 
         def act_with_communication(agent):
             if agent.is_alive:
-                action = agent.act(obs[agent.agent_id], action_space=action_space)
+                action = agent.act(obs[agent.agent_id],
+                                   action_space=action_space)
                 if type(action) == int:
                     action = [action] + [0, 0]
                 assert(type(action) == list)
@@ -313,7 +311,6 @@ class ForwardModel(object):
 
     def get_observations(self, curr_board, agents, bombs, is_partially_observable, agent_view_size):
         """Gets the observations as an np.array of the visible squares.
-
         The agent gets to choose whether it wants to keep the fogged part in memory.
         """
         board_size = len(curr_board)
@@ -380,7 +377,7 @@ class ForwardModel(object):
                     return [True]*4 if all_agents else True
                 elif all_agents:
                     # The game isn't over but we want data on all agents.
-                    return [not agent.is_alive for agent in agents] 
+                    return [not agent.is_alive for agent in agents]
                 else:
                     # The game isn't over and we only want True or False.
                     return False
@@ -433,6 +430,7 @@ class ForwardModel(object):
                     'result': constants.Result.Win,
                     'winners': [num for num, reward in enumerate(rewards) \
                                 if reward == 1],
+                    'alive': [agent.agent_id for agent in alive]
                 }
         else:
             return {

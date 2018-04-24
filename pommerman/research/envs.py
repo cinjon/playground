@@ -99,7 +99,6 @@ class WrapPomme(gym.ObservationWrapper):
         super(WrapPomme, self).__init__(env)
         self._how_train = how_train
 
-        # TODO: make obs_shape an argument.
         obs_shape = (18, 13, 13)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]

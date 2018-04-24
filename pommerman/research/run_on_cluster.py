@@ -20,6 +20,9 @@ run_name = sys.argv[1]
 num_procs = sys.argv[2]
 num_channels = sys.argv[3]
 learning_rate = sys.argv[4]
+distill_epoch = sys.argv[5]
+distill_target = sys.argv[6]
+saved_paths = sys.argv[7]
 
 dry_run = '--dry-run' in sys.argv
 if dry_run:
@@ -32,8 +35,8 @@ else:
         os.makedirs(slurm_scripts)
 
 
-basename = "pman_%s_nc%s_np%s_lr%s" % (run_name, num_channels, num_procs,
-                                       learning_rate)
+basename = "pman_%s_nc%s_np%s_lr%s_de%s" % (run_name, \
+            num_channels, num_procs, learning_rate, distill_epoch)
 
 grids = [
      {
@@ -58,17 +61,19 @@ for grid in grids:
 varying_keys = {key for key in merged_grid if len(merged_grid[key]) > 1}
 
 args = [
-    "--num-processes %" % num_procs,
-    "--how-train dagger",
-    "--num-steps-eval 100"
-    "--save-interval 10",
-    "--log-interval 10",
-    "--config PommeFFA-v0",
-    "--num-steps 5000",
-    "--num-channels %s" % num_channels,
+    "--num-processes %s" % num_procs,
+    # "--how-train simple",
+    "--num-steps 1000 "
+    # "--save-interval 1000 ",
+    # "--log-interval 100 ",
+    # "--config PommeFFA-v3 ",
+    # "--num-channels %s" % num_channels,
     "--lr %s" % learning_rate,
     "--save-dir %s" % os.path.join(directory, "models"),
-    "--log-dir %s" % os.path.join(directory, "logs")
+    "--log-dir %s" % os.path.join(directory, "logs"),
+    "--distill-epoch %s" % distill_epoch,
+    "--distill-target %s" % distill_target,
+    "--saved-paths %s" % saved_paths
 ]
 
 for job in jobs:
@@ -81,7 +86,7 @@ for job in jobs:
             jobname += "_%s%s" % (flag, str(job[flag]))
 
     job_args = args + ["--run-name %s" % jobname]
-    jobcommand = "OMP_NUM_THREADS=1 python train.py %s%s" % (
+    jobcommand = "OMP_NUM_THREADS=1 python train_ppo.py %s%s" % (
         " ".join(job_args), flagstring)
     print(jobcommand)
 

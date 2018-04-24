@@ -1,9 +1,5 @@
 """Train script for ppo learning.
 
-Currently tested for how_train = "simple".
-TODO: Get homogenous training working s.t. the reward is properly updated for
-an agent in a team game that dies before the end of the game.
-TODO: Test that homogenous training works.
 TODO: Implement heterogenous training.
 
 The number of samples used for an epoch is:
@@ -11,29 +7,34 @@ horizon * num_workers = num_steps * num_processes where num_steps is the number
 of steps in a rollout (horizon) and num_processes is the number of parallel
 processes/workers collecting data.
 
-Example:
-
+Simple Example:
 python train_ppo.py --how-train simple --num-processes 10 --run-name test \
  --num-steps 50 --log-interval 5
 
 Distillation Example:
-
 python train_ppo.py --how-train simple --num-processes 10 --run-name distill \
  --num-steps 100 --log-interval 5 \
  --distill-epochs 100 --distill-target dagger::/path/to/model.pt
-"""
 
+Homogenous Example:
+python train_ppo.py --how-train homogenous --num-processes 10 \
+ --run-name distill --num-steps 100 --log-interval 5 --distill-epochs 100 \
+ --distill-target dagger::/path/to/model.pt --config PommeTeam-v0 \
+ --eval-mode homogenous --num-battles-eval 100 --seed 100
+"""
 from collections import defaultdict
 import os
 import time
 
 import numpy as np
+from pommerman.agents import SimpleAgent
 from tensorboardX import SummaryWriter
 import torch
 import random
 
 from arguments import get_args
 import envs as env_helpers
+from eval import eval as run_eval
 import ppo_agent
 import utils
 
@@ -63,6 +64,10 @@ def train():
     envs = env_helpers.make_envs(config, how_train, args.seed,
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
+    if how_train == 'homogenous':
+        bad_guys = [SimpleAgent(), SimpleAgent()]
+        good_guys = [training_agents[0]]*2
+        eval_round = 0
 
     suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.seed{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,
@@ -80,6 +85,7 @@ def train():
         distill_agent.init_agent(0, envs.get_game_type())
         distill_type = distill_target.split('::')[0]
         suffix += ".dstl{}.dstlepi{}".format(distill_type, distill_epochs)
+        bad_guys = [distill_agent, distill_agent]
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
@@ -104,6 +110,7 @@ def train():
     cumulative_reward = 0
     terminal_reward = 0
     success_rate = 0
+    prev_epoch = start_epoch
     final_action_losses = [[] for agent in range(len(training_agents))]
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
@@ -152,8 +159,10 @@ def train():
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
-        print("Starting epoch %d." % num_epoch)
-        if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
+        if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval) \
+           and how_train == 'simple':
+            # Only save at regular epochs if using "simple". The others save
+            # upon successful evaluation.
             utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
                               num_episodes, args, suffix)
 
@@ -313,7 +322,8 @@ def train():
             for _ in range(args.ppo_epoch):
                 result = agent.ppo(advantages[num_agent], args.num_mini_batch,
                                    num_steps, args.clip_param,
-                                   args.entropy_coef, args.max_grad_norm)
+                                   args.entropy_coef, args.max_grad_norm,
+                                   use_kl=do_distill, kl_factor=distill_prob)
                 action_losses, value_losses, dist_entropies = result
                 final_action_losses[num_agent].extend(result[0])
                 final_value_losses[num_agent].extend(result[1])
@@ -329,7 +339,7 @@ def train():
             num_episodes += running_num_episodes
 
             steps_per_sec = 1.0 * total_steps / (end - start)
-            epochs_per_sec = 1.0 * args.log_interval / (end - start)
+            epochs_per_sec = 1.0 * (num_epoch - prev_epoch) / (end - start)
             episodes_per_sec =  1.0 * num_episodes / (end - start)
 
             mean_dist_entropy = np.mean([
@@ -347,20 +357,51 @@ def train():
             std_action_loss = np.std([
                 action_loss for action_loss in final_action_losses])
 
+            if how_train == 'homogenous':
+                wins, dead, ties = run_eval(
+                    args=args, targets=good_guys, opponents=bad_guys)
+                descriptor = 'homogenous_eval_round%d/' % eval_round
+                num_battles = args.num_battles_eval
+                win_count = sum(wins.values())
+                tie_count = sum(ties.values())
+                one_dead  = sum(dead.values())
+
+                win_rate = 1.0*win_count/num_battles
+                tie_rate = 1.0*tie_count/num_battles
+                one_dead_per_battle = 1.0*one_dead/num_battles
+                one_dead_per_win = 1.0*one_dead/win_count if win_count else 0
+                writer.add_scalar('%s/win_rate' % (descriptor, win_rate))
+                writer.add_scalar('%s/tie_rate' % (descriptor, tie_rate))
+                writer.add_scalar('%s/one_dead_per_battle' % (
+                    descriptor, one_dead_per_battle))
+                writer.add_scalar('%s/one_dead_per_win' % (
+                    descriptor, one_dead_per_win))
+                if win_rate >= .65: # TODO: Is this too high?
+                    saved_paths = utils.save_agents(
+                        "ppo-", num_epoch, training_agents, total_steps,
+                        num_episodes, args, suffix + ".evlrnd%d" % eval_round)
+                    eval_round += 1
+                    bad_guys = [
+                        utils.torch_load(saved_paths[0], args.cuda,
+                                         args.cuda_device)
+                        for _ in range(2)
+                    ]
+
             utils.log_to_console(num_epoch, num_episodes, total_steps,
                                  steps_per_sec, epochs_per_sec, final_rewards,
-                                 mean_dist_entropy, mean_value_loss, mean_action_loss,
-                                 cumulative_reward, terminal_reward, success_rate,
+                                 mean_dist_entropy, mean_value_loss,
+                                 mean_action_loss, cumulative_reward,
+                                 terminal_reward, success_rate,
                                  running_num_episodes)
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
-                                     total_steps, steps_per_sec, episodes_per_sec,
-                                     final_rewards,
+                                     total_steps, steps_per_sec,
+                                     episodes_per_sec, final_rewards,
                                      mean_dist_entropy, mean_value_loss,
                                      mean_action_loss, std_dist_entropy,
                                      std_value_loss, std_action_loss,
                                      count_stats, array_stats,
-                                     cumulative_reward, terminal_reward, success_rate,
-                                     running_num_episodes)
+                                     cumulative_reward, terminal_reward,
+                                     success_rate, running_num_episodes)
 
             # Reset stats so that plots are per the last log_interval.
             final_action_losses = [[] for agent in range(len(training_agents))]
@@ -375,6 +416,7 @@ def train():
             cumulative_reward = 0
             terminal_reward = 0
             success_rate = 0
+            prev_epoch = num_epoch
 
     writer.close()
 
