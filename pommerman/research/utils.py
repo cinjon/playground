@@ -165,18 +165,20 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     epochs_per_sec, final_rewards, mean_dist_entropy,
                     mean_value_loss, mean_action_loss,
                     cumulative_reward, terminal_reward, success_rate,
-                    running_num_episodes):
+                    running_num_episodes, mean_kl_loss=None):
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "
           "mean final reward {:.3f}, min/max finals reward {:.3f}/{:.3f}, avg "
-          "entropy {:.3f}, avg value loss {:.3f}, avg policy loss {:.3f}\n"
+          "entropy {:.3f}, avg value loss {:.3f}, avg policy loss {:.3f} "
+          "mean kl loss {}\n"
           .format(num_epoch, num_episodes, total_steps, steps_per_sec,
                   epochs_per_sec, 1.0*cumulative_reward/running_num_episodes,
                   1.0*terminal_reward/running_num_episodes,
                   1.0*success_rate/running_num_episodes, final_rewards.mean(),
                   final_rewards.min(), final_rewards.max() ,mean_dist_entropy,
-                  mean_value_loss, mean_action_loss))
+                  mean_value_loss, mean_action_loss, mean_kl_loss))
+
 
 
 def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
@@ -198,10 +200,10 @@ def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
 def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        steps_per_sec, episodes_per_sec, final_rewards,
                        mean_dist_entropy, mean_value_loss, mean_action_loss,
-                       std_dist_entropy, std_value_loss, std_action_loss,
+                       std_dist_entropy, std_value_loss, stmd_action_loss,
                        count_stats, array_stats,
                        cumulative_reward, terminal_reward, success_rate,
-                       running_num_episodes):
+                       running_num_episodes, mean_kl_loss=None):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -227,6 +229,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     # }, num_episodes)
 
     # x-axis: # steps
+    writer.add_scalar('entropy', mean_dist_entropy, total_steps)
+    writer.add_scalar('action_loss', mean_action_loss, total_steps)
+    writer.add_scalar('value_loss', mean_value_loss, total_steps)
+    if mean_kl_loss:
+        writer.add_scalar('kl_loss', mean_kl_loss, total_steps)
+
     writer.add_scalar('final_reward_step', final_rewards.mean(), total_steps)
     writer.add_scalar('cumulative_reward_step',
                         1.0 * cumulative_reward / running_num_episodes, total_steps)
@@ -261,6 +269,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
 
 
     # x-axis: # episodes
+    writer.add_scalar('entropy', mean_dist_entropy, num_episodes)
+    writer.add_scalar('action_loss', mean_action_loss, num_episodes)
+    writer.add_scalar('value_loss', mean_value_loss, num_episodes)
+    if mean_kl_loss:
+        writer.add_scalar('kl_loss', mean_kl_loss, num_episodes)
+
     writer.add_scalar('final_reward_epi', final_rewards.mean(), num_episodes)
     writer.add_scalar('cumulative_reward_epi',
                         1.0 * cumulative_reward / running_num_episodes, num_episodes)
@@ -295,6 +309,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
             num_episodes)
 
     # x-axis: # epochs / updates
+    writer.add_scalar('entropy', mean_dist_entropy, num_epoch)
+    writer.add_scalar('action_loss', mean_action_loss, num_epoch)
+    writer.add_scalar('value_loss', mean_value_loss, num_epoch)
+    if mean_kl_loss:
+        writer.add_scalar('kl_loss', mean_kl_loss, num_epoch)
+
     writer.add_scalar('final_reward_epoch', final_rewards.mean(), num_epoch)
     writer.add_scalar('cumulative_reward_epoch',
                         1.0 * cumulative_reward / running_num_episodes, num_epoch)

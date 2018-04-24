@@ -67,21 +67,12 @@ class PPOAgent(ResearchAgent):
                                                    actions)
 
     def _optimize(self, value_loss, action_loss, dist_entropy, entropy_coef,
-                  max_grad_norm, use_kl=False, kl_loss=None, kl_factor=1.0):
+                  max_grad_norm, kl_loss=None, kl_factor=0):
         self._optimizer.zero_grad()
-        if use_kl:
-            (value_loss + action_loss - dist_entropy * entropy_coef - kl_factor * kl_loss).backward()
+        if kl_factor > 0:
+            (value_loss + action_loss - dist_entropy * entropy_coef + kl_factor * kl_loss).backward()
         else:
             (value_loss + action_loss - dist_entropy * entropy_coef).backward()
-        nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
-        self._optimizer.step()
-
-    def optimize_anneal(self, value_loss, action_loss, dist_entropy, entropy_coef,
-                  max_grad_norm, lr_anneal, eps):
-        params = self._actor_critic.parameters()
-        self._optimizer = optim.Adam(params, lr=lr_anneal, eps=eps)
-        self._optimizer.zero_grad()
-        (value_loss + action_loss - dist_entropy * entropy_coef).backward()
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
         self._optimizer.step()
 
@@ -113,21 +104,24 @@ class PPOAgent(ResearchAgent):
         self._rollout.observations[timestep, :, :, :, :, :].copy_(obs)
 
     def insert_rollouts(self, step, current_obs, states, action,
-                        action_log_prob, value, reward, mask):
+                        action_log_prob, value, reward, mask, dagger_action=None):
         self._rollout.insert(step, current_obs, states, action,
-                             action_log_prob, value, reward, mask)
+                             action_log_prob, value, reward, mask, dagger_action)
 
     def ppo(self, advantages, num_mini_batch, num_steps, clip_param,
             entropy_coef, max_grad_norm, anneal=False, lr=1e-4, eps=1e-5,
-            use_kl=False, kl_factor=1.0):
+            kl_factor=0):
         action_losses = []
         value_losses = []
         dist_entropies = []
+        kl_losses = []
+        kl_loss = None
 
         for sample in self._rollout.feed_forward_generator(
-                advantages, num_mini_batch, num_steps):
+                advantages, num_mini_batch, num_steps, kl_factor):
             observations_batch, states_batch, actions_batch, return_batch, \
-                masks_batch, old_action_log_probs_batch, adv_targ = sample
+                masks_batch, old_action_log_probs_batch, adv_targ, \
+                dagger_actions = sample
 
             # Reshape to do in a single forward pass for all steps
             result = self._evaluate_actions(
@@ -151,21 +145,21 @@ class PPOAgent(ResearchAgent):
                          .pow(2).mean()
 
             # NOTE: loss(outputs, labels); outputs: log_probabilities, labels: probabilities
-            kl_loss = nn.KLDivLoss(action_log_probs, dagger_actions)
+            if kl_factor > 0:
+                criterion = nn.KLDivLoss()
+                kl_loss = criterion(action_log_probs, Variable(dagger_actions))
 
-            if anneal:
-                self.optimize_anneal(value_loss, action_loss, dist_entropy,
-                                     entropy_coef, max_grad_norm, lr, eps)
-            else:
-                self._optimize(value_loss, action_loss, dist_entropy,
-                               entropy_coef, max_grad_norm,
-                               use_kl, kl_loss, kl_factor)
+            self._optimize(value_loss, action_loss, dist_entropy,
+                           entropy_coef, max_grad_norm,
+                           kl_loss, kl_factor)
 
             action_losses.append(action_loss.data[0])
             value_losses.append(value_loss.data[0])
             dist_entropies.append(dist_entropy.data[0])
+            if kl_factor > 0:
+                kl_losses.append(kl_loss.data[0])
 
-        return action_losses, value_losses, dist_entropies
+            return action_losses, value_losses, dist_entropies, kl_losses
 
     def copy_ex_model(self):
         """Creates a copy that without the model.

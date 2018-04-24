@@ -18,7 +18,7 @@ class RolloutStorage(object):
             num_steps+1, num_training_per_episode, num_processes, 1)
         self.action_log_probs = torch.zeros(
             num_steps, num_training_per_episode, num_processes, 1)
-                                            
+
         if action_space.__class__.__name__ == 'Discrete':
             action_shape = 1
         else:
@@ -29,6 +29,8 @@ class RolloutStorage(object):
             self.actions = self.actions.long()
         self.masks = torch.ones(num_steps+1, num_training_per_episode,
                                 num_processes, 1)
+        self.dagger_actions = torch.zeros(num_steps, num_training_per_episode,
+                                   num_processes, action_shape)
 
     def cuda(self):
         self.observations = self.observations.cuda()
@@ -39,9 +41,10 @@ class RolloutStorage(object):
         self.action_log_probs = self.action_log_probs.cuda()
         self.actions = self.actions.cuda()
         self.masks = self.masks.cuda()
+        self.dagger_actions = self.dagger_actions.cuda()
 
     def insert(self, step, current_obs, state, action, action_log_prob,
-               value_pred, reward, mask):
+               value_pred, reward, mask, dagger_action):
         self.observations[step+1].copy_(current_obs)
         self.states[step+1].copy_(state)
         self.actions[step].copy_(action)
@@ -49,6 +52,10 @@ class RolloutStorage(object):
         self.value_preds[step].copy_(value_pred)
         self.rewards[step].copy_(reward)
         self.masks[step+1].copy_(mask)
+
+        if dagger_action is not None:
+            self.dagger_actions[step].copy_(dagger_action)
+
 
     def after_epoch(self):
         self.observations[0].copy_(self.observations[-1])
@@ -81,7 +88,7 @@ class RolloutStorage(object):
     def compute_advantages(self):
         return self.returns[:-1] - self.value_preds[:-1]
 
-    def feed_forward_generator(self, advantages, num_mini_batch, num_steps):
+    def feed_forward_generator(self, advantages, num_mini_batch, num_steps, kl_factor):
         # TODO: Consider excluding from the indices the rollouts where the
         # agent died before this rollout. They're signature is that every step
         # is masked out.
@@ -110,6 +117,9 @@ class RolloutStorage(object):
         action_log_probs = self.action_log_probs.view([
             num_steps, num_total, 1])
         masks = self.masks.view([num_steps+1, num_total, 1])
+        dagger_actions_batch = None
+        if kl_factor > 0:
+            dagger_actions = self.dagger_actions.view([num_steps, num_total, *action_shape])
 
         for indices in sampler:
             indices = torch.LongTensor(indices)
@@ -139,10 +149,14 @@ class RolloutStorage(object):
                                 .view((num_steps*num_total), 1)[indices]
             adv_targ = advantages.contiguous().view(-1, 1)[indices]
 
+            if kl_factor > 0:
+                dagger_actions_batch = dagger_actions \
+                                .contiguous() \
+                                .view((num_steps*num_total), 1)[indices]
+
             yield observations_batch, states_batch, actions_batch, \
                 return_batch, masks_batch, old_action_log_probs_batch, \
-                adv_targ
-
+                adv_targ, dagger_actions_batch
 
 class ReplayBuffer:
     """This class implements a GPU-ready replay buffer."""
@@ -178,7 +192,7 @@ class ReplayBuffer:
                     incoming_size == next_state.shape[0],
                     incoming_size == done.shape[0]]), \
                     'Input tensors shape mismatch in dimension 0.'
-                    
+
 
         self._size += incoming_size
 
@@ -215,6 +229,9 @@ class ReplayBuffer:
 
         return state_batch, action_batch, reward_batch, next_state_batch, \
             done_batch
+
+    def __len__(self):
+        return self._size
 
 
 class EpisodeBuffer:
