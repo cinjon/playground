@@ -130,10 +130,6 @@ def train():
         action_log_prob_distr.append(log_probs)
         return action.data.squeeze(1).cpu().numpy()
 
-    def update_dagger_results(result):
-        _, _, _, _, probs, _ = result
-        dagger_prob_distr.append(probs)
-
     def update_stats(info):
         # NOTE: This func has a side effect where it sets variable values.
         # TODO: Change this stats computation when we use heterogenous.
@@ -177,7 +173,8 @@ def train():
             agent.set_eval()
 
         if do_distill:
-            distill_factor = 1.0 * (distill_epochs - num_epoch) / distill_epochs
+            distill_factor = distill_epochs - num_epoch
+            distill_factor = 1.0 * distill_factor / distill_epochs
             distill_factor = max(distill_factor, 0.0)
             if num_epoch % args.log_interval == 0:
                 print("Epoch %d - distill factor %.3f." % (
@@ -191,7 +188,6 @@ def train():
             action_log_prob_agents = []
             states_agents = []
             episode_reward = []
-            cpu_actions_agents = []
             action_log_prob_distr = []
             dagger_prob_distr = []
 
@@ -200,14 +196,12 @@ def train():
 
                 if do_distill:
                     data = training_agent.get_rollout_data(step, 0)
-                    dagger_result = distill_agent.act_on_data(
+                    _, _, _, _, probs, _ = distill_agent.act_on_data(
                         *data, deterministic=True)
-                    update_dagger_results(dagger_result)
+                    dagger_prob_distr.append(probs)
 
                 result = training_agent.actor_critic_act(step, 0)
                 cpu_actions_agents = update_actor_critic_results(result)
-
-            # TODO: the homogeneous with distillation might require some debugging
             elif how_train == 'homogenous':
                 cpu_actions_agents = [[] for _ in range(num_processes)]
                 if do_distill:
@@ -215,12 +209,11 @@ def train():
                 random_prob = random.random()
                 for num_agent in range(4):
                     if do_distill:
-                        # TODO: make distillation with kl work for homogenous as well
                         data = training_agents[0].get_rollout_data(
                             step=step, num_agent=num_agent)
-                        dagger_result = distill_agent.act_on_data(*data,
-                                                        deterministic=True)
-                        dagger_action = update_dagger_results(dagger_result)
+                        _, _, _, _, probs, _ = distill_agent.act_on_data(
+                            *data, deterministic=True)
+                        dagger_prob_distr.append(probs)
 
                     result = training_agents[0].actor_critic_act(
                         step=step, num_agent=num_agent)
@@ -228,9 +221,6 @@ def train():
                     for num_process in range(num_processes):
                         cpu_actions_agents[num_process].append(
                             cpu_actions[num_process])
-                        if do_distill:
-                            dagger_actions_agents[num_process].append(
-                                dagger_action[num_process])
 
             obs, reward, done, info = envs.step(cpu_actions_agents)
             reward = reward.astype(np.float)
