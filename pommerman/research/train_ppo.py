@@ -114,6 +114,8 @@ def train():
     final_action_losses = [[] for agent in range(len(training_agents))]
     final_value_losses =  [[] for agent in range(len(training_agents))]
     final_dist_entropies = [[] for agent in range(len(training_agents))]
+    if do_distill:
+        final_kl_losses = [[] for agent in range(len(training_agents))]
     #####
 
     def update_current_obs(obs):
@@ -126,6 +128,12 @@ def train():
         action_log_prob_agents.append(action_log_prob)
         states_agents.append(states)
         return action.data.squeeze(1).cpu().numpy()
+
+    def update_dagger_results(result):
+        _, dagger_action, _, _ = result
+        dagger_action_agents.append(dagger_action)
+        return dagger_action.data.squeeze(1).cpu().numpy()
+
 
     def update_stats(info):
         # NOTE: This func has a side effect where it sets variable values.
@@ -170,8 +178,12 @@ def train():
             agent.set_eval()
 
         if do_distill:
-            distill_prob = 1.0 * (distill_epochs - num_epoch) / distill_epochs
-            distill_prob = max(distill_prob, 0.0)
+            distill_factor = 1.0 * (distill_epochs - num_epoch) / distill_epochs
+            if num_epoch % args.log_interval == 0:
+                print("distill factor: ", distill_factor)
+            distill_factor = max(distill_factor, 0.0)
+        else:
+            distill_factor = 0
 
         for step in range(num_steps):
             value_agents = []
@@ -180,32 +192,44 @@ def train():
             states_agents = []
             episode_reward = []
             cpu_actions_agents = []
+            dagger_action_agents = []
 
             if how_train == 'simple':
                 training_agent = training_agents[0]
-                if do_distill and random.random() < distill_prob:
+
+                if do_distill:
                     data = training_agent.get_rollout_data(step, 0)
-                    result = distill_agent.act_on_data(*data,
+                    dagger_result = distill_agent.act_on_data(*data,
                                                        deterministic=True)
-                else:
-                    result = training_agent.actor_critic_act(step, 0)
+                    dagger_action = update_dagger_results(dagger_result)
+
+                result = training_agent.actor_critic_act(step, 0)
                 cpu_actions_agents = update_actor_critic_results(result)
+
+            # TODO: the homogeneous with distillation might require some debugging
             elif how_train == 'homogenous':
                 cpu_actions_agents = [[] for _ in range(num_processes)]
+                if do_distill:
+                    dagger_actions_agents = [[] for _ in range(num_processes)]
                 random_prob = random.random()
                 for num_agent in range(4):
-                    if do_distill and random_prob < distill_prob:
+                    if do_distill:
+                        # TODO: make distillation with kl work for homogenous as well
                         data = training_agents[0].get_rollout_data(
                             step=step, num_agent=num_agent)
-                        result = distill_agent.act_on_data(*data,
-                                                           deterministic=True)
-                    else:
-                        result = training_agents[0].actor_critic_act(
-                            step=step, num_agent=num_agent)
+                        dagger_result = distill_agent.act_on_data(*data,
+                                                        deterministic=True)
+                        dagger_action = update_dagger_results(dagger_result)
+
+                    result = training_agents[0].actor_critic_act(
+                        step=step, num_agent=num_agent)
                     cpu_actions = update_actor_critic_results(result)
                     for num_process in range(num_processes):
                         cpu_actions_agents[num_process].append(
                             cpu_actions[num_process])
+                        if do_distill:
+                            dagger_actions_agents[num_process].append(
+                                dagger_action[num_process])
 
             obs, reward, done, info = envs.step(cpu_actions_agents)
             reward = reward.astype(np.float)
@@ -296,12 +320,18 @@ def train():
             action_all = utils.torch_numpy_stack(action_agents)
             action_log_prob_all = utils.torch_numpy_stack(
                 action_log_prob_agents)
+            if do_distill:
+                dagger_action_all = utils.torch_numpy_stack(
+                    dagger_action_agents)
+            else:
+                dagger_action_all = None
+
             value_all = utils.torch_numpy_stack(value_agents)
 
             if how_train == 'simple' or how_train == 'homogenous':
                 training_agents[0].insert_rollouts(
                     step, current_obs, states_all, action_all,
-                    action_log_prob_all, value_all, reward_all, masks_all)
+                    action_log_prob_all, value_all, reward_all, masks_all, dagger_action_all)
 
         # Compute the advantage values.
         if how_train == 'simple' or how_train == 'homogenous':
@@ -323,11 +353,15 @@ def train():
                 result = agent.ppo(advantages[num_agent], args.num_mini_batch,
                                    num_steps, args.clip_param,
                                    args.entropy_coef, args.max_grad_norm,
-                                   use_kl=do_distill, kl_factor=distill_prob)
-                action_losses, value_losses, dist_entropies = result
+                                   kl_factor=distill_factor)
+                action_losses, value_losses, dist_entropies, kl_losses = result
+
                 final_action_losses[num_agent].extend(result[0])
                 final_value_losses[num_agent].extend(result[1])
                 final_dist_entropies[num_agent].extend(result[2])
+
+                if do_distill:
+                    final_kl_losses[num_agent].extend(result[3])
 
             agent.after_epoch()
 
@@ -357,6 +391,7 @@ def train():
             std_action_loss = np.std([
                 action_loss for action_loss in final_action_losses])
 
+<<<<<<< 7ec2fb1fed192640b0588d8aa2cabc665d2d66c2
             if how_train == 'homogenous':
                 wins, dead, ties = run_eval(
                     args=args, targets=good_guys, opponents=bad_guys)
@@ -393,6 +428,21 @@ def train():
                                  mean_action_loss, cumulative_reward,
                                  terminal_reward, success_rate,
                                  running_num_episodes)
+
+            if do_distill:
+                mean_kl_loss = np.mean([
+                    kl_loss for kl_loss in final_kl_losses])
+                std_kl_loss = np.std([
+                    kl_loss for kl_loss in final_kl_losses])
+            else:
+                mean_kl_loss = None
+
+            utils.log_to_console(num_epoch, num_episodes, total_steps,
+                                 steps_per_sec, epochs_per_sec, final_rewards,
+                                 mean_dist_entropy, mean_value_loss, mean_action_loss,
+                                 cumulative_reward, terminal_reward, success_rate,
+                                 running_num_episodes, mean_kl_loss)
+
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
                                      episodes_per_sec, final_rewards,
@@ -400,14 +450,17 @@ def train():
                                      mean_action_loss, std_dist_entropy,
                                      std_value_loss, std_action_loss,
                                      count_stats, array_stats,
-                                     cumulative_reward, terminal_reward,
-                                     success_rate, running_num_episodes)
+                                     cumulative_reward, terminal_reward, success_rate,
+                                     running_num_episodes, mean_kl_loss)
 
             # Reset stats so that plots are per the last log_interval.
             final_action_losses = [[] for agent in range(len(training_agents))]
             final_value_losses =  [[] for agent in range(len(training_agents))]
             final_dist_entropies = [[] for agent in \
                                     range(len(training_agents))]
+            if do_distill:
+                final_kl_losses = [[] for agent in range(len(training_agents))]
+
             count_stats = defaultdict(int)
             array_stats = defaultdict(list)
             final_rewards = torch.zeros([num_training_per_episode,
