@@ -29,7 +29,7 @@ time_avg = defaultdict(float)
 time_max = defaultdict(float)
 time_cnt = defaultdict(int)
 
-def run(args, num_times=1, seed=None, agents=None, training_agents=[],
+def run(args, num_times=1, seed=None, agents=None, training_agent_ids=[],
         acting_agents=None):
     """Run the game a number of times.
 
@@ -38,7 +38,7 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[],
       num_times: The number of times to run the battle.
       seed: The random seed to use for the battles.
       agents: What agents to use. If not, we will make them from the args.
-      training_agents: Which ids are the training_agents.
+      training_agent_ids: Which ids are the training_agents.
       acting_agents: Which, if any agents, use an act function.
 
     Returns:
@@ -57,19 +57,19 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[],
     ]
 
     env = make(config, agents, game_state_file)
-    env.set_training_agents(training_agents)
+    env.set_training_agents(training_agent_ids)
     if seed is None:
         seed = random.randint(0, 1e6)
     env.seed(seed)
     np.random.seed(seed)
     random.seed(seed)
 
-    if args.record_pngs_dir:
-        assert not os.path.isdir(args.record_pngs_dir)
-        os.makedirs(args.record_pngs_dir)
-    if args.record_json_dir:
-        assert not os.path.isdir(args.record_json_dir)
-        os.makedirs(args.record_json_dir)
+    if record_pngs_dir:
+        assert not os.path.isdir(record_pngs_dir)
+        os.makedirs(record_pngs_dir)
+    if record_json_dir:
+        assert not os.path.isdir(record_json_dir)
+        os.makedirs(record_json_dir)
 
     def _update_times(t, key):
         avg = time_avg[key]
@@ -90,8 +90,8 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[],
         while not done:
             steps += 1
             if args.render:
-                env.render(record_pngs_dir=args.record_pngs_dir,
-                           record_json_dir=args.record_json_dir)
+                env.render(record_pngs_dir=record_pngs_dir,
+                           record_json_dir=record_json_dir)
             actions = env.act(obs, acting_agents=acting_agents)
             for agent_id in acting_agents:
                 with utility.Timer() as t:

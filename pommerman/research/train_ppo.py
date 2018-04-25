@@ -409,8 +409,6 @@ def train():
 
             if how_train == 'homogenous':
                 print("Starting eval...")
-                for t in good_guys + bad_guys:
-                    print(type(t), getattr(t, 'agent_id') if hasattr(t, 'agent_id') else "nah")
                 with utility.Timer() as t:
                     wins, one_dead, ties = run_eval(
                         args=args, targets=good_guys, opponents=bad_guys)
