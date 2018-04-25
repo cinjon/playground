@@ -158,6 +158,8 @@ def get_args():
                         help='minimum epsilon for epsilon-greedy action selection (default 0.05)')
     parser.add_argument('--eps-max-steps', type=int, default=50000,
                         help='maximum number of steps to anneal epsilon over (default 50000)')
+    parser.add_argument('--target-update-steps', type=int, default=50000,
+                        help='number of steps to update target network after (default 128)')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()

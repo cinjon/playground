@@ -48,6 +48,10 @@ class QMIXMetaAgent(ResearchAgent):
         critic_value, actions = self.qmix_net(Variable(global_obs), Variable(agent_obs), eps)
         return critic_value, actions
 
+    def target_act(self, global_obs, agent_obs, eps=-1.0):
+        critic_value, actions = self.target_qmix_net(Variable(global_obs), Variable(agent_obs), eps)
+        return critic_value, actions
+
     def initialize(self, args, obs_shape, action_space,
                    num_training_per_episode, num_episodes, total_steps,
                    num_epoch, optimizer_state_dict):
@@ -58,3 +62,9 @@ class QMIXMetaAgent(ResearchAgent):
         self.num_episodes = num_episodes
         self.total_steps = total_steps
         self.num_epoch = num_epoch
+
+    def step(self):
+        self._optimizer.step()
+
+    def update_target(self):
+        self.target_qmix_net.load_state_dict(self.qmix_net.state_dict())
