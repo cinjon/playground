@@ -159,11 +159,8 @@ def train():
                 torch.FloatTensor(current_global_obs),
                 torch.FloatTensor(current_obs), eps=eps)
 
-            # @TODO get remaining actions from remaining agents
-            cpu_actions_agents = list(map(lambda _: random.sample(list(range(6)) * 100, 4), range(num_processes)))
-            training_agent_actions = actions.data.numpy()
-
-            obs, reward, done, info = envs.step(cpu_actions_agents)
+            training_agent_actions = actions.data.numpy().tolist()
+            obs, reward, done, info = envs.step(training_agent_actions)
             global_obs = envs.get_global_obs()
             reward = reward.astype(np.float)
 

@@ -26,6 +26,10 @@ class QMIXMetaAgent(ResearchAgent):
     def model(self):
         return self.qmix_net
 
+    @property
+    def optimizer(self):
+        return self._optimizer
+
     def set_eval(self):
         self.qmix_net.eval()
         self.target_qmix_net.eval()
@@ -48,7 +52,7 @@ class QMIXMetaAgent(ResearchAgent):
                    num_training_per_episode, num_episodes, total_steps,
                    num_epoch, optimizer_state_dict):
         params = self.qmix_net.parameters()
-        self.optimizer = optim.Adam(params, lr=args.lr, eps=args.eps)
+        self._optimizer = optim.Adam(params, lr=args.lr, eps=args.eps)
         if optimizer_state_dict:
             self.optimizer.load_state_dict(optimizer_state_dict)
         self.num_episodes = num_episodes
