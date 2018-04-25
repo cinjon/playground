@@ -20,6 +20,7 @@ import numpy as np
 from tensorboardX import SummaryWriter
 import torch
 from torch.nn import MSELoss
+from torch.autograd import Variable
 import random
 
 from storage import EpisodeBuffer
@@ -215,17 +216,17 @@ def train():
         def compute_q_loss(global_state, state, action, reward, next_global_state, next_state, done):
             current_q_values, _ = training_agents[0].act(global_state, state)
             max_next_q_values, _ = training_agents[0].target_act(next_global_state, next_state)
-            max_next_q_values = max_next_q_values.max(1)[0].unsqueeze(1)
-            # @TODO: Reward is per agent, how do we handle it?
-            expected_q_values = reward + args.gamma * max_next_q_values
+            max_next_q_values = max_next_q_values.max(1)[0]
+            # sum the rewards for individual agents
+            expected_q_values = reward.sum(dim=1) + args.gamma * max_next_q_values.data
 
-            loss = MSELoss()(current_q_values, expected_q_values.detach())
+            loss = MSELoss()(current_q_values, Variable(expected_q_values))
             loss.backward()
 
         if len(episode_buffer) >= args.episode_batch:
             for episode in episode_buffer.sample(args.episode_batch):
                 compute_q_loss(*episode)
-            training_agents[0].step()
+            training_agents[0].optimizer_step()
             gradient_steps += 1
             if gradient_steps % args.target_update_steps == 0:
                 training_agents[0].update_target()

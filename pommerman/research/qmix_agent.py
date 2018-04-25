@@ -63,7 +63,7 @@ class QMIXMetaAgent(ResearchAgent):
         self.total_steps = total_steps
         self.num_epoch = num_epoch
 
-    def step(self):
+    def optimizer_step(self):
         self._optimizer.step()
 
     def update_target(self):

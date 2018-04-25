@@ -284,7 +284,7 @@ class QMIXNet(nn.Module):
         batched_q_tot = F.elu(torch.bmm(batched_max_q, w1))
         batched_q_tot = F.elu(torch.bmm(batched_q_tot, w2))
 
-        return batched_q_tot, batched_actions
+        return batched_q_tot.squeeze(2), batched_actions
 
 
 def featurize3D(obs):
