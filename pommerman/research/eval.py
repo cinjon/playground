@@ -206,13 +206,13 @@ def eval(args=None, targets=None, opponents=None):
                     if is_win:
                         for id_ in [position, position+2]:
                             if id_ not in info['alive']:
-                                dead[position] += 1
+                                one_dead[position] += 1
 
         print("Wins: ", wins)
-        print("Dead: ", dead)
+        print("One Dead: ", one_dead)
         print("Ties: ", ties)
         print("\n")
-        return wins, dead, ties
+        return wins, one_dead, ties
     elif mode == 'heterogenous':
         print('Starting Heterogenous Team Battles.')
         for position in range(2):
