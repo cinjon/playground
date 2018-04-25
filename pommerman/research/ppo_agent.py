@@ -178,9 +178,7 @@ class PPOAgent(ResearchAgent):
             return action_losses, value_losses, dist_entropies, kl_losses
 
     def copy_ex_model(self):
-        """Creates a copy that without the model.
-        This is for operating with homogenous training.
-        """
+        """Creates a copy without the model. This is for operating with homogenous training."""
         return PPOAgent(None, self._character)
 
     def after_epoch(self):

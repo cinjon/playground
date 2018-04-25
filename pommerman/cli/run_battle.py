@@ -92,7 +92,7 @@ def run(args, num_times=1, seed=None, agents=None, training_agents=[],
             if args.render:
                 env.render(record_pngs_dir=args.record_pngs_dir,
                            record_json_dir=args.record_json_dir)
-            actions = env.act(obs)
+            actions = env.act(obs, acting_agents=acting_agents)
             for agent_id in acting_agents:
                 with utility.Timer() as t:
                     agent_obs = obs[agent_id]

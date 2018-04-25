@@ -61,13 +61,19 @@ def train():
     training_agents = utils.load_agents(
         obs_shape, action_space, num_training_per_episode, args,
         ppo_agent.PPOAgent)
+    if how_train == 'homogenous':
+        bad_guys = [SimpleAgent(), SimpleAgent()]
+        model = training_agents[0].model
+        good_guys = []
+        for _ in range(2):
+            guy = ppo_agent.PPOAgent(model, num_stack=args.num_stack, cuda=args.cuda)
+            if args.cuda:
+                guy.cuda()
+            good_guys.append(guy)
+        eval_round = 0
     envs = env_helpers.make_envs(config, how_train, args.seed,
                                  args.game_state_file, training_agents,
                                  num_stack, num_processes, args.render)
-    if how_train == 'homogenous':
-        bad_guys = [SimpleAgent(), SimpleAgent()]
-        good_guys = [training_agents[0]]*2
-        eval_round = 0
 
     suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.seed{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,
@@ -86,7 +92,9 @@ def train():
         distill_type = distill_target.split('::')[0]
         suffix += ".dstl{}.dstlepi{}".format(distill_type, distill_epochs)
         if how_train == 'homogenous':
-            bad_guys = [distill_agent, distill_agent]
+            distill_agent2 = utils.load_distill_agent(obs_shape, action_space, args)
+            distill_agent2.set_eval()
+            bad_guys = [distill_agent, distill_agent2]
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
@@ -160,6 +168,8 @@ def train():
             agent.cuda()
         if do_distill:
             distill_agent.cuda()
+            if how_train == 'homogenous':
+                distill_agent2.cuda()
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
@@ -399,6 +409,8 @@ def train():
 
             if how_train == 'homogenous':
                 print("Starting eval...")
+                for t in good_guys + bad_guys:
+                    print(type(t), getattr(t, 'agent_id') if hasattr(t, 'agent_id') else "nah")
                 with utility.Timer() as t:
                     wins, dead, ties = run_eval(
                         args=args, targets=good_guys, opponents=bad_guys)
@@ -425,11 +437,12 @@ def train():
                         "ppo-", num_epoch, training_agents, total_steps,
                         num_episodes, args, suffix + ".evlrnd%d" % eval_round)
                     eval_round += 1
-                    bad_guys = [
-                        utils.torch_load(saved_paths[0], args.cuda,
-                                         args.cuda_device)
-                        for _ in range(2)
-                    ]
+                    bad_guys = []
+                    for _ in range(2):
+                        guy = utils.torch_load(saved_paths[0], args.cuda, args.cuda_device)
+                        if args.cuda:
+                            guy.cuda()
+                        bad_guys.append(guy)
 
             if do_distill:
                 mean_kl_loss = np.mean([

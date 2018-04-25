@@ -117,9 +117,11 @@ class Pomme(gym.Env):
     def make_items(self):
         self._items = utility.make_items(self._board, self._num_items)
 
-    def act(self, obs):
+    def act(self, obs, acting_agents=[]):
         agents = [agent for agent in self._agents \
                   if agent.agent_id not in self.training_agents]
+        # TODO: Replace this hack with something more reasonable.
+        agents = [agent for agent in agents if agent.agent_id not in acting_agents]
         return self.model.act(agents, obs, self.action_space)
 
     def get_observations(self):
