@@ -71,9 +71,9 @@ def train():
                 guy.cuda()
             good_guys.append(guy)
         eval_round = 0
-    envs = env_helpers.make_envs(config, how_train, args.seed,
-                                 args.game_state_file, training_agents,
-                                 num_stack, num_processes, args.render)
+    envs = env_helpers.make_train_envs(config, how_train, args.seed,
+                                       args.game_state_file, training_agents,
+                                       num_stack, num_processes)
 
     suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.seed{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,
@@ -409,10 +409,8 @@ def train():
 
             if how_train == 'homogenous':
                 print("Starting eval...")
-                for t in good_guys + bad_guys:
-                    print(type(t), getattr(t, 'agent_id') if hasattr(t, 'agent_id') else "nah")
                 with utility.Timer() as t:
-                    wins, dead, ties = run_eval(
+                    wins, one_dead, ties = run_eval(
                         args=args, targets=good_guys, opponents=bad_guys)
                 print("Eval took %.4fs." % t.interval)
 
@@ -420,18 +418,16 @@ def train():
                 num_battles = args.num_battles_eval
                 win_count = sum(wins.values())
                 tie_count = sum(ties.values())
-                one_dead  = sum(dead.values())
+                one_dead_count  = sum(one_dead.values())
 
                 win_rate = 1.0*win_count/num_battles
                 tie_rate = 1.0*tie_count/num_battles
-                one_dead_per_battle = 1.0*one_dead/num_battles
-                one_dead_per_win = 1.0*one_dead/win_count if win_count else 0
-                writer.add_scalar('%s/win_rate' % (descriptor, win_rate))
-                writer.add_scalar('%s/tie_rate' % (descriptor, tie_rate))
-                writer.add_scalar('%s/one_dead_per_battle' % (
-                    descriptor, one_dead_per_battle))
-                writer.add_scalar('%s/one_dead_per_win' % (
-                    descriptor, one_dead_per_win))
+                one_dead_per_battle = 1.0*one_dead_count/num_battles
+                one_dead_per_win = 1.0*one_dead_count/win_count if win_count else 0
+                writer.add_scalar('%s/win_rate' % descriptor, win_rate)
+                writer.add_scalar('%s/tie_rate' % descriptor, tie_rate)
+                writer.add_scalar('%s/one_dead_per_battle' % descriptor, one_dead_per_battle)
+                writer.add_scalar('%s/one_dead_per_win' % descriptor, one_dead_per_win)
                 if win_rate >= .65: # TODO: Is this too high?
                     saved_paths = utils.save_agents(
                         "ppo-", num_epoch, training_agents, total_steps,

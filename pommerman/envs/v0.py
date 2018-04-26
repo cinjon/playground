@@ -37,7 +37,7 @@ class Pomme(gym.Env):
                  is_partially_observable=False,
                  **kwargs
     ):
-        self._render_fps = render_fps
+        self.render_fps = render_fps
         self._agents = None
         self._game_type = game_type
         self._board_size = board_size
@@ -117,11 +117,12 @@ class Pomme(gym.Env):
     def make_items(self):
         self._items = utility.make_items(self._board, self._num_items)
 
-    def act(self, obs, acting_agents=[]):
+    def act(self, obs, acting_agent_ids=[]):
         agents = [agent for agent in self._agents \
                   if agent.agent_id not in self.training_agents]
         # TODO: Replace this hack with something more reasonable.
-        agents = [agent for agent in agents if agent.agent_id not in acting_agents]
+        agents = [agent for agent in agents if \
+                  agent.agent_id not in acting_agent_ids]
         return self.model.act(agents, obs, self.action_space)
 
     def get_observations(self):

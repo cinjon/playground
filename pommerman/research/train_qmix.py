@@ -53,9 +53,9 @@ def train():
     training_agents = utils.load_agents(
         obs_shape, action_space, num_training_per_episode, args,
         qmix_agent.QMIXMetaAgent, network_type='qmix')
-    envs = env_helpers.make_envs(config, how_train, args.seed,
-                                 args.game_state_file, training_agents,
-                                 num_stack, num_processes, args.render)
+    envs = env_helpers.make_train_envs(config, how_train, args.seed,
+                                       args.game_state_file, training_agents,
+                                       num_stack, num_processes)
 
     #####
     # Logging helpers.

@@ -12,7 +12,7 @@ import networks
 
 
 class ResearchAgent(BaseAgent):
-    """The TensorForceAgent. Acts through the algorith, not here."""
+
     def __init__(self, character=characters.Bomber, **kwargs):
         super(ResearchAgent, self).__init__(character)
         # NOTE: This is assuming that our num_stack size is 2.
@@ -27,24 +27,38 @@ class ResearchAgent(BaseAgent):
             self._masks = self._masks.cuda()
 
     def act(self, obs, action_space):
-        obs = networks.featurize3D(obs)
-        obs = torch.from_numpy(obs)
+        if type(obs) == list:
+            obs = np.stack([networks.featurize3D(o) for o in obs])
+            obs = torch.from_numpy(obs)
+        else:
+            obs = networks.featurize3D(obs)
+            obs = torch.from_numpy(obs)
+            obs = obs.unsqueeze(0)
+        obs = obs.float()
+
         self._obs_stack.append(obs)
+
         stacked_obs = list(self._obs_stack)
         if len(stacked_obs) < self._num_stack:
             prepend = [stacked_obs[0]]*(self._num_stack - len(stacked_obs))
             stacked_obs = prepend + stacked_obs
-        stacked_obs = torch.cat(stacked_obs).unsqueeze(0).float()
+        stacked_obs = torch.cat(stacked_obs, 1)
         if self._cuda:
             stacked_obs = stacked_obs.cuda()
             self._states = self._states.cuda()
+
         _, action, _, states, _, _ = self._actor_critic.act(
             Variable(stacked_obs, volatile=True),
             Variable(self._states, volatile=True),
             Variable(self._masks, volatile=True),
             deterministic=True)
         self._states = states.data
-        action = action.data.squeeze(1).cpu().numpy()[0]
+
+        action = action.data.squeeze(1).cpu().numpy()
+        if len(action) == 1:
+            # NOTE: This is a special case to return a singular action if that
+            # is all that was passed through.
+            action = action[0]
         return action
 
     def act_on_data(self, observations, states, masks, deterministic=False):

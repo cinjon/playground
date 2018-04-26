@@ -90,10 +90,9 @@ def train():
         dummy_states = dummy_states.cuda()
         dummy_masks = dummy_masks.cuda()
 
-    envs = env_helpers.make_envs(config, how_train, args.seed,
-                                 args.game_state_file, training_agents,
-                                 num_stack, dagger_num_processes,
-                                 args.render)
+    envs = env_helpers.make_train_envs(config, how_train, args.seed,
+                                       args.game_state_file, training_agents,
+                                       num_stack, dagger_num_processes)
 
     agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
     if args.cuda:
@@ -101,9 +100,9 @@ def train():
 
 
     eval_how_train = 'simple'
-    eval_envs = env_helpers.make_envs(config, eval_how_train, args.seed,
-                                 args.game_state_file, training_agents,
-                                 num_stack, num_processes, args.render)
+    eval_envs = env_helpers.make_train_envs(
+        config, eval_how_train, args.seed, args.game_state_file,
+        training_agents, num_stack, num_processes)
 
     dummy_states_eval = torch.zeros(num_processes, 1)
     dummy_masks_eval = torch.zeros(num_processes, 1)
@@ -140,10 +139,9 @@ def train():
         for step in range(args.num_steps):
             if done[0][0]:
                 envs.close()
-                envs = env_helpers.make_envs(
+                envs = env_helpers.make_train_envs(
                     config, how_train, args.seed, args.game_state_file,
-                    training_agents, num_stack, dagger_num_processes,
-                    args.render)
+                    training_agents, num_stack, dagger_num_processes)
                 agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
                 if args.cuda:
                     agent_obs = agent_obs.cuda()
