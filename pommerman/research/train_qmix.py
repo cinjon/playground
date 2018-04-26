@@ -8,8 +8,8 @@ processes/workers collecting data.
 
 Example:
 
-python train.py --how-train qmix --num-processes 10 --run-name test \
- --num-steps 50 --log-interval 5
+python train.py --how-train qmix --config PommeTeam-v0 --num-processes 16 --run-name qmix-train \
+ --num-agents 2 --model-str QMIXNet --log-interval 5
 """
 
 from collections import defaultdict
@@ -21,7 +21,6 @@ from tensorboardX import SummaryWriter
 import torch
 from torch.nn import MSELoss
 from torch.autograd import Variable
-import random
 
 from storage import EpisodeBuffer
 from arguments import get_args
@@ -35,16 +34,9 @@ def train():
     args = get_args()
     os.environ['OMP_NUM_THREADS'] = '1'
 
-    ## CLI params, hard-coded for now
-    args.how_train = 'qmix'
-    args.config = 'PommeTeam-v0'
-    args.num_agents = 2
-    args.run_name = 'qmix-train'
-    args.model_str = 'QMIXNet'
-
     if args.cuda:
         torch.cuda.empty_cache()
-        # torch.cuda.set_device(args.cuda_device)
+        torch.cuda.set_device(args.cuda_device)
 
     assert args.run_name
     print("\n###############")
@@ -96,20 +88,7 @@ def train():
     final_action_losses = [[] for agent in range(len(training_agents))]
     final_value_losses =  [[] for agent in range(len(training_agents))]
 
-
-    def update_stats(info):
-        # TODO: Change this stats computation when we use heterogenous.
-        for i in info:
-            for lst in i.get('step_info', {}).values():
-                for l in lst:
-                    if l.startswith('dead') or l.startswith('rank'):
-                        key, count = l.split(':')
-                        array_stats[key].append(int(count))
-                    else:
-                        count_stats[l] += 1
-                        if 'bomb' in l:
-                            count_stats['bomb'] += 1
-
+    # Initialize observations
     current_obs = envs.reset()
     current_global_obs = envs.get_global_obs()
 
@@ -117,8 +96,20 @@ def train():
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
         current_obs = current_obs.cuda()
+        current_global_obs = current_global_obs.cuda()
         for agent in training_agents:
             agent.cuda()
+
+    def init_history_instance():
+        return [
+            torch.zeros(0, *global_obs_shape),  # 0: current global state
+            torch.zeros(0, num_training_per_episode, *obs_shape),  # 1: current agent(s) state
+            torch.zeros(0, num_training_per_episode).long(),  # 2: action
+            torch.zeros(0, num_training_per_episode),  # 3: reward
+            torch.zeros(0, *global_obs_shape),  # 4: next global state
+            torch.zeros(0, num_training_per_episode, *obs_shape),  # 5: next agent(s) state
+            torch.zeros(0, num_training_per_episode).long(),  # 6: done
+        ]
 
     start = time.time()
 
@@ -139,23 +130,11 @@ def train():
         # after it has ended. Each history item has the first dimension as time step, second
         # dimension as the number of training agents and then appropriate shape for the item
         #
-        history = [
-            [
-                torch.zeros(0, *global_obs_shape), # 0: current global state
-                torch.zeros(0, num_training_per_episode, *obs_shape), # 1: current agent(s) state
-                torch.zeros(0, num_training_per_episode).long(), # 2: action
-                torch.zeros(0, num_training_per_episode), # 3: reward
-                torch.zeros(0, *global_obs_shape),  # 4: next global state
-                torch.zeros(0, num_training_per_episode, *obs_shape),  # 5: next agent(s) state
-                torch.zeros(0, num_training_per_episode).long(), # 6: done
-            ]
-            for _ in range(num_processes)
-        ]
+        history = [init_history_instance() for _ in range(num_processes)]
 
         # Run all episodes until the end
 
-        # while True:
-        for i in range(10):
+        while True:
             eps = args.eps_max + (args.eps_min - args.eps_max) / args.eps_max_steps * eps_steps
 
             # Ignore critic values during trajectory generation
@@ -167,8 +146,6 @@ def train():
             obs, reward, done, info = envs.step(training_agent_actions)
             global_obs = envs.get_global_obs()
             reward = reward.astype(np.float)
-
-            update_stats(info)
 
             if args.render:
                 envs.render()
@@ -182,10 +159,6 @@ def train():
             done_tensor = torch.from_numpy(done.astype(np.int)).long().unsqueeze(1)
 
             for i in range(num_processes):
-                # Ignore history if done
-                # if info[i]['result'] == pommerman.constants.Result.Incomplete:
-                #     continue
-
                 history[i][0] = torch.cat([history[i][0], global_state_tensor[i]], dim=0)
                 history[i][1] = torch.cat([history[i][1], state_tensor[i]], dim=0)
                 history[i][2] = torch.cat([history[i][2], action_tensor[i]], dim=0)
@@ -196,22 +169,15 @@ def train():
 
                 total_steps += 1
 
+                # Flush completed episode into buffer and clear current episode's history for next episode
+                if info[i]['result'] != pommerman.constants.Result.Incomplete:
+                    episode_buffer.extend([history[i]])
+                    history[i] = init_history_instance()
+
             # Update for next step
             eps_steps = min(eps_steps + 1, args.eps_max_steps)
             current_obs = obs
             current_global_obs = global_obs
-
-            # Break loop if all parallel actors have finished their episodes
-            all_episodes_done = True
-            for episode_info in info:
-                if episode_info['result'] == pommerman.constants.Result.Incomplete:
-                    all_episodes_done = False
-                    break
-
-            if all_episodes_done:
-                break
-
-        episode_buffer.extend(history)
 
         def compute_q_loss(global_state, state, action, reward, next_global_state, next_state, done):
             current_q_values, _ = training_agents[0].act(global_state, state)

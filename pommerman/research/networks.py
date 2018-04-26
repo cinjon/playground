@@ -248,19 +248,18 @@ class QMIXNet(nn.Module):
         :return:
         """
         batch_size, num_agents, *agent_obs_shape = agent_state.shape
-        agents_flattened = agent_state.view(-1, *agent_obs_shape)
-        global_state_flattened = global_state.view(batch_size, -1)
-        x = F.relu(self.conv1(agents_flattened))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv4(x))
+        agents_flattened = agent_state.view(-1, *agent_obs_shape)  # (batch_size*num_agents) x 36 x 13 x 13
+        global_state_flattened = global_state.view(batch_size, -1) # batch_size x (4*18*13*13)
+        x = F.relu(self.conv1(agents_flattened)) # (batch_size*num_agents) x 256 x 13 x 13
+        x = F.relu(self.conv2(x)) # (batch_size*num_agents) x 256 x 13 x 13
+        x = F.relu(self.conv3(x)) # (batch_size*num_agents) x 256 x 13 x 13
+        x = F.relu(self.conv4(x)) # (batch_size*num_agents) x 256 x 13 x 13
 
-        x = x.view(-1, self.num_channels * self.board_size**2)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = x.view(-1, self.num_channels * self.board_size**2) # (batch_size*num_agents) x (256*13*13)
+        x = F.relu(self.fc1(x)) # (batch_size*num_agents) x 1024
+        x = F.relu(self.fc2(x)) # (batch_size*num_agents) x 512
 
-        # Q-values for each agent across the action space
-        agent_q_n = self.agent_q_net(x)
+        agent_q_n = self.agent_q_net(x) # (batch_size*num_agents) x num_actions
         max_q, max_actions = agent_q_n.max(dim=1)
 
         # During DQN batch update, we shouldn't do epsilon greedy and take what the network gives
@@ -269,22 +268,22 @@ class QMIXNet(nn.Module):
             max_q = agent_q_n.gather(1, max_actions.unsqueeze(1))
 
         # Q-values for all agents in each batch
-        batched_max_q = max_q.view(batch_size, -1).unsqueeze(1)
-        batched_actions = max_actions.view(batch_size, -1)
+        batched_max_q = max_q.view(batch_size, -1).unsqueeze(1) # batch_size x 1 x num_agents
+        batched_actions = max_actions.view(batch_size, -1) # batch_size x num_agents
 
         # Weights for the Mixing Network (absolute for monotonicity)
-        w1 = self.hyper_net1(global_state_flattened).abs()
-        w2 = self.hyper_net2(global_state_flattened).abs()
+        w1 = self.hyper_net1(global_state_flattened).abs() # batch_size x (num_agents*32)
+        w2 = self.hyper_net2(global_state_flattened).abs() # batch_size x 32
 
         # Reshape for Mixing Network
-        w1 = w1.view(batch_size, self.num_agents, self.mixing_hidden_size)
-        w2 = w2.view(batch_size, self.mixing_hidden_size, 1)
+        w1 = w1.view(batch_size, self.num_agents, self.mixing_hidden_size) # batch_size x num_agents x 32
+        w2 = w2.view(batch_size, self.mixing_hidden_size, 1) # batch_size x 32 x 1
 
         # Calculate mixing of agent values for q_tot
-        batched_q_tot = F.elu(torch.bmm(batched_max_q, w1))
-        batched_q_tot = F.elu(torch.bmm(batched_q_tot, w2))
+        batched_q_tot = F.elu(torch.bmm(batched_max_q, w1)) # batch_size x 1 x 32
+        batched_q_tot = F.elu(torch.bmm(batched_q_tot, w2)) # batch_size x 1 x 1
 
-        return batched_q_tot.squeeze(2), batched_actions
+        return batched_q_tot.squeeze(2), batched_actions # batch_size x 1, batch_size x num_agents
 
 
 def featurize3D(obs):
