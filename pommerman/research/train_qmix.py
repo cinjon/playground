@@ -85,10 +85,6 @@ def train():
     terminal_reward = 0
     success_rate = 0
 
-    running_team_wins = 0
-    running_num_episodes = 0
-    value_losses = []
-
     # Initialize observations
     current_obs = envs.reset()
     current_global_obs = envs.get_global_obs()
@@ -128,16 +124,6 @@ def train():
 
         value_losses.append(loss.data[0])
 
-    def run_dqn():
-        global gradient_steps
-        if len(episode_buffer) >= args.episode_batch:
-            for episode in episode_buffer.sample(args.episode_batch):
-                compute_q_loss(*episode)
-            training_agents[0].optimizer_step()
-            gradient_steps += 1
-            if gradient_steps % args.target_update_steps == 0:
-                training_agents[0].update_target()
-
     ##
     # Each history is Python list is of length num_processes. This is a list because not all
     # episodes are of the same length and we don't want information of an episode
@@ -149,6 +135,18 @@ def train():
     eps_steps = 0
     gradient_steps = 0
     start = time.time()
+
+    running_team_wins = 0
+    running_num_episodes = 0
+    value_losses = []
+
+    def run_dqn():
+        if len(episode_buffer) >= args.episode_batch:
+            for episode in episode_buffer.sample(args.episode_batch):
+                compute_q_loss(*episode)
+            training_agents[0].optimizer_step()
+            return 1
+        return 0
 
     for num_epoch in range(start_epoch, num_epochs):
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
@@ -204,7 +202,9 @@ def train():
                     if info[i]['result'] == pommerman.constants.Result.Win:
                         running_team_wins += 1
 
-                    run_dqn()
+                    gradient_steps += run_dqn()
+                    if gradient_steps % args.target_update_steps == 0:
+                        training_agents[0].update_target()
 
             # Update for next step
             eps_steps = min(eps_steps + 1, args.eps_max_steps)
