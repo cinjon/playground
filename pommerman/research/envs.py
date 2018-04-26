@@ -12,8 +12,9 @@ import networks
 from subproc_vec_env import SubprocVecEnv
 
 
-def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
-             num_stack):
+def _make_train_env(config, how_train, seed, rank, game_state_file,
+                    training_agents, num_stack):
+                    
     """Makes an environment callable for multithreading purposes.
 
     Args:
@@ -49,7 +50,8 @@ def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
             agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
             agents.insert(training_agent_ids[0], training_agents[0])
         elif how_train == 'qmix':
-            training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)] # randomly pick team [0,2] or [1,3]
+            # randomly pick team [0,2] or [1,3]
+            training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)] 
             agents = [pommerman.agents.SimpleAgent() for _ in range(2)]
             agents.insert(training_agent_ids[0], training_agents[0])
             agents.insert(training_agent_ids[1], training_agents[1])
@@ -70,24 +72,62 @@ def _make_env(config, how_train, seed, rank, game_state_file, training_agents,
     return _thunk
 
 
-def make_envs(config, how_train, seed, game_state_file, training_agents,
-               num_stack, num_processes, render):
-    # NOTE: I didn't think this would work because I thought that the agent
-    # would overwrite the agent_id on each env. However, it is working.
-    # TODO: Look into why.
+def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
+                   num_stack):
+                   
+    """Makes an environment callable for multithreading purposes.
+
+    Used in conjunction with eval.py
+
+    Args:
+      config: See the arguments module's config options.
+      how_train: Str for the method for training. 'heterogenous' is not
+        supported yet.
+      seed: The random seed to use.
+      rank: The environment count.
+      agents: The list of agents to use.
+      training_agent_ids: The list of training agents to use.
+      num_stack: For stacking frames.
+
+    Returns a callable to instantiate an environment.
+    """
+    def _thunk():
+        env = pommerman.make(config, agents, None)
+        env.set_training_agents(training_agent_ids)
+        env.seed(seed + rank)
+        env.rank = rank
+        return env
+    return _thunk
+
+
+def make_train_envs(config, how_train, seed, game_state_file, training_agents,
+                    num_stack, num_processes):
     envs = [
-        _make_env(config=config, how_train=how_train, seed=seed, rank=rank,
-                 game_state_file=game_state_file,
-                 training_agents=training_agents, num_stack=num_stack)
+        _make_train_env(config=config, how_train=how_train, seed=seed,
+                        rank=rank, game_state_file=game_state_file,
+                        training_agents=training_agents, num_stack=num_stack)
         for rank in range(num_processes)
     ]
     return SubprocVecEnv(envs)
 
 
+def make_eval_envs(config, how_train, seed, agents, training_agent_ids,
+                   num_stack, num_processes):
+    envs = [
+        _make_eval_env(
+            config=config, how_train=how_train, seed=seed, rank=rank,
+            agents=agents, training_agent_ids=training_agent_ids,
+            num_stack=num_stack)
+        for rank in range(num_processes)
+    ]
+    # return envs[0]()
+    return SubprocVecEnv(envs)
+
+
 def get_env_shapes(config, num_stack):
-    dummy_env = _make_env(config=config, how_train='dummy', seed=None, rank=-1,
-                          game_state_file=None, training_agents=[],
-                          num_stack=num_stack)()
+    dummy_env = _make_train_env(config=config, how_train='dummy', seed=None,
+                                rank=-1, game_state_file=None,
+                                training_agents=[], num_stack=num_stack)()
     envs_shape = dummy_env.observation_space.shape[1:]
     obs_shape = (envs_shape[0], *envs_shape[1:])
     action_space = dummy_env.action_space
@@ -95,9 +135,10 @@ def get_env_shapes(config, num_stack):
 
 
 class WrapPomme(gym.ObservationWrapper):
-    def __init__(self, env=None, how_train='simple'):
+    def __init__(self, env=None, how_train='simple', acting_agent_ids=None):
         super(WrapPomme, self).__init__(env)
         self._how_train = how_train
+        self._acting_agent_ids = acting_agent_ids or self.env.training_agents
 
         obs_shape = (18, 13, 13)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
@@ -108,11 +149,11 @@ class WrapPomme(gym.ObservationWrapper):
             extended_shape,
             dtype=np.float32
         )
-        self.render_fps = env._render_fps
+        self.render_fps = env.render_fps
 
     def _filter(self, arr):
         # TODO: Is arr always an np.array? If so, can do this better.
-        return np.array([arr[i] for i in self.env.training_agents])
+        return np.array([arr[i] for i in self._acting_agent_ids])
 
     def observation(self, observation):
         filtered = self._filter(observation)

@@ -71,9 +71,9 @@ def train():
                 guy.cuda()
             good_guys.append(guy)
         eval_round = 0
-    envs = env_helpers.make_envs(config, how_train, args.seed,
-                                 args.game_state_file, training_agents,
-                                 num_stack, num_processes, args.render)
+    envs = env_helpers.make_train_envs(config, how_train, args.seed,
+                                       args.game_state_file, training_agents,
+                                       num_stack, num_processes)
 
     suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.seed{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,

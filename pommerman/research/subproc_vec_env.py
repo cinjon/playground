@@ -14,6 +14,9 @@ def worker(remote, parent_remote, env_fn_wrapper):
         if cmd == 'step':
             ob, reward, done, info = env.step(data)
             # NOTE: added .all() to work with multi-agent scenarios.
+            if type(done) == list:
+                done = np.array(done)
+
             if done.all():
                 ob = env.reset()
             remote.send((ob, reward, done, info))
@@ -154,7 +157,6 @@ class SubprocVecEnv(_VecEnv):
         frame = self.remotes[0].recv()
         from PIL import Image
         from gym.envs.classic_control import rendering
-        # Fails either here at resize
         human_factor = 32
         board_size = 13
         img = resize(frame, (board_size*human_factor, board_size*human_factor), interp='nearest')
