@@ -184,6 +184,9 @@ class EpisodeBuffer:
     def __init__(self, size=5000):
         self.buffer = deque(maxlen=size)
 
+    def append(self, history_item):
+        self.buffer.append(history_item)
+
     def extend(self, history):
         assert isinstance(history, list), 'The argument should be a list of episode rollouts'
         self.buffer.extend(history)

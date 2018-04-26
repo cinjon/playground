@@ -9,7 +9,7 @@ processes/workers collecting data.
 Example:
 
 python train.py --how-train qmix --config PommeTeam-v0 --num-processes 16 --run-name qmix-train \
- --num-agents 2 --model-str QMIXNet --log-interval 5
+ --num-agents 2 --model-str QMIXNet --num-steps 1000 --log-interval 5
 """
 
 from collections import defaultdict
@@ -81,12 +81,13 @@ def train():
     total_steps = training_agents[0].total_steps
     num_episodes = training_agents[0].num_episodes
 
-    running_num_episodes = 0
     cumulative_reward = 0
     terminal_reward = 0
     success_rate = 0
-    final_action_losses = [[] for agent in range(len(training_agents))]
-    final_value_losses =  [[] for agent in range(len(training_agents))]
+
+    running_team_wins = 0
+    running_num_episodes = 0
+    value_losses = []
 
     # Initialize observations
     current_obs = envs.reset()
@@ -101,7 +102,7 @@ def train():
             agent.cuda()
 
     def init_history_instance():
-        return [
+        history_init = [
             torch.zeros(0, *global_obs_shape),  # 0: current global state
             torch.zeros(0, num_training_per_episode, *obs_shape),  # 1: current agent(s) state
             torch.zeros(0, num_training_per_episode).long(),  # 2: action
@@ -110,12 +111,45 @@ def train():
             torch.zeros(0, num_training_per_episode, *obs_shape),  # 5: next agent(s) state
             torch.zeros(0, num_training_per_episode).long(),  # 6: done
         ]
+        if args.cuda:
+            for h in range(len(history_init)):
+                history_init[h] = history_init[h].cuda()
+        return history_init
 
-    start = time.time()
+    def compute_q_loss(global_state, state, action, reward, next_global_state, next_state, done):
+        current_q_values, _ = training_agents[0].act(global_state, state)
+        max_next_q_values, _ = training_agents[0].target_act(next_global_state, next_state)
+        max_next_q_values = max_next_q_values.max(1)[0]
+        # sum the rewards for individual agents
+        expected_q_values = reward.sum(dim=1) + args.gamma * max_next_q_values.data
 
+        loss = MSELoss()(current_q_values, Variable(expected_q_values))
+        loss.backward()
+
+        value_losses.append(loss.data[0])
+
+    def run_dqn():
+        global gradient_steps
+        if len(episode_buffer) >= args.episode_batch:
+            for episode in episode_buffer.sample(args.episode_batch):
+                compute_q_loss(*episode)
+            training_agents[0].optimizer_step()
+            gradient_steps += 1
+            if gradient_steps % args.target_update_steps == 0:
+                training_agents[0].update_target()
+
+    ##
+    # Each history is Python list is of length num_processes. This is a list because not all
+    # episodes are of the same length and we don't want information of an episode
+    # after it has ended. Each history item has the first dimension as time step, second
+    # dimension as the number of training agents and then appropriate shape for the item
+    #
+    history = [init_history_instance() for _ in range(num_processes)]
     eps = args.eps_max
     eps_steps = 0
     gradient_steps = 0
+    start = time.time()
+
     for num_epoch in range(start_epoch, num_epochs):
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("qmix-", num_epoch, training_agents, total_steps,
@@ -124,17 +158,8 @@ def train():
         for agent in training_agents:
             agent.set_eval()
 
-        ##
-        # Each history is Python list is of length num_processes. This is a list because not all
-        # episodes are of the same length and we don't want information of an episode
-        # after it has ended. Each history item has the first dimension as time step, second
-        # dimension as the number of training agents and then appropriate shape for the item
-        #
-        history = [init_history_instance() for _ in range(num_processes)]
-
-        # Run all episodes until the end
-
-        while True:
+        # Keep collecting episodes
+        for _ in range(num_steps):
             eps = args.eps_max + (args.eps_min - args.eps_max) / args.eps_max_steps * eps_steps
 
             # Ignore critic values during trajectory generation
@@ -171,84 +196,39 @@ def train():
 
                 # Flush completed episode into buffer and clear current episode's history for next episode
                 if info[i]['result'] != pommerman.constants.Result.Incomplete:
-                    episode_buffer.extend([history[i]])
+                    episode_buffer.append(history[i])
                     history[i] = init_history_instance()
+
+                    # Update stats
+                    running_num_episodes += 1
+                    if info[i]['result'] == pommerman.constants.Result.Win:
+                        running_team_wins += 1
+
+                    run_dqn()
 
             # Update for next step
             eps_steps = min(eps_steps + 1, args.eps_max_steps)
             current_obs = obs
             current_global_obs = global_obs
 
-        def compute_q_loss(global_state, state, action, reward, next_global_state, next_state, done):
-            current_q_values, _ = training_agents[0].act(global_state, state)
-            max_next_q_values, _ = training_agents[0].target_act(next_global_state, next_state)
-            max_next_q_values = max_next_q_values.max(1)[0]
-            # sum the rewards for individual agents
-            expected_q_values = reward.sum(dim=1) + args.gamma * max_next_q_values.data
-
-            loss = MSELoss()(current_q_values, Variable(expected_q_values))
-            loss.backward()
-
-        if len(episode_buffer) >= args.episode_batch:
-            for episode in episode_buffer.sample(args.episode_batch):
-                compute_q_loss(*episode)
-            training_agents[0].optimizer_step()
-            gradient_steps += 1
-            if gradient_steps % args.target_update_steps == 0:
-                training_agents[0].update_target()
-
         if running_num_episodes > args.log_interval:
             end = time.time()
-            num_steps_sec = (end - start)
+
             num_episodes += running_num_episodes
 
             steps_per_sec = 1.0 * total_steps / (end - start)
             epochs_per_sec = 1.0 * args.log_interval / (end - start)
-            episodes_per_sec =  1.0 * num_episodes / (end - start)
+            episodes_per_sec = 1.0 * num_episodes / (end - start)
 
-            mean_dist_entropy = np.mean([
-                dist_entropy for dist_entropy in final_dist_entropies])
-            std_dist_entropy = np.std([
-                dist_entropy for dist_entropy in final_dist_entropies])
+            mean_value_loss = np.mean(value_losses)
+            std_value_loss = np.std(value_losses)
 
-            mean_value_loss = np.mean([
-                value_loss for value_loss in final_value_losses])
-            std_value_loss = np.std([
-                value_loss for value_loss in final_value_losses])
+            print('Num Episodes: {}, Running Num Episodes: {}, Team Win Rate: {}%, Mean Value Loss: {}, Std Value Loss: {}'.format(
+                num_episodes, running_num_episodes, (running_team_wins * 100.0 / running_num_episodes), mean_value_loss, std_value_loss))
 
-            mean_action_loss = np.mean([
-                action_loss for action_loss in final_action_losses])
-            std_action_loss = np.std([
-                action_loss for action_loss in final_action_losses])
-
-            utils.log_to_console(num_epoch, num_episodes, total_steps,
-                                 steps_per_sec, epochs_per_sec, final_rewards,
-                                 mean_dist_entropy, mean_value_loss, mean_action_loss,
-                                 cumulative_reward, terminal_reward, success_rate,
-                                 running_num_episodes)
-            utils.log_to_tensorboard(writer, num_epoch, num_episodes,
-                                     total_steps, steps_per_sec, episodes_per_sec,
-                                     final_rewards,
-                                     mean_dist_entropy, mean_value_loss,
-                                     mean_action_loss, std_dist_entropy,
-                                     std_value_loss, std_action_loss,
-                                     count_stats, array_stats,
-                                     cumulative_reward, terminal_reward, success_rate,
-                                     running_num_episodes)
-
-            # Reset stats so that plots are per the last log_interval.
-            final_action_losses = [[] for agent in range(len(training_agents))]
-            final_value_losses =  [[] for agent in range(len(training_agents))]
-            final_dist_entropies = [[] for agent in \
-                                    range(len(training_agents))]
-            count_stats = defaultdict(int)
-            array_stats = defaultdict(list)
-            final_rewards = torch.zeros([num_training_per_episode,
-                                         num_processes, 1])
             running_num_episodes = 0
-            cumulative_reward = 0
-            terminal_reward = 0
-            success_rate = 0
+            running_team_wins = 0
+            value_losses = []
 
     writer.close()
 
