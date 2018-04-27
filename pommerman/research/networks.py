@@ -98,6 +98,11 @@ class _FFPolicy(nn.Module):
         value, x, states = self(inputs, states, masks)
         return self.dist(x)
 
+    def get_values_action_scores(self, inputs, states, masks, deterministic=False):
+        value, x, states = self(inputs, states, masks)
+        return value, self.dist(x)
+
+
 
 class PommeCNNPolicySmall(_FFPolicy):
     """Class implementing a policy.

@@ -136,23 +136,33 @@ def get_args():
 
     # for Dagger
     parser.add_argument('--expert-prob', type=float, default=0.5,
-                        help='probability that the agent will act using the experts action')
+                        help='probability that the agent will act using \
+                        the experts action')
     parser.add_argument('--anneal-factor', type=float, default=0.005,
-                        help='probability that the agent will act using the experts action')
+                        help='probability that the agent will act using \
+                        the experts action')
     parser.add_argument('--anneal-expert-prob', action='store_true', default=False,
                         help='anneal the probability of using the expert')
     parser.add_argument('--minibatch-size', type=int, default=5000,
-                        help='size of the minibatch for training on the aggregated dataset')
-    parser.add_argument('--num-steps-eval', type=int, default=1000,
-                        help='size of the minibatch for training on the aggregated dataset')
+                        help='size of the minibatch for training on \
+                        the aggregated dataset')
+    parser.add_argument('--num-steps-eval', type=int, default=500,
+                        help='number of steps in the evaluation of the Dagger')
     parser.add_argument('--dagger-epoch', type=int, default=1,
-                        help='number of optimization steps for the dagger classifier (4)')
+                        help='number of optimization steps for the \
+                        dagger classifier (4)')
     parser.add_argument('--init-dagger-optimizer', action='store_true', default=False,
                         help='anneal the probability of using the expert')
     parser.add_argument('--scale-weights', action='store_true', default=False,
                         help='scale weights before each training loop')
     parser.add_argument('--weight-scale-factor', type=float, default=0.5,
-                        help='factor for scaling the weights before each training loop (0.5)')
+                        help='factor for scaling the weights before each \
+                        training loop (0.5)')
+    parser.add_argument('--num-episodes-dagger', type=int, default=10,
+                        help='number of episodes to collect data from (10)')
+    parser.add_argument('--stop-grads-value', action='store_true', default=False,
+                        help='do not backprop the value loss through the \
+                        shared params of the policy and value networks if True')
 
     # for QMIX
     parser.add_argument('--episode-batch', type=int, default=1,
