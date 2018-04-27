@@ -176,9 +176,8 @@ def train():
     if how_train == 'homogenous':
         win_rate, tie_rate, die_rate = evaluate_homogenous(
             args, good_guys, bad_guys, 0, writer, 0)
-        print("Epoch %d (%d)--> Win %.3f, Tie %.3f, Die %.3f" % (
-            num_epoch, args.num_battles_eval, win_rate, tie_rate,
-            die_rate))
+        print("Homog test beforehand: (%d)--> Win %.3f, Tie %.3f, Die %.3f" % (
+            args.num_battles_eval, win_rate, tie_rate, die_rate))
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
