@@ -305,6 +305,7 @@ def featurize3D(obs):
         - (2 / 3) Enemies' positions.
         - (8) Positions for:
             Passage/Rigid/Wood/Flames/ExtraBomb/IncrRange/Kick/Skull
+        - (1) Step: Integer map in range [0, max_game_length=2500)
     """
     agent_dummy = pommerman.constants.Item.AgentDummy
     map_size = len(obs["board"])
@@ -317,34 +318,28 @@ def featurize3D(obs):
                                 .reshape(1, map_size, map_size)
 
     # position of self. If the agent is dead, then this is all zeros.
-    position = np.zeros((map_size, map_size)).astype(np.float32)
+    position = np.zeros((1, map_size, map_size)).astype(np.float32)
     if obs["is_alive"]:
-        position[obs["position"][0], obs["position"][1]] = 1
-    position = position.reshape(1, map_size, map_size)
+        position[0, obs["position"][0], obs["position"][1]] = 1
 
     # ammo of self agent: constant feature map.
-    ammo = np.ones((map_size, map_size)).astype(np.float32) * obs["ammo"]
-    ammo = ammo.reshape(1, map_size, map_size)
+    ammo = np.ones((1, map_size, map_size)).astype(np.float32) * obs["ammo"]
 
     # blast strength of self agent: constant feature map
-    blast_strength = np.ones((map_size, map_size)).astype(np.float32)
+    blast_strength = np.ones((1, map_size, map_size)).astype(np.float32)
     blast_strength *= obs["blast_strength"]
-    blast_strength = blast_strength.reshape(1, map_size, map_size)
 
     # whether the agent can kick: constant feature map of 1 or 0.
-    can_kick = np.ones((map_size, map_size)).astype(np.float32)
+    can_kick = np.ones((1, map_size, map_size)).astype(np.float32)
     can_kick *= float(obs["can_kick"])
-    can_kick = can_kick.reshape(1, map_size, map_size)
 
     if obs["teammate"] == agent_dummy:
-        has_teammate = np.zeros((map_size, map_size)) \
-                         .astype(np.float32) \
-                         .reshape(1, map_size, map_size)
+        has_teammate = np.zeros((1, map_size, map_size)) \
+                         .astype(np.float32)
         teammate = None
     else:
-        has_teammate = np.ones((map_size, map_size)) \
-                         .astype(np.float32) \
-                         .reshape(1, map_size, map_size)
+        has_teammate = np.ones((1, map_size, map_size)) \
+                         .astype(np.float32)
         teammate = np.zeros((map_size, map_size)).astype(np.float32)
         teammate[np.where(obs["board"] == obs["teammate"].value)] = 1
         teammate = teammate.reshape(1, map_size, map_size)
@@ -360,9 +355,12 @@ def featurize3D(obs):
     for num, i in enumerate([0, 1, 2, 4, 6, 7, 8, 9]):
         items[num][np.where(obs["board"] == i)] = 1
 
+    # step count
+    step = np.ones((1, map_size, map_size)).astype(np.float32) * obs["step"]
+
     feature_maps = np.concatenate((
         bomb_blast_strength, bomb_life, position, ammo, blast_strength,
-        can_kick, items, has_teammate, enemies
+        can_kick, items, has_teammate, enemies, step
     ))
     if teammate is not None:
         feature_maps = np.concatenate((feature_maps, teammate))

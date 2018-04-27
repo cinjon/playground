@@ -140,7 +140,7 @@ class WrapPomme(gym.ObservationWrapper):
         self._how_train = how_train
         self._acting_agent_ids = acting_agent_ids or self.env.training_agents
 
-        obs_shape = (18, 13, 13)
+        obs_shape = (19, 13, 13)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]
         self.observation_space = spaces.Box(

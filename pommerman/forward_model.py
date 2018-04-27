@@ -309,9 +309,12 @@ class ForwardModel(object):
 
         return curr_board, curr_agents, curr_bombs, curr_items, curr_flames
 
-    def get_observations(self, curr_board, agents, bombs, is_partially_observable, agent_view_size):
+    def get_observations(self, curr_board, agents, bombs,
+                         is_partially_observable, agent_view_size,
+                         step_count=None):
         """Gets the observations as an np.array of the visible squares.
-        The agent gets to choose whether it wants to keep the fogged part in memory.
+
+        The agent gets to choose whether it keeps the fogged part in memory.
         """
         board_size = len(curr_board)
 
@@ -350,6 +353,8 @@ class ForwardModel(object):
             bomb_blast_strengths, bomb_life = make_bomb_maps(agent.position)
             agent_obs['bomb_blast_strength'] = bomb_blast_strengths
             agent_obs['bomb_life'] = bomb_life
+            if step_count is not None:
+                agent_obs['step'] = step_count
 
             for attr in attrs:
                 assert hasattr(agent, attr)
