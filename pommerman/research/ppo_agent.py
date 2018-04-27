@@ -62,7 +62,6 @@ class PPOAgent(ResearchAgent):
         Args:
           step: The int timestep that we are acting.
           num_agent: Agent id that's running. Non-zero when agent has copies.
-
         Returns:
           See the actor_critic's act function in model.py.
         """
@@ -80,9 +79,10 @@ class PPOAgent(ResearchAgent):
                                                    actions)
 
     def _optimize(self, value_loss, action_loss, dist_entropy, entropy_coef,
-                  max_grad_norm, kl_loss=None, kl_factor=0):
+                  value_loss_coef, max_grad_norm, kl_loss=None, kl_factor=0):
         self._optimizer.zero_grad()
-        loss = value_loss + action_loss - dist_entropy * entropy_coef
+        loss = value_loss * value_loss_coef + action_loss \
+                - dist_entropy * entropy_coef
         if kl_factor > 0:
             loss += kl_factor * kl_loss
         loss.backward()
@@ -123,14 +123,16 @@ class PPOAgent(ResearchAgent):
                              action_log_prob, value, reward, mask,
                              action_log_prob_distr, dagger_prob_distr)
 
+
     def ppo(self, advantages, num_mini_batch, num_steps, clip_param,
-            entropy_coef, max_grad_norm, anneal=False, lr=1e-4, eps=1e-5,
-            kl_factor=0):
+            entropy_coef, value_loss_coef, max_grad_norm, anneal=False,
+            lr=1e-4, eps=1e-5, kl_factor=0):
         action_losses = []
         value_losses = []
         dist_entropies = []
         kl_losses = []
         kl_loss = None
+        total_losses = []
 
         for sample in self._rollout.feed_forward_generator(
                 advantages, num_mini_batch, num_steps, kl_factor):
@@ -156,17 +158,21 @@ class PPOAgent(ResearchAgent):
                 ratio, 1.0 - clip_param, 1.0 + clip_param)
             surr2 *= adv_targ
             action_loss = -torch.min(surr1, surr2).mean()
+
             value_loss = (Variable(return_batch) - values) \
                          .pow(2).mean()
 
-            # NOTE: loss(outputs, labels); outputs: log_probabilities, labels: probabilities
+            total_loss = value_loss * value_loss_coef + action_loss \
+                        - dist_entropy * entropy_coef
+
             if kl_factor > 0:
                 criterion = nn.KLDivLoss()
                 kl_loss = criterion(Variable(action_log_probs_distr_batch),
                                     Variable(dagger_probs_distr_batch))
+                total_loss += kl_factor * kl_loss
 
             self._optimize(value_loss, action_loss, dist_entropy,
-                           entropy_coef, max_grad_norm,
+                           entropy_coef, value_loss_coef, max_grad_norm,
                            kl_loss, kl_factor)
 
             action_losses.append(action_loss.data[0])
@@ -174,8 +180,10 @@ class PPOAgent(ResearchAgent):
             dist_entropies.append(dist_entropy.data[0])
             if kl_factor > 0:
                 kl_losses.append(kl_loss.data[0])
+            total_losses.append(total_loss.data[0])
 
-            return action_losses, value_losses, dist_entropies, kl_losses
+            return action_losses, value_losses, dist_entropies, \
+                    kl_losses, total_losses
 
     def copy_ex_model(self):
         """Creates a copy without the model. This is for operating with homogenous training."""

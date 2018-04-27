@@ -75,9 +75,10 @@ def train():
                                        args.game_state_file, training_agents,
                                        num_stack, num_processes)
 
-    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.seed{}".format(
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.clip{}.valc{}.seed{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,
-        args.lr, args.num_mini_batch, args.num_steps, args.seed)
+        args.lr, args.num_mini_batch, args.num_steps, args.clip_param,
+        args.value_loss_coef, args.seed)
 
     distill_target = args.distill_target
     distill_epochs = args.distill_epochs
@@ -127,7 +128,7 @@ def train():
     final_dist_entropies = [[] for agent in range(len(training_agents))]
     if do_distill:
         final_kl_losses = [[] for agent in range(len(training_agents))]
-    #####
+    final_total_losses =  [[] for agent in range(len(training_agents))]
 
     def update_current_obs(obs):
         return torch.from_numpy(obs).float().transpose(0,1)
@@ -376,18 +377,21 @@ def train():
 
             for _ in range(args.ppo_epoch):
                 with utility.Timer() as t:
-                    result = agent.ppo(advantages[num_agent], args.num_mini_batch,
+                    result = agent.ppo(advantages[num_agent],
+                                       args.num_mini_batch,
                                        num_steps, args.clip_param,
-                                       args.entropy_coef, args.max_grad_norm,
+                                       args.entropy_coef, args.value_loss_coef,
+                                       args.max_grad_norm,
                                        kl_factor=distill_factor)
-                action_losses, value_losses, dist_entropies, kl_losses = result
+                action_losses, value_losses, dist_entropies, \
+                    kl_losses, total_losses = result
 
                 final_action_losses[num_agent].extend(result[0])
                 final_value_losses[num_agent].extend(result[1])
                 final_dist_entropies[num_agent].extend(result[2])
-
                 if do_distill:
                     final_kl_losses[num_agent].extend(result[3])
+                final_total_losses[num_agent].extend(result[4])
 
             agent.after_epoch()
 
@@ -416,6 +420,11 @@ def train():
                 action_loss for action_loss in final_action_losses])
             std_action_loss = np.std([
                 action_loss for action_loss in final_action_losses])
+
+            mean_total_loss = np.mean([
+                total_loss for total_loss in final_total_losses])
+            std_total_loss = np.std([
+                total_loss for total_loss in final_total_losses])
 
             if how_train == 'homogenous':
                 win_rate, tie_rate, die_rate = evaluate_homogenous(
@@ -447,9 +456,11 @@ def train():
 
             utils.log_to_console(num_epoch, num_episodes, total_steps,
                                  steps_per_sec, epochs_per_sec, final_rewards,
-                                 mean_dist_entropy, mean_value_loss, mean_action_loss,
-                                 cumulative_reward, terminal_reward, success_rate,
-                                 running_num_episodes, mean_kl_loss)
+                                 mean_dist_entropy, mean_value_loss,
+                                 mean_action_loss, cumulative_reward,
+                                 terminal_reward, success_rate,
+                                 running_num_episodes, mean_total_loss,
+                                 mean_kl_loss)
 
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
@@ -458,8 +469,9 @@ def train():
                                      mean_action_loss, std_dist_entropy,
                                      std_value_loss, std_action_loss,
                                      count_stats, array_stats,
-                                     cumulative_reward, terminal_reward, success_rate,
-                                     running_num_episodes, mean_kl_loss)
+                                     cumulative_reward, terminal_reward,
+                                     success_rate, running_num_episodes,
+                                     mean_total_loss, mean_kl_loss)
 
             # Reset stats so that plots are per the last log_interval.
             final_action_losses = [[] for agent in range(len(training_agents))]
@@ -468,6 +480,7 @@ def train():
                                     range(len(training_agents))]
             if do_distill:
                 final_kl_losses = [[] for agent in range(len(training_agents))]
+            final_total_losses =  [[] for agent in range(len(training_agents))]
 
             count_stats = defaultdict(int)
             array_stats = defaultdict(list)
@@ -494,7 +507,7 @@ def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
     win_count = sum(wins.values())
     tie_count = sum(ties.values())
     one_dead_count  = sum(one_dead.values())
-    
+
     win_rate = 1.0*win_count/num_battles
     tie_rate = 1.0*tie_count/num_battles
     die_rate = 1.0*(num_battles - win_count - tie_count)/num_battles

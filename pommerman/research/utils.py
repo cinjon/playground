@@ -120,10 +120,18 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
         }
         save_dict['args'] = vars(args)
         if not suffix:
-            suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.epoch{}.steps{}.seed{}.pt" \
-                     .format(name, how_train, config, model_str,
-                             args.num_channels, args.lr, args.minibatch_size,
-                             args.num_steps, num_epoch, total_steps, seed)
+            if how_train == 'dagger':
+                suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ne{}.prob{}.nopt{}.epoch{}.steps{}.seed{}.pt" \
+                         .format(name, how_train, config, model_str,
+                                 args.num_channels, args.lr, args.minibatch_size,
+                                 args.num_episodes_dagger, args.expert_prob,
+                                 args.dagger_epoch, num_epoch, total_steps, seed)
+            else:
+                suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.epoch{}.steps{}.seed{}.pt" \
+                         .format(name, how_train, config, model_str,
+                                 args.num_channels, args.lr, args.minibatch_size,
+                                 args.num_steps, num_epoch, total_steps, seed)
+
         if not suffix.endswith('.pt'):
             suffix += '.pt'
         save_path = os.path.join(save_dir, "agent%d-%s" % (num_agent, suffix))
@@ -168,24 +176,25 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     epochs_per_sec, final_rewards, mean_dist_entropy,
                     mean_value_loss, mean_action_loss,
                     cumulative_reward, terminal_reward, success_rate,
-                    running_num_episodes, mean_kl_loss=None):
+                    running_num_episodes, mean_total_loss, mean_kl_loss=None):
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "
           "mean final reward {:.3f}, min/max finals reward {:.3f}/{:.3f}, avg "
           "entropy {:.3f}, avg value loss {:.3f}, avg policy loss {:.3f} "
-          "mean kl loss {}\n"
+          "mean total loss {:.3f}, mean kl loss {}\n"
           .format(num_epoch, num_episodes, total_steps, steps_per_sec,
                   epochs_per_sec, 1.0*cumulative_reward/running_num_episodes,
                   1.0*terminal_reward/running_num_episodes,
                   1.0*success_rate/running_num_episodes, final_rewards.mean(),
                   final_rewards.min(), final_rewards.max() ,mean_dist_entropy,
-                  mean_value_loss, mean_action_loss, mean_kl_loss))
+                  mean_value_loss, mean_action_loss, mean_total_loss, mean_kl_loss))
 
 
 
 def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
-                                total_reward, success_rate, final_reward):
+                                total_reward, success_rate, final_reward,
+                                value_loss):
 
     writer.add_scalar('final_reward_epoch', final_reward, num_epoch)
     writer.add_scalar('final_reward_steps', final_reward, total_steps)
@@ -196,6 +205,9 @@ def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
     writer.add_scalar('action_loss_epoch', action_loss, num_epoch)
     writer.add_scalar('action_loss_steps', action_loss, total_steps)
 
+    writer.add_scalar('value_loss_epoch', value_loss, num_epoch)
+    writer.add_scalar('value_loss_steps', value_loss, total_steps)
+
     writer.add_scalar('success_rate_epoch', success_rate, num_epoch)
     writer.add_scalar('success_rate_steps', success_rate, total_steps)
 
@@ -204,9 +216,9 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        steps_per_sec, episodes_per_sec, final_rewards,
                        mean_dist_entropy, mean_value_loss, mean_action_loss,
                        std_dist_entropy, std_value_loss, stmd_action_loss,
-                       count_stats, array_stats,
-                       cumulative_reward, terminal_reward, success_rate,
-                       running_num_episodes, mean_kl_loss=None):
+                       count_stats, array_stats, cumulative_reward,
+                       terminal_reward, success_rate, running_num_episodes,
+                       mean_total_loss, mean_kl_loss=None):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -232,19 +244,20 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     # }, num_episodes)
 
     # x-axis: # steps
-    writer.add_scalar('entropy', mean_dist_entropy, total_steps)
-    writer.add_scalar('action_loss', mean_action_loss, total_steps)
-    writer.add_scalar('value_loss', mean_value_loss, total_steps)
+    writer.add_scalar('entropy_step', mean_dist_entropy, total_steps)
+    writer.add_scalar('action_loss_step', mean_action_loss, total_steps)
+    writer.add_scalar('value_loss_step', mean_value_loss, total_steps)
     if mean_kl_loss:
         writer.add_scalar('kl_loss', mean_kl_loss, total_steps)
+    writer.add_scalar('total_loss_step', mean_total_loss, total_steps)
 
     writer.add_scalar('final_reward_step', final_rewards.mean(), total_steps)
     writer.add_scalar('cumulative_reward_step',
-                        1.0 * cumulative_reward / running_num_episodes, total_steps)
+                    1.0 * cumulative_reward / running_num_episodes, total_steps)
     writer.add_scalar('terminal_reward_step',
-                        1.0 * terminal_reward / running_num_episodes, total_steps)
+                    1.0 * terminal_reward / running_num_episodes, total_steps)
     writer.add_scalar('success_rate_step',
-                        1.0 * success_rate / running_num_episodes, total_steps)
+                    1.0 * success_rate / running_num_episodes, total_steps)
 
     for title, count in count_stats.items():
         if title.startswith('bomb:'):
@@ -272,19 +285,20 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
 
 
     # x-axis: # episodes
-    writer.add_scalar('entropy', mean_dist_entropy, num_episodes)
-    writer.add_scalar('action_loss', mean_action_loss, num_episodes)
-    writer.add_scalar('value_loss', mean_value_loss, num_episodes)
+    writer.add_scalar('entropy_epi', mean_dist_entropy, num_episodes)
+    writer.add_scalar('action_loss_epi', mean_action_loss, num_episodes)
+    writer.add_scalar('value_loss_epi', mean_value_loss, num_episodes)
     if mean_kl_loss:
         writer.add_scalar('kl_loss', mean_kl_loss, num_episodes)
+    writer.add_scalar('total_loss_epi', mean_total_loss, num_episodes)
 
     writer.add_scalar('final_reward_epi', final_rewards.mean(), num_episodes)
     writer.add_scalar('cumulative_reward_epi',
-                        1.0 * cumulative_reward / running_num_episodes, num_episodes)
+                    1.0 * cumulative_reward / running_num_episodes, num_episodes)
     writer.add_scalar('terminal_reward_epi',
-                        1.0 * terminal_reward / running_num_episodes, num_episodes)
+                    1.0 * terminal_reward / running_num_episodes, num_episodes)
     writer.add_scalar('success_rate_epi',
-                        1.0 * success_rate / running_num_episodes, num_episodes)
+                    1.0 * success_rate / running_num_episodes, num_episodes)
 
 
     for title, count in count_stats.items():
@@ -312,19 +326,20 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
             num_episodes)
 
     # x-axis: # epochs / updates
-    writer.add_scalar('entropy', mean_dist_entropy, num_epoch)
-    writer.add_scalar('action_loss', mean_action_loss, num_epoch)
-    writer.add_scalar('value_loss', mean_value_loss, num_epoch)
+    writer.add_scalar('entropy_epoch', mean_dist_entropy, num_epoch)
+    writer.add_scalar('action_loss_epoch', mean_action_loss, num_epoch)
+    writer.add_scalar('value_loss_epoch', mean_value_loss, num_epoch)
     if mean_kl_loss:
         writer.add_scalar('kl_loss', mean_kl_loss, num_epoch)
+    writer.add_scalar('total_loss_epoch', mean_total_loss, num_epoch)
 
     writer.add_scalar('final_reward_epoch', final_rewards.mean(), num_epoch)
     writer.add_scalar('cumulative_reward_epoch',
-                        1.0 * cumulative_reward / running_num_episodes, num_epoch)
+                    1.0 * cumulative_reward / running_num_episodes, num_epoch)
     writer.add_scalar('terminal_reward_epoch',
-                        1.0 * terminal_reward / running_num_episodes, num_epoch)
+                    1.0 * terminal_reward / running_num_episodes, num_epoch)
     writer.add_scalar('success_rate_epoch',
-                        1.0 * success_rate / running_num_episodes, num_epoch)
+                    1.0 * success_rate / running_num_episodes, num_epoch)
 
 
     for title, count in count_stats.items():
