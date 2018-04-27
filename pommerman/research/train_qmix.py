@@ -8,8 +8,10 @@ processes/workers collecting data.
 
 Example:
 
-python train.py --how-train qmix --config PommeTeam-v0 --num-processes 16 --run-name qmix-train \
- --num-agents 2 --model-str QMIXNet --num-steps 1000 --log-interval 5
+python train_qmix.py --num-processes 8 --how-train qmix \
+    --save-dir $TRAINED_MODELS_DIR --log-dir $LOG_DIR --log-interval 5 --save-interval 1000 \
+    --run-name qmix --seed 1 --config PommeTeam-v0 --num-agents 2 --model-str QMIXNet \
+    --num-steps 1000
 """
 
 from collections import defaultdict
@@ -92,8 +94,6 @@ def train():
     torch.manual_seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
-        current_obs = current_obs.cuda()
-        current_global_obs = current_global_obs.cuda()
         for agent in training_agents:
             agent.cuda()
 
@@ -160,10 +160,14 @@ def train():
         for _ in range(num_steps):
             eps = args.eps_max + (args.eps_min - args.eps_max) / args.eps_max_steps * eps_steps
 
+            current_global_obs_tensor = torch.FloatTensor(current_global_obs)
+            current_obs_tensor = torch.FloatTensor(current_obs)
+            if args.cuda:
+                current_global_obs_tensor = current_global_obs_tensor.cuda()
+                current_obs_tensor = current_obs_tensor.cuda()
+
             # Ignore critic values during trajectory generation
-            _, actions = training_agents[0].act(
-                torch.FloatTensor(current_global_obs),
-                torch.FloatTensor(current_obs), eps=eps)
+            _, actions = training_agents[0].act(current_global_obs_tensor, current_obs_tensor, eps=eps)
 
             training_agent_actions = actions.data.numpy().tolist()
             obs, reward, done, info = envs.step(training_agent_actions)
@@ -173,13 +177,20 @@ def train():
             if args.render:
                 envs.render()
 
-            global_state_tensor = torch.FloatTensor(current_global_obs).unsqueeze(1)
-            state_tensor = torch.FloatTensor(current_obs).unsqueeze(1)
+            global_state_tensor = current_global_obs_tensor.unsqueeze(1)
+            state_tensor = current_obs_tensor.unsqueeze(1)
             action_tensor = torch.LongTensor(training_agent_actions).unsqueeze(1)
             reward_tensor = torch.from_numpy(reward).float().unsqueeze(1)
             next_global_state_tensor = torch.FloatTensor(global_obs).unsqueeze(1)
             next_state_tensor = torch.from_numpy(obs).float().unsqueeze(1)
             done_tensor = torch.from_numpy(done.astype(np.int)).long().unsqueeze(1)
+
+            if args.cuda:
+                action_tensor = action_tensor.cuda()
+                reward_tensor = reward_tensor.cuda()
+                next_global_state_tensor = next_global_state_tensor.cuda()
+                next_state_tensor = next_state_tensor.cuda()
+                done_tensor = done_tensor.cuda()
 
             for i in range(num_processes):
                 history[i][0] = torch.cat([history[i][0], global_state_tensor[i]], dim=0)
