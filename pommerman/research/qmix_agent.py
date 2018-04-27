@@ -45,11 +45,11 @@ class QMIXMetaAgent(ResearchAgent):
         :param eps: value for epsilon greedy action, negative to disable epsilon greedy action selection
         :return:
         """
-        critic_value, actions = self.qmix_net(Variable(global_obs), Variable(agent_obs), eps)
+        critic_value, actions = self.qmix_net(global_obs, agent_obs, eps)
         return critic_value, actions
 
     def target_act(self, global_obs, agent_obs, eps=-1.0):
-        critic_value, actions = self.target_qmix_net(Variable(global_obs), Variable(agent_obs), eps)
+        critic_value, actions = self.target_qmix_net(global_obs, agent_obs, eps)
         return critic_value, actions
 
     def initialize(self, args, obs_shape, action_space,

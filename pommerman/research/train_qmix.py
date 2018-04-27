@@ -114,8 +114,12 @@ def train():
         return history_init
 
     def compute_q_loss(global_state, state, action, reward, next_global_state, next_state, done):
-        current_q_values, _ = training_agents[0].act(global_state, state)
-        max_next_q_values, _ = training_agents[0].target_act(next_global_state, next_state)
+        current_q_values, _ = training_agents[0].act(
+            Variable(global_state, requires_grad=True),
+            Variable(state, requires_grad=True))
+        max_next_q_values, _ = training_agents[0].target_act(
+            Variable(next_global_state, volatile=True),
+            Variable(next_state, volatile=True))
         max_next_q_values = max_next_q_values.max(1)[0]
         # sum the rewards for individual agents
         expected_q_values = reward.sum(dim=1) + args.gamma * max_next_q_values.data
@@ -139,6 +143,7 @@ def train():
 
     running_team_wins = 0
     running_num_episodes = 0
+    running_mean_episode_length = 0
     value_losses = []
 
     def run_dqn():
@@ -167,8 +172,11 @@ def train():
                 current_global_obs_tensor = current_global_obs_tensor.cuda()
                 current_obs_tensor = current_obs_tensor.cuda()
 
-            # Ignore critic values during trajectory generation
-            _, actions = training_agents[0].act(current_global_obs_tensor, current_obs_tensor, eps=eps)
+            # Ignore critic values during trajectory generation (decentralized actors)
+            _, actions = training_agents[0].act(
+                Variable(current_global_obs_tensor, volatile=True),
+                Variable(current_obs_tensor, volatile=True),
+                eps=eps)
 
             training_agent_actions = actions.cpu().data.numpy().tolist()
             obs, reward, done, info = envs.step(training_agent_actions)
@@ -204,15 +212,17 @@ def train():
 
                 total_steps += 1
 
-                # Flush completed episode into buffer and clear current episode's history for next episode
                 if info[i]['result'] != pommerman.constants.Result.Incomplete:
-                    episode_buffer.append(history[i])
-                    history[i] = init_history_instance()
-
                     # Update stats
                     running_num_episodes += 1
+                    running_mean_episode_length = running_mean_episode_length + \
+                                                  (history[i][0].size(0) - running_mean_episode_length) / running_num_episodes
                     if 'winners' in info[i] and info[i]['winners'] == training_ids:
                         running_team_wins += 1
+
+                    # Flush completed episode into buffer and clear current episode's history for next episode
+                    episode_buffer.append(history[i])
+                    history[i] = init_history_instance()
 
                     gradient_steps += run_dqn()
                     if gradient_steps % args.target_update_steps == 0:
@@ -235,12 +245,14 @@ def train():
             mean_value_loss = np.mean(value_losses)
             std_value_loss = np.std(value_losses)
 
-            print('Num Episodes: {}, Running Num Episodes: {}, '
+            print('Num Episodes: {}, Running Num Episodes: {}, Running Mean Episode Length: {}'
                   'Team Win Rate: {}%, Mean Value Loss: {}, Std Value Loss: {} [{} steps/s]'.format(
-                num_episodes, running_num_episodes, (running_team_wins * 100.0 / running_num_episodes),
-                mean_value_loss, std_value_loss, steps_per_sec))
+                    num_episodes, running_num_episodes, running_mean_episode_length,
+                    (running_team_wins * 100.0 / running_num_episodes),
+                    mean_value_loss, std_value_loss, steps_per_sec))
 
             running_num_episodes = 0
+            running_mean_episode_length = 0
             running_team_wins = 0
             value_losses = []
 
