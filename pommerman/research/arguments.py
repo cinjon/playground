@@ -150,8 +150,8 @@ def get_args():
                         help='factor for scaling the weights before each training loop (0.5)')
 
     # for QMIX
-    parser.add_argument('--episode-batch', type=int, default=8,
-                        help='number of episodes to sample from the episode buffer for training (default 8)')
+    parser.add_argument('--episode-batch', type=int, default=1,
+                        help='number of episodes to sample from the episode buffer for training (default 1)')
     parser.add_argument('--eps-max', type=float, default=1.0,
                         help='maximum epsilon for epsilon-greedy action selection (default 1.0)')
     parser.add_argument('--eps-min', type=float, default=0.05,

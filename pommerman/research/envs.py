@@ -164,6 +164,9 @@ class WrapPomme(gym.ObservationWrapper):
         filtered = np.array([observation[i] for i in range(len(observation))])
         return np.array([networks.featurize3D(obs) for obs in filtered])
 
+    def get_training_ids(self):
+        return self.env.training_agents
+
     def get_expert_obs(self):
         return self._filter(self.env.get_observations())
 

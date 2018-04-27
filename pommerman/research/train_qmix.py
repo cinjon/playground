@@ -90,6 +90,7 @@ def train():
     # Initialize observations
     current_obs = envs.reset()
     current_global_obs = envs.get_global_obs()
+    training_ids = envs.get_training_ids()
 
     torch.manual_seed(args.seed)
     if args.cuda:
@@ -210,7 +211,7 @@ def train():
 
                     # Update stats
                     running_num_episodes += 1
-                    if info[i]['result'] == pommerman.constants.Result.Win:
+                    if 'winners' in info[i] and info[i]['winners'] == training_ids:
                         running_team_wins += 1
 
                     gradient_steps += run_dqn()
