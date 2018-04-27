@@ -142,8 +142,9 @@ class Pomme(gym.Env):
                                    self.training_agents, all_agents=True)
 
     def _get_info(self, done, rewards):
-        return self.model.get_info(done, rewards, self._game_type,
-                                   self._agents)
+        ret = self.model.get_info(done, rewards, self._game_type, self._agents)
+        ret['step_count'] = self._step_count
+        return ret
 
     def reset(self):
         assert(self._agents is not None)
