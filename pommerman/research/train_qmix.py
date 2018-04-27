@@ -122,7 +122,7 @@ def train():
         loss = MSELoss()(current_q_values, Variable(expected_q_values))
         loss.backward()
 
-        value_losses.append(loss.data[0])
+        value_losses.append(loss.cpu().data[0])
 
     ##
     # Each history is Python list is of length num_processes. This is a list because not all
@@ -169,7 +169,7 @@ def train():
             # Ignore critic values during trajectory generation
             _, actions = training_agents[0].act(current_global_obs_tensor, current_obs_tensor, eps=eps)
 
-            training_agent_actions = actions.data.numpy().tolist()
+            training_agent_actions = actions.cpu().data.numpy().tolist()
             obs, reward, done, info = envs.step(training_agent_actions)
             global_obs = envs.get_global_obs()
             reward = reward.astype(np.float)

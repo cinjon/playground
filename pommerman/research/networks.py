@@ -236,9 +236,12 @@ class QMIXNet(nn.Module):
     def _epsilon_greedy(self, num_actions, max_actions, eps):
         batch_size = max_actions.shape[0]
         dist = np.ones((batch_size, num_actions), dtype=np.float32) * eps / num_actions
-        dist[np.arange(batch_size), max_actions.data.numpy()] += 1.0 - eps
+        dist[np.arange(batch_size), max_actions.cpu().data.numpy()] += 1.0 - eps
         dist = TorchCategorical(Variable(torch.from_numpy(dist).float()))
-        return dist.sample()
+        sample = dist.sample()
+        if max_actions.is_cuda:
+            sample = sample.cuda()
+        return sample
 
     def forward(self, global_state, agent_state, eps=-1.0):
         """
