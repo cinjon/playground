@@ -1,10 +1,13 @@
 """
 Dagger Agent.
 """
+import numpy as np
 from pommerman import characters
+import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import networks
 from research_agent import ResearchAgent
 
 
@@ -51,3 +54,16 @@ class DaggerAgent(ResearchAgent):
         self.num_episodes = num_episodes
         self.total_steps = total_steps
         self.num_epoch = num_epoch
+
+    @staticmethod
+    def _featurize_obs(obs):
+        if type(obs) == list:
+            obs = np.stack([networks.featurize3D(o, use_step=False)
+                            for o in obs])
+            obs = torch.from_numpy(obs)
+        else:
+            obs = networks.featurize3D(obs, use_step=False)
+            obs = torch.from_numpy(obs)
+            obs = obs.unsqueeze(0)
+        return obs.float()
+

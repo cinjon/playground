@@ -289,10 +289,13 @@ class QMIXNet(nn.Module):
         return batched_q_tot.squeeze(2), batched_actions # batch_size x 1, batch_size x num_agents
 
 
-def featurize3D(obs):
+def featurize3D(obs, use_step=True):
     """Create 3D Feature Maps for Pommerman.
+
     Args:
         obs: The observation input. Should be for a single agent.
+        use_step: Whether to include the step as an argument. We need this for
+          the old dagger_agents. Can remove when updated.
 
     Returns:
         A 3D Feature Map where each map is bsXbs. The 19 features are:
@@ -358,11 +361,13 @@ def featurize3D(obs):
     # step count
     step = np.ones((1, map_size, map_size)).astype(np.float32) * obs["step"]
 
-    feature_maps = np.concatenate((
+    feature_maps = [
         bomb_blast_strength, bomb_life, position, ammo, blast_strength,
-        can_kick, items, has_teammate, enemies, step
-    ))
+        can_kick, items, has_teammate, enemies
+    ]
+    if use_step:
+        feature_maps.append(step)
     if teammate is not None:
-        feature_maps = np.concatenate((feature_maps, teammate))
+        feature_maps.append(teammate)
 
-    return feature_maps
+    return np.concatenate(feature_maps)

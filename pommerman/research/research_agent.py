@@ -1,12 +1,11 @@
 from collections import deque
 
 import numpy as np
-import torch
-from torch.autograd import Variable
-
 from pommerman import constants
 from pommerman import characters
 from pommerman.agents import BaseAgent
+import torch
+from torch.autograd import Variable
 
 import networks
 
@@ -26,7 +25,8 @@ class ResearchAgent(BaseAgent):
         if self._cuda:
             self._masks = self._masks.cuda()
 
-    def act(self, obs, action_space):
+    @staticmethod
+    def _featurize_obs(obs):
         if type(obs) == list:
             obs = np.stack([networks.featurize3D(o) for o in obs])
             obs = torch.from_numpy(obs)
@@ -34,8 +34,10 @@ class ResearchAgent(BaseAgent):
             obs = networks.featurize3D(obs)
             obs = torch.from_numpy(obs)
             obs = obs.unsqueeze(0)
-        obs = obs.float()
+        return obs.float()
 
+    def act(self, obs, action_space):
+        obs = self._featurize_obs(obs)
         self._obs_stack.append(obs)
 
         stacked_obs = list(self._obs_stack)

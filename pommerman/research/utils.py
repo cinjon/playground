@@ -63,6 +63,8 @@ def load_distill_agent(obs_shape, action_space, args):
         print("Loading %s as distill agent." % path)
         loaded_model = torch_load(path, args.cuda, args.cuda_device)
         model_state_dict = loaded_model['state_dict']
+        # TODO: Remove this hardcoded obs_shape after retraining dagger agent.
+        obs_shape = [36, 13, 13]
         model = networks.get_actor_critic(args.model_str)(
             model_state_dict, obs_shape[0], action_space, args.board_size,
             args.num_channels)
