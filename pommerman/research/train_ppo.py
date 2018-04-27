@@ -498,24 +498,35 @@ def train():
 def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
     print("Starting homogenous eval at epoch %d..." % epoch)
     with utility.Timer() as t:
-        wins, one_dead, ties = run_eval(
+        wins, one_dead, ties, losses = run_eval(
             args=args, targets=good_guys, opponents=bad_guys)
     print("Eval took %.4fs." % t.interval)
 
     descriptor = 'homogenous_eval_round%d/' % eval_round
     num_battles = args.num_battles_eval
-    win_count = sum(wins.values())
-    tie_count = sum(ties.values())
-    one_dead_count  = sum(one_dead.values())
+
+    win_count = len(wins)
+    tie_count = len(ties)
+    loss_count = len(losses)
+    one_dead_count  = len(one_dead)
+
+    mean_win_time = np.mean(wins)
+    mean_tie_time = np.mean(ties)
+    mean_loss_time = np.mean(losses)
+    mean_all_time = np.mean(wins + ties + losses)
 
     win_rate = 1.0*win_count/num_battles
     tie_rate = 1.0*tie_count/num_battles
-    die_rate = 1.0*(num_battles - win_count - tie_count)/num_battles
+    loss_rate = 1.0*loss_count/num_battles
     one_dead_per_battle = 1.0*one_dead_count/num_battles
     one_dead_per_win = 1.0*one_dead_count/win_count if win_count else 0
     writer.add_scalar('%s/win_rate' % descriptor, win_rate)
     writer.add_scalar('%s/tie_rate' % descriptor, tie_rate)
-    writer.add_scalar('%s/die_rate' % descriptor, die_rate)
+    writer.add_scalar('%s/loss_rate' % descriptor, loss_rate)
+    writer.add_scalar('%s/mean_win_time' % descriptor, mean_win_time)
+    writer.add_scalar('%s/mean_tie_time' % descriptor, mean_tie_time)
+    writer.add_scalar('%s/mean_loss_time' % descriptor, mean_loss_time)
+    writer.add_scalar('%s/mean_all_time' % descriptor, mean_all_time)
     writer.add_scalar('%s/one_dead_per_battle' % descriptor, one_dead_per_battle)
     writer.add_scalar('%s/one_dead_per_win' % descriptor, one_dead_per_win)
     return win_rate, tie_rate, die_rate

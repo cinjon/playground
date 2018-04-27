@@ -185,9 +185,10 @@ def eval(args=None, targets=None, opponents=None):
         return wins, deads, ties, ranks
     elif mode == 'homogenous':
         print('Starting Homogenous Battles.') 
-        ties = defaultdict(int)
-        wins = defaultdict(int)
-        one_dead = defaultdict(int)
+        ties = []
+        wins = []
+        losses = []
+        one_dead = []
         for position in range(2):
             training_agent_ids = [position, position+2]
             print("Running Battle Position %d..." % position)
@@ -198,26 +199,29 @@ def eval(args=None, targets=None, opponents=None):
             infos = run_battles(args, num_times, agents, action_space,
                                 training_agent_ids)
             for info in infos:
+                step_count = info['step_count']
                 if info['result'] == pommerman.constants.Result.Tie:
-                    ties[position] += 1
+                    ties.append(step_count)
                 else:
                     winners = info['winners']
-
                     is_win = False
                     if position in winners:
-                        wins[position] += 1
+                        wins.append(step_count)
 
                     # Count the number of times that one died and not other.
                     if is_win:
                         for id_ in [position, position+2]:
                             if id_ not in info['alive']:
-                                one_dead[position] += 1
+                                one_dead.append(step_count)
+                    else:
+                        losses.append(step_count)
 
         print("Wins: ", wins)
         print("One Dead: ", one_dead)
         print("Ties: ", ties)
+        print("Losses: ", losses)
         print("\n")
-        return wins, one_dead, ties
+        return wins, one_dead, ties, losses
     elif mode == 'heterogenous':
         print('Starting Heterogenous Team Battles.')
         for position in range(2):
@@ -297,10 +301,8 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
             if len(infos) >= num_times:
                 break
     end = time.time()
-    print("TIMEs: %.3f, %.3f" % (end - st, (end - st)/num_times))
-    print(len(infos), infos)
-    print(len(times), times)
-
+    print("Eval Times (%d) --> Total: %.3f, Avg: %.3f" % (
+        num_times, end - st, (end - st)/num_times))
     envs.close()
     return infos
 
