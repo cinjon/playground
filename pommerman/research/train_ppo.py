@@ -91,6 +91,8 @@ def train():
         distill_agent.init_agent(0, envs.get_game_type())
         distill_type = distill_target.split('::')[0]
         suffix += ".dstl{}.dstlepi{}".format(distill_type, distill_epochs)
+        # TODO: Should we not run this against the distill_agent as the first
+        # opponent? The problem is that the distill_agent will just stall.
         if how_train == 'homogenous':
             distill_agent2 = utils.load_distill_agent(obs_shape, action_space, args)
             distill_agent2.set_eval()
@@ -171,6 +173,13 @@ def train():
             if how_train == 'homogenous':
                 distill_agent2.cuda()
 
+    if how_train == 'homogenous':
+        win_rate, tie_rate, die_rate = evaluate_homogenous(
+            args, good_guys, bad_guys, 0, writer, 0)
+        print("Epoch %d (%d)--> Win %.3f, Tie %.3f, Die %.3f" % (
+            num_epoch, args.num_battles_eval, win_rate, tie_rate,
+            die_rate))
+
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval) \
@@ -184,12 +193,14 @@ def train():
             agent.set_eval()
 
         if do_distill:
-            distill_factor = distill_epochs - num_epoch
-            distill_factor = 1.0 * distill_factor / distill_epochs
-            distill_factor = max(distill_factor, 0.0)
-            if True or num_epoch % args.log_interval == 0:
-                print("Epoch %d - distill factor %.3f." % (
-                    num_epoch, distill_factor))
+            if args.set_distill_kl >= 0:
+                distill_factor = args.set_distill_kl
+            else:
+                distill_factor = distill_epochs - num_epoch
+                distill_factor = 1.0 * distill_factor / distill_epochs
+                distill_factor = max(distill_factor, 0.0)
+            print("Epoch %d - distill factor %.3f." % (
+                num_epoch, distill_factor))
         else:
             distill_factor = 0
 
@@ -408,34 +419,21 @@ def train():
                 action_loss for action_loss in final_action_losses])
 
             if how_train == 'homogenous':
-                print("Starting eval...")
-                with utility.Timer() as t:
-                    wins, one_dead, ties = run_eval(
-                        args=args, targets=good_guys, opponents=bad_guys)
-                print("Eval took %.4fs." % t.interval)
-
-                descriptor = 'homogenous_eval_round%d/' % eval_round
-                num_battles = args.num_battles_eval
-                win_count = sum(wins.values())
-                tie_count = sum(ties.values())
-                one_dead_count  = sum(one_dead.values())
-
-                win_rate = 1.0*win_count/num_battles
-                tie_rate = 1.0*tie_count/num_battles
-                one_dead_per_battle = 1.0*one_dead_count/num_battles
-                one_dead_per_win = 1.0*one_dead_count/win_count if win_count else 0
-                writer.add_scalar('%s/win_rate' % descriptor, win_rate)
-                writer.add_scalar('%s/tie_rate' % descriptor, tie_rate)
-                writer.add_scalar('%s/one_dead_per_battle' % descriptor, one_dead_per_battle)
-                writer.add_scalar('%s/one_dead_per_win' % descriptor, one_dead_per_win)
-                if win_rate >= .65: # TODO: Is this too high?
+                win_rate, tie_rate, die_rate = evaluate_homogenous(
+                    args, good_guys, bad_guys, eval_round, writer, num_epoch)
+                print("Epoch %d (%d)--> Win %.3f, Tie %.3f, Die %.3f" % (
+                    num_epoch, args.num_battles_eval, win_rate, tie_rate,
+                    die_rate))
+                if win_rate >= .60:
+                    suffix = suffix + ".wr%.3f.evlrnd%d" % (win_rate, eval_round)
                     saved_paths = utils.save_agents(
                         "ppo-", num_epoch, training_agents, total_steps,
-                        num_episodes, args, suffix + ".evlrnd%d" % eval_round)
+                        num_episodes, args, suffix)
                     eval_round += 1
                     bad_guys = []
                     for _ in range(2):
-                        guy = utils.torch_load(saved_paths[0], args.cuda, args.cuda_device)
+                        guy = utils.torch_load(saved_paths[0], args.cuda,
+                                               args.cuda_device)
                         if args.cuda:
                             guy.cuda()
                         bad_guys.append(guy)
@@ -483,6 +481,32 @@ def train():
             prev_epoch = num_epoch
 
     writer.close()
+
+
+def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
+    print("Starting homogenous eval at epoch %d..." % epoch)
+    with utility.Timer() as t:
+        wins, one_dead, ties = run_eval(
+            args=args, targets=good_guys, opponents=bad_guys)
+    print("Eval took %.4fs." % t.interval)
+
+    descriptor = 'homogenous_eval_round%d/' % eval_round
+    num_battles = args.num_battles_eval
+    win_count = sum(wins.values())
+    tie_count = sum(ties.values())
+    one_dead_count  = sum(one_dead.values())
+    
+    win_rate = 1.0*win_count/num_battles
+    tie_rate = 1.0*tie_count/num_battles
+    die_rate = 1.0*(num_battles - win_count - tie_count)/num_battles
+    one_dead_per_battle = 1.0*one_dead_count/num_battles
+    one_dead_per_win = 1.0*one_dead_count/win_count if win_count else 0
+    writer.add_scalar('%s/win_rate' % descriptor, win_rate)
+    writer.add_scalar('%s/tie_rate' % descriptor, tie_rate)
+    writer.add_scalar('%s/die_rate' % descriptor, die_rate)
+    writer.add_scalar('%s/one_dead_per_battle' % descriptor, one_dead_per_battle)
+    writer.add_scalar('%s/one_dead_per_win' % descriptor, one_dead_per_win)
+    return win_rate, tie_rate, die_rate
 
 
 if __name__ == "__main__":

@@ -273,12 +273,24 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
     while len(infos) < num_times:
         actions = [[None]*4 for _ in range(num_processes)]
         for num_agent, agent in enumerate(agents):
-            agent_obs = [o[num_agent] for o in obs]
-            agent_actions = agent.act(agent_obs, action_space)
+            if type(agent) == pommerman.agents.SimpleAgent:
+                agent_actions = [agent.act(o[num_agent], action_space)
+                                 for o in obs]
+            else:
+                agent_obs = [o[num_agent] for o in obs]
+                agent_actions = agent.act(agent_obs, action_space)
+
             for num_process in range(num_processes):
                 actions[num_process][num_agent] = agent_actions[num_process]
-
+                    
         obs, reward, done, info = envs.step(actions)
+        if args.eval_render:
+            if done[0].all():
+                time.sleep(3)
+                envs.render(close=True)
+            else:
+                envs.render()
+
         for num, done_ in enumerate(done):
             if done_.all():
                 infos.append(info[num])

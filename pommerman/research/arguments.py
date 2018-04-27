@@ -62,6 +62,9 @@ def get_args():
                         'distill the distill-target into the model. at epoch '
                         '0, the probability is 1.0 (i.e. only use target), at '
                         'epoch distill-step and onwards, it is 0.0.')
+    parser.add_argument('--set-distill-kl', type=float, default=-1.0,
+                        help='if we want a constant factor for the kl distill '
+                        'loss, then set this to be that nonnegative value.')
     parser.add_argument('--restart-counts', default=False, action='store_true',
                         help='if True, then restart the saved counts for a '
                         'loaded model')
@@ -88,6 +91,8 @@ def get_args():
                         help='number of channels in the convolutional layers')
     parser.add_argument('--render', default=False, action='store_true',
                         help='whether to render the first process.')
+    parser.add_argument('--eval-render', default=False, action='store_true',
+                        help='whether to render the first process in eval.')
     parser.add_argument('--cuda-device', type=int, default=0,
                         help='gpu id to be used')
 
