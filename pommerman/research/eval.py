@@ -286,8 +286,7 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
         obs, reward, done, info = envs.step(actions)
         if args.eval_render:
             if done[0].all():
-                time.sleep(3)
-                envs.render(close=True)
+                time.sleep(2)
             else:
                 envs.render()
 
