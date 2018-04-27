@@ -80,10 +80,12 @@ def train():
         args.lr, args.num_mini_batch, args.num_steps, args.clip_param,
         args.value_loss_coef, args.seed)
 
+    set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
     distill_epochs = args.distill_epochs
     do_distill = distill_target is not '' and \
                  distill_epochs > training_agents[0].num_epoch
+    do_distill = do_distill or set_distill_kl >= 0
     if do_distill:
         distill_agent = utils.load_distill_agent(obs_shape, action_space, args)
         distill_agent.set_eval()
@@ -91,7 +93,11 @@ def train():
         # because we will use the observations from the ppo_agent.
         distill_agent.init_agent(0, envs.get_game_type())
         distill_type = distill_target.split('::')[0]
-        suffix += ".dstl{}.dstlepi{}".format(distill_type, distill_epochs)
+        if set_distill_kl >= 0:
+            suffix += ".dstl{}.dstlkl{}".format(distill_type, set_distill_kl)
+        else:
+            suffix += ".dstl{}.dstlepi{}".format(distill_type, distill_epochs)
+
         # TODO: Should we not run this against the distill_agent as the first
         # opponent? The problem is that the distill_agent will just stall.
         if how_train == 'homogenous':
@@ -175,10 +181,10 @@ def train():
                 distill_agent2.cuda()
 
     if how_train == 'homogenous':
-        win_rate, tie_rate, die_rate = evaluate_homogenous(
+        win_rate, tie_rate, loss_rate = evaluate_homogenous(
             args, good_guys, bad_guys, 0, writer, 0)
-        print("Homog test beforehand: (%d)--> Win %.3f, Tie %.3f, Die %.3f" % (
-            args.num_battles_eval, win_rate, tie_rate, die_rate))
+        print("Homog test before: (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
+            args.num_battles_eval, win_rate, tie_rate, loss_rate))
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
@@ -427,11 +433,11 @@ def train():
                 total_loss for total_loss in final_total_losses])
 
             if how_train == 'homogenous':
-                win_rate, tie_rate, die_rate = evaluate_homogenous(
+                win_rate, tie_rate, loss_rate = evaluate_homogenous(
                     args, good_guys, bad_guys, eval_round, writer, num_epoch)
-                print("Epoch %d (%d)--> Win %.3f, Tie %.3f, Die %.3f" % (
+                print("Epoch %d (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
                     num_epoch, args.num_battles_eval, win_rate, tie_rate,
-                    die_rate))
+                    loss_rate))
                 if win_rate >= .60:
                     suffix = suffix + ".wr%.3f.evlrnd%d" % (win_rate, eval_round)
                     saved_paths = utils.save_agents(
@@ -529,7 +535,7 @@ def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
     writer.add_scalar('%s/mean_all_time' % descriptor, mean_all_time)
     writer.add_scalar('%s/one_dead_per_battle' % descriptor, one_dead_per_battle)
     writer.add_scalar('%s/one_dead_per_win' % descriptor, one_dead_per_win)
-    return win_rate, tie_rate, die_rate
+    return win_rate, tie_rate, loss_rate
 
 
 if __name__ == "__main__":
