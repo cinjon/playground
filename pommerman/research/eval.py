@@ -270,7 +270,7 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
     times = []
     st = time.time()
     obs = envs.reset()
-    while len(infos) != num_times:
+    while len(infos) < num_times:
         actions = [[None]*4 for _ in range(num_processes)]
         for num_agent, agent in enumerate(agents):
             agent_obs = [o[num_agent] for o in obs]
@@ -281,13 +281,14 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
         obs, reward, done, info = envs.step(actions)
         for num, done_ in enumerate(done):
             if done_.all():
-                print("FINISHE! ", info[num], len(infos))
                 infos.append(info[num])
                 rewards.append(reward[num])
+            if len(infos) >= num_times:
+                break
     end = time.time()
     print("TIMEs: %.3f, %.3f" % (end - st, (end - st)/num_times))
-    print(infos)
-    print(times)
+    print(len(infos), infos)
+    print(len(times), times)
 
     envs.close()
     return infos
