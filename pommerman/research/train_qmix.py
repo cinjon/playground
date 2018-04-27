@@ -225,20 +225,20 @@ def train():
 
         history = [init_history_instance() for _ in range(num_processes)]
 
-        if running_num_episodes > args.log_interval:
+        if running_num_episodes:
             end = time.time()
 
             num_episodes += running_num_episodes
 
             steps_per_sec = 1.0 * total_steps / (end - start)
-            epochs_per_sec = 1.0 * args.log_interval / (end - start)
-            episodes_per_sec = 1.0 * num_episodes / (end - start)
 
             mean_value_loss = np.mean(value_losses)
             std_value_loss = np.std(value_losses)
 
-            print('Num Episodes: {}, Running Num Episodes: {}, Team Win Rate: {}%, Mean Value Loss: {}, Std Value Loss: {}'.format(
-                num_episodes, running_num_episodes, (running_team_wins * 100.0 / running_num_episodes), mean_value_loss, std_value_loss))
+            print('Num Episodes: {}, Running Num Episodes: {}, '
+                  'Team Win Rate: {}%, Mean Value Loss: {}, Std Value Loss: {} [{} steps/s]'.format(
+                num_episodes, running_num_episodes, (running_team_wins * 100.0 / running_num_episodes),
+                mean_value_loss, std_value_loss, steps_per_sec))
 
             running_num_episodes = 0
             running_team_wins = 0
