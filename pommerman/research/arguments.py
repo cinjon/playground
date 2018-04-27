@@ -150,16 +150,16 @@ def get_args():
                         help='factor for scaling the weights before each training loop (0.5)')
 
     # for QMIX
-    parser.add_argument('--episode-batch', type=int, default=16,
-                        help='number of episodes to sample from the episode buffer for training (default 1.0)')
+    parser.add_argument('--episode-batch', type=int, default=8,
+                        help='number of episodes to sample from the episode buffer for training (default 8)')
     parser.add_argument('--eps-max', type=float, default=1.0,
                         help='maximum epsilon for epsilon-greedy action selection (default 1.0)')
     parser.add_argument('--eps-min', type=float, default=0.05,
                         help='minimum epsilon for epsilon-greedy action selection (default 0.05)')
     parser.add_argument('--eps-max-steps', type=int, default=50000,
-                        help='maximum number of steps to anneal epsilon over (default 50000)')
-    parser.add_argument('--target-update-steps', type=int, default=50000,
-                        help='number of steps to update target network after (default 128)')
+                        help='maximum number of steps to linearly anneal epsilon over (default 50000)')
+    parser.add_argument('--target-update-steps', type=int, default=1,
+                        help='number of gradient steps to update target network after (default 1)')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()

@@ -57,6 +57,7 @@ class QMIXMetaAgent(ResearchAgent):
                    num_epoch, optimizer_state_dict):
         params = self.qmix_net.parameters()
         self._optimizer = optim.Adam(params, lr=args.lr, eps=args.eps)
+        self._optimizer.zero_grad()
         if optimizer_state_dict:
             self.optimizer.load_state_dict(optimizer_state_dict)
         self.num_episodes = num_episodes
@@ -65,6 +66,7 @@ class QMIXMetaAgent(ResearchAgent):
 
     def optimizer_step(self):
         self._optimizer.step()
+        self._optimizer.zero_grad()
 
     def update_target(self):
         self.target_qmix_net.load_state_dict(self.qmix_net.state_dict())

@@ -222,6 +222,8 @@ def train():
             current_obs = obs
             current_global_obs = global_obs
 
+        history = [init_history_instance() for _ in range(num_processes)]
+
         if running_num_episodes > args.log_interval:
             end = time.time()
 
