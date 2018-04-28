@@ -248,7 +248,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     writer.add_scalar('action_loss_step', mean_action_loss, total_steps)
     writer.add_scalar('value_loss_step', mean_value_loss, total_steps)
     if mean_kl_loss:
-        writer.add_scalar('kl_loss', mean_kl_loss, total_steps)
+        writer.add_scalar('kl_loss_step', mean_kl_loss, total_steps)
     writer.add_scalar('total_loss_step', mean_total_loss, total_steps)
 
     writer.add_scalar('final_reward_step', final_rewards.mean(), total_steps)
@@ -289,7 +289,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     writer.add_scalar('action_loss_epi', mean_action_loss, num_episodes)
     writer.add_scalar('value_loss_epi', mean_value_loss, num_episodes)
     if mean_kl_loss:
-        writer.add_scalar('kl_loss', mean_kl_loss, num_episodes)
+        writer.add_scalar('kl_loss_epi', mean_kl_loss, num_episodes)
     writer.add_scalar('total_loss_epi', mean_total_loss, num_episodes)
 
     writer.add_scalar('final_reward_epi', final_rewards.mean(), num_episodes)
@@ -330,7 +330,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     writer.add_scalar('action_loss_epoch', mean_action_loss, num_epoch)
     writer.add_scalar('value_loss_epoch', mean_value_loss, num_epoch)
     if mean_kl_loss:
-        writer.add_scalar('kl_loss', mean_kl_loss, num_epoch)
+        writer.add_scalar('kl_loss_epoch', mean_kl_loss, num_epoch)
     writer.add_scalar('total_loss_epoch', mean_total_loss, num_epoch)
 
     writer.add_scalar('final_reward_epoch', final_rewards.mean(), num_epoch)
