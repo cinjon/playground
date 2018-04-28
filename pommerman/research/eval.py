@@ -257,7 +257,8 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
     """
     config = args.config
     seed = args.seed
-    num_processes = args.num_processes
+    # TODO: Why are we getting too many open file errors? They are closing...
+    num_processes = args.num_processes // 2
 
     if seed is None:
         seed = random.randint(0, 1e6)
@@ -267,7 +268,6 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
     envs = env_helpers.make_eval_envs(
         config, args.how_train, seed, agents, training_agent_ids,
         args.num_stack, num_processes)
-    atexit.register(envs.close)
 
     infos = []
     rewards = []
@@ -303,6 +303,7 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
     end = time.time()
     print("Eval Times (%d) --> Total: %.3f, Avg: %.3f" % (
         num_times, end - st, (end - st)/num_times))
+
     envs.close()
     return infos
 
