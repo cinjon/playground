@@ -392,12 +392,12 @@ def train():
                 action_losses, value_losses, dist_entropies, \
                     kl_losses, total_losses = result
 
-                final_action_losses[num_agent].extend(result[0])
-                final_value_losses[num_agent].extend(result[1])
-                final_dist_entropies[num_agent].extend(result[2])
+                final_action_losses[num_agent].extend(action_losses)
+                final_value_losses[num_agent].extend(value_losses)
+                final_dist_entropies[num_agent].extend(dist_entropies)
                 if do_distill:
-                    final_kl_losses[num_agent].extend(result[3])
-                final_total_losses[num_agent].extend(result[4])
+                    final_kl_losses[num_agent].extend(kl_losses)
+                final_total_losses[num_agent].extend(total_losses)
 
             agent.after_epoch()
 
@@ -508,7 +508,7 @@ def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
             args=args, targets=good_guys, opponents=bad_guys)
     print("Eval took %.4fs." % t.interval)
 
-    descriptor = 'homogenous_eval_round%d/' % eval_round
+    descriptor = 'homogenous_eval_round%d' % eval_round
     num_battles = args.num_battles_eval
 
     win_count = len(wins)
@@ -526,15 +526,17 @@ def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
     loss_rate = 1.0*loss_count/num_battles
     one_dead_per_battle = 1.0*one_dead_count/num_battles
     one_dead_per_win = 1.0*one_dead_count/win_count if win_count else 0
-    writer.add_scalar('%s/win_rate' % descriptor, win_rate)
-    writer.add_scalar('%s/tie_rate' % descriptor, tie_rate)
-    writer.add_scalar('%s/loss_rate' % descriptor, loss_rate)
-    writer.add_scalar('%s/mean_win_time' % descriptor, mean_win_time)
-    writer.add_scalar('%s/mean_tie_time' % descriptor, mean_tie_time)
-    writer.add_scalar('%s/mean_loss_time' % descriptor, mean_loss_time)
-    writer.add_scalar('%s/mean_all_time' % descriptor, mean_all_time)
-    writer.add_scalar('%s/one_dead_per_battle' % descriptor, one_dead_per_battle)
-    writer.add_scalar('%s/one_dead_per_win' % descriptor, one_dead_per_win)
+    writer.add_scalar('%s/win_rate' % descriptor, win_rate, epoch)
+    writer.add_scalar('%s/tie_rate' % descriptor, tie_rate, epoch)
+    writer.add_scalar('%s/loss_rate' % descriptor, loss_rate, epoch)
+    writer.add_scalar('%s/mean_win_time' % descriptor, mean_win_time, epoch)
+    writer.add_scalar('%s/mean_tie_time' % descriptor, mean_tie_time, epoch)
+    writer.add_scalar('%s/mean_loss_time' % descriptor, mean_loss_time, epoch)
+    writer.add_scalar('%s/mean_all_time' % descriptor, mean_all_time, epoch)
+    writer.add_scalar('%s/one_dead_per_battle' % descriptor,
+                      one_dead_per_battle, epoch)
+    writer.add_scalar('%s/one_dead_per_win' % descriptor, one_dead_per_win,
+                      epoch)
     return win_rate, tie_rate, loss_rate
 
 
