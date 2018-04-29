@@ -163,6 +163,9 @@ def get_args():
     parser.add_argument('--stop-grads-value', action='store_true', default=False,
                         help='do not backprop the value loss through the \
                         shared params of the policy and value networks if True')
+    parser.add_argument('--use-value-loss', action='store_true', default=False,
+                        help='use the value loss to update the network params \
+                        when training the dagger agent')
 
     # for QMIX
     parser.add_argument('--episode-batch', type=int, default=1,

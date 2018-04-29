@@ -1,14 +1,10 @@
 """
 Dagger Agent.
 """
-import numpy as np
-
 from pommerman import characters
-import torch
 import torch.nn as nn
 import torch.optim as optim
 
-import networks
 from research_agent import ResearchAgent
 
 
@@ -48,20 +44,27 @@ class DaggerAgent(ResearchAgent):
 
     # TODO: debug the stop_grads_value implementation
     def optimize(self, action_classification_loss, value_loss, max_grad_norm,
-                 stop_grads_value=False):
+                 use_value_loss=False, stop_grads_value=False):
         self._optimizer.zero_grad()
-        if stop_grads_value:
-            action_classification_loss.backward(retain_graph=True)
-            for p in self._actor_critic.parameters():
-                p.requires_grad = False
-            self._actor_critic.critic_linear.requires_grad = True
-            value_loss.backward()
+        if use_value_loss:
+            if stop_grads_value:
+                action_classification_loss.backward(retain_graph=True)
+                for p in self._actor_critic.parameters():
+                    p.requires_grad = False
+                self._actor_critic.critic_linear.requires_grad = True
+                value_loss.backward()
+            else:
+                (action_classification_loss + value_loss).backward()
+
         else:
-            (action_classification_loss + value_loss).backward()
+            action_classification_loss.backward()
+
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
         self._optimizer.step()
-        for p in self._actor_critic.parameters():
-            p.requires_grad = True
+
+        if use_value_loss:
+            for p in self._actor_critic.parameters():
+                p.requires_grad = True
 
     def initialize(self, args, obs_shape, action_space,
                    num_training_per_episode, num_episodes, total_steps,
@@ -73,23 +76,3 @@ class DaggerAgent(ResearchAgent):
         self.num_episodes = num_episodes
         self.total_steps = total_steps
         self.num_epoch = num_epoch
-
-    @staticmethod
-    def _featurize_obs(obs):
-        """TODO: Remove this when we fix dagger agent with the step feature."""
-        if type(obs) == list:
-            obs = np.stack([networks.featurize3D(o, use_step=False)
-                            for o in obs])
-            obs = torch.from_numpy(obs)
-        else:
-            obs = networks.featurize3D(obs, use_step=False)
-            obs = torch.from_numpy(obs)
-            obs = obs.unsqueeze(0)
-        return obs.float()
-
-    def act_on_data(self, observations, states, masks, deterministic=False):
-        """TODO: Remove this when we fix dagger agent with the step feature."""
-        observations = torch.cat([observations[:, :17], observations[:, 18:36],
-                                  observations[:, 37:]], dim=1)
-        return self._actor_critic.act(observations, states, masks,
-                                      deterministic)

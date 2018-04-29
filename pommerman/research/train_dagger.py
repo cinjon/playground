@@ -7,6 +7,10 @@ but evaluation is run on multiple processors
 NOTE: Run this with how-train dagger so that the agent's position is random
 among the four possibilities.
 
+TODO:
+make code less redundant
+if not using the value loss it will store and do many unnecessary operations
+
 Example args:
 
 python train_dagger.py --num-processes 16 --run-name a --how-train dagger \
@@ -142,8 +146,10 @@ def train():
         count_episodes = 0
         current_ep_len = 0
         while count_episodes < args.num_episodes_dagger:
+
             expert_obs = envs.get_expert_obs()
             expert_obs = expert_obs[0][0]
+
             expert_action = expert.act(expert_obs, action_space=action_space)
             expert_action_tensor = torch.LongTensor(1)
             expert_action_tensor[0] = expert_action
@@ -284,7 +290,9 @@ def train():
                                 .pow(2).mean()
 
                 agent.optimize(action_loss, value_loss, args.max_grad_norm, \
+                                use_value_loss=args.use_value_loss,
                                 stop_grads_value=args.stop_grads_value)
+
                 if j == args.dagger_epoch - 1:
                     action_losses.append(action_loss.data[0])
                     value_losses.append(value_loss.data[0])
