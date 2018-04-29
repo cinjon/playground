@@ -178,12 +178,16 @@ class Pomme(gym.Env):
         self._board, self._agents, self._bombs = result[:3]
         self._items, self._flames = result[3:]
 
+        # NOTE: this should be above calling the below functions since they
+        # take the step_count to change obs etc., so step_count should be
+        # updated before
+        self._step_count += 1
+
         done = self._get_done()
         obs = self.get_observations()
         reward = self._get_rewards()
         info = self._get_info(done, reward)
 
-        self._step_count += 1
         # if all(done):
         #     time_avg = defaultdict(float)
         #     time_max = defaultdict(float)
