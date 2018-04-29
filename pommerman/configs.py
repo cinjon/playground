@@ -241,7 +241,7 @@ def team_v3_short_env():
     env = envs.v3.Pomme
     game_type = constants.GameType.Team
     env_entry_point = 'pommerman.envs.v3:Pomme'
-    env_id = 'PommeTeam-v3'
+    env_id = 'PommeTeamShort-v3'
     env_kwargs = {
         'game_type': game_type,
         'board_size': constants.BOARD_SIZE,
