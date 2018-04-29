@@ -129,7 +129,7 @@ class Pomme(gym.Env):
         self.observations = self.model.get_observations(
             self._board, self._agents, self._bombs,
             self._is_partially_observable, self._agent_view_size,
-            step_count=self._step_count)
+            self._max_steps, step_count=self._step_count)
         return self.observations
 
     def _get_rewards(self):

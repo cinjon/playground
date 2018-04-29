@@ -54,13 +54,15 @@ class ForwardModel(object):
         steps = []
         for _ in num_times:
             obs = self.get_observations(
-                board, agents, bombs, is_partially_observable, agent_view_size)
+                board, agents, bombs, is_partially_observable, agent_view_size,
+                max_steps)
             actions = self.act(agents, obs, action_space,
                                is_communicative=is_communicative)
             board, agents, bombs, items, flames = self.step(
                 actions, board, agents, bombs, items, flames)
             next_obs = self.get_observations(
-                board, agents, bombs, is_partially_observable, agent_view_size)
+                board, agents, bombs, is_partially_observable, agent_view_size,
+                max_steps)
             reward = self.get_rewards(agents, game_type, step_count, max_steps)
             done = self.get_done(agents, game_type, step_count, max_steps,
                                  training_agent)
@@ -311,7 +313,7 @@ class ForwardModel(object):
 
     def get_observations(self, curr_board, agents, bombs,
                          is_partially_observable, agent_view_size,
-                         step_count=None):
+                         max_steps, step_count=None):
         """Gets the observations as an np.array of the visible squares.
 
         The agent gets to choose whether it keeps the fogged part in memory.
@@ -324,6 +326,9 @@ class ForwardModel(object):
 
             for bomb in bombs:
                 x, y = bomb.position
+
+
+
                 if not is_partially_observable or in_view_range(position, x, y):
                     blast_strengths[(x, y)] = bomb.blast_strength
                     life[(x, y)] = bomb.life
@@ -353,8 +358,9 @@ class ForwardModel(object):
             bomb_blast_strengths, bomb_life = make_bomb_maps(agent.position)
             agent_obs['bomb_blast_strength'] = bomb_blast_strengths
             agent_obs['bomb_life'] = bomb_life
+
             if step_count is not None:
-                agent_obs['step'] = step_count
+                agent_obs['step'] = 1.0 * step_count / max_steps
 
             for attr in attrs:
                 assert hasattr(agent, attr)
