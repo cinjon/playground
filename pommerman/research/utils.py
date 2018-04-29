@@ -368,9 +368,13 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
 
 
 def validate_how_train(how_train, nagents):
-    if how_train == 'simple' or how_train == 'dagger':
-        # Simple trains a single agent against three SimpleAgents.
+    if how_train == 'simple':
+        # Simple trains a single agent with three SimpleAgents.
         assert(nagents == 1), "Simple training should have one agent."
+        return 1
+    elif how_train == 'dagger':
+        # Dagger trains a single agent against three SimpleAgents.
+        assert(nagents == 1), "Dagger training should have one agent."
         return 1
     elif how_train == 'homogenous':
         # Homogenous trains a single agent against itself (self-play).
