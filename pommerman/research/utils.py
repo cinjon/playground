@@ -373,7 +373,7 @@ def validate_how_train(how_train, nagents):
         assert(nagents == 1), "Simple training should have one agent."
         return 1
     elif how_train == 'dagger':
-        # Dagger trains a single agent against three SimpleAgents.
+        # Dagger trains a single agent with three SimpleAgents.
         assert(nagents == 1), "Dagger training should have one agent."
         return 1
     elif how_train == 'homogenous':

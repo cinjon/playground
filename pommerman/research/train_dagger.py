@@ -4,9 +4,6 @@ Currently uses SimpleAgent as the expert.
 The training is performed on one processor,
 but evaluation is run on multiple processors
 
-NOTE: Run this with how-train dagger so that the agent's position is random
-among the four possibilities.
-
 TODO:
 make code less redundant
 if not using the value loss it will store and do many unnecessary operations
@@ -15,7 +12,11 @@ Example args:
 
 python train_dagger.py --num-processes 16 --run-name a --how-train dagger \
  --minibatch-size 5000 --num-steps 5000 --log-interval 10 --save-interval 10 \
- --lr 0.005 --expert-prob 0.5 --num-steps-eval 500
+ --lr 0.005 --expert-prob 0.5 --num-steps-eval 500 --use-value-loss
+
+The --use-value-loss setting makes it so that the value loss is considered.
+The --stop-grads-value setting stops the gradients from the value loss in going
+through the rest of the shared params of the network. Both default to false.
 """
 
 from collections import defaultdict
@@ -156,7 +157,6 @@ def train():
 
             agent_states_list.append(agent_obs.squeeze(0))
             expert_actions_list.append(expert_action_tensor)
-            returns_list.append(0.0)
 
             if random.random() <= expert_prob:
                 list_expert_action = []
@@ -176,21 +176,27 @@ def train():
                 agent_act_arr.append(cpu_actions_agents)
                 del result  # for reducing memory usage
 
+            returns_list.append(float(reward[0][0]))
+
             agent_obs = torch.from_numpy(obs).float().squeeze(0)
             current_ep_len += 1
 
-            if done[0][0]:
+            if done[0][0]: 
+                # NOTE: In a FFA game, at this point it's over for the agent so
+                # we call it. However, in a team game, it may not be over yet.
+                # That depends on if the returned Result is Incomplete. We
+                # could do something awkward and try to manage the rewards. We
+                # could also change it so that the agent keeps going a la the
+                # other setups. However, that's not really the point here and
+                # so we keep it simple and give it zero reward.
+
                 count_episodes += 1
-                # NOTE: this is a simplified discounted return
-                # for the case in which the episode just ended and
-                # the agent only gets reward at the end of the episode
-                # and all other rewards are 0 - works only for v0 not v3
+                
                 total_data_len = len(returns_list)
                 start_current_ep = total_data_len - current_ep_len - 1
-                returns_list[-1] = float(reward[0][0])
                 for step in range(total_data_len - 2, start_current_ep, -1):
                     next_return = returns_list[step+1]
-                    returns_list[step] = float(next_return * args.gamma)
+                    returns_list[step] += float(next_return * args.gamma)
 
                 # instantiate new environment
                 envs.close()
