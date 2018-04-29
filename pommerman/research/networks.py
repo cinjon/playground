@@ -119,7 +119,7 @@ class PommeCNNPolicySmall(_FFPolicy):
         super(PommeCNNPolicySmall, self).__init__()
         self.board_size = board_size
         self.num_channels = num_channels
-        self._init_network()
+        self._init_network(num_inputs)
         self.dist = Categorical(512, action_space.n)
         self.train()
         self.reset_parameters()
@@ -130,7 +130,7 @@ class PommeCNNPolicySmall(_FFPolicy):
     def state_size(self):
         return 1
 
-    def _init_network(self):
+    def _init_network(self, num_inputs):
         self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
                                padding=1)
         self.conv2 = nn.Conv2d(self.num_channels, self.num_channels, 3,
@@ -177,7 +177,7 @@ class PommeCNNPolicySmaller(PommeCNNPolicySmall):
       board_size: The size of the game board (13).
       num_channels: The number of channels to use in the convnet.
     """
-    def _init_network(self):
+    def _init_network(self, num_inputs):
         self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
                                padding=1)
         self.conv2 = nn.Conv2d(self.num_channels, self.num_channels, 3,
