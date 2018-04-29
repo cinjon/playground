@@ -158,6 +158,26 @@ def team_v0_fast_env():
     return locals()
 
 
+def team_v3_env():
+    """Start up a team config with the default settings."""
+    env = envs.v3.Pomme
+    game_type = constants.GameType.Team
+    env_entry_point = 'pommerman.envs.v3:Pomme'
+    env_id = 'PommeTeam-v3'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.BOARD_SIZE,
+        'agent_view_size': constants.AGENT_VIEW_SIZE,
+        'num_rigid': constants.NUM_RIGID,
+        'num_wood': constants.NUM_WOOD,
+        'num_items': constants.NUM_ITEMS,
+        'max_steps': constants.MAX_STEPS,
+        'render_fps': constants.RENDER_FPS,
+    }
+    agent = characters.Bomber
+    return locals()
+
+
 def radio_v2_env():
     """Start up a team radio config with the default settings."""
     env = envs.v2.Pomme
