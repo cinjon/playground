@@ -69,12 +69,6 @@ def train():
         os.makedirs(log_dir)
 
     writer = SummaryWriter(log_dir)
-    count_stats = defaultdict(int)
-    array_stats = defaultdict(list)
-    episode_rewards = torch.zeros([num_training_per_episode,
-                                   num_processes, 1])
-    final_rewards = torch.zeros([num_training_per_episode,
-                                 num_processes, 1])
 
     episode_buffer = EpisodeBuffer(size=5000)
 
@@ -82,10 +76,6 @@ def train():
     start_epoch = training_agents[0].num_epoch
     total_steps = training_agents[0].total_steps
     num_episodes = training_agents[0].num_episodes
-
-    cumulative_reward = 0
-    terminal_reward = 0
-    success_rate = 0
 
     # Initialize observations
     current_obs = envs.reset()
@@ -110,6 +100,25 @@ def train():
         ]
         return history_init
 
+    ##
+    # Each history is Python list is of length num_processes. This is a list because not all
+    # episodes are of the same length and we don't want information of an episode
+    # after it has ended. Each history item has the first dimension as time step, second
+    # dimension as the number of training agents and then appropriate shape for the item
+    #
+    history = [init_history_instance() for _ in range(num_processes)]
+    eps = args.eps_max
+    eps_steps = 0
+    gradient_steps = 0
+
+    # Collected Statistics
+    start = time.time()
+    running_team_wins = 0
+    running_team_ties = 0
+    running_num_episodes = 0
+    running_mean_episode_length = 0
+    value_losses = []
+
     def compute_q_loss(global_state, state, reward, next_global_state, next_state):
         if args.cuda:
             global_state = global_state.cuda()
@@ -132,24 +141,6 @@ def train():
         loss.backward()
 
         value_losses.append(loss.cpu().data[0])
-
-    ##
-    # Each history is Python list is of length num_processes. This is a list because not all
-    # episodes are of the same length and we don't want information of an episode
-    # after it has ended. Each history item has the first dimension as time step, second
-    # dimension as the number of training agents and then appropriate shape for the item
-    #
-    history = [init_history_instance() for _ in range(num_processes)]
-    eps = args.eps_max
-    eps_steps = 0
-    gradient_steps = 0
-    start = time.time()
-
-    running_team_wins = 0
-    running_team_ties = 0
-    running_num_episodes = 0
-    running_mean_episode_length = 0
-    value_losses = []
 
     def run_dqn():
         if len(episode_buffer) >= args.episode_batch:
@@ -238,8 +229,17 @@ def train():
 
             steps_per_sec = 1.0 * total_steps / (end - start)
 
-            mean_value_loss = np.mean(value_losses)
-            std_value_loss = np.std(value_losses)
+            mean_value_loss = np.mean(value_losses).item()
+            std_value_loss = np.std(value_losses).item()
+
+            writer.add_scalar('num_episodes', num_episodes, num_epoch)
+            writer.add_scalar('running_num_episodes', running_num_episodes , num_epoch)
+            writer.add_scalar('running_mean_episode_length', running_mean_episode_length, num_epoch)
+            writer.add_scalar('win_rate', (running_team_wins * 100.0 / running_num_episodes), num_epoch)
+            writer.add_scalar('tie_rate', (running_team_ties * 100.0 / running_num_episodes), num_epoch)
+            writer.add_scalar('mean_value_loss', mean_value_loss, num_epoch)
+            writer.add_scalar('std_value_loss', std_value_loss, num_epoch)
+            writer.add_scalar('steps_per_sec', steps_per_sec, num_epoch)
 
             print('Num Episodes: {}, Running Num Episodes: {}, Running Mean Episode Length: {}'
                   'Team Win Rate: {}%, Tie Rate: {}%, Mean Value Loss: {}, Std Value Loss: {} [{} steps/s]'.format(
