@@ -100,20 +100,24 @@ def train():
 
     def init_history_instance():
         history_init = [
-            torch.zeros(0, *global_obs_shape),  # 0: current global state
-            torch.zeros(0, num_training_per_episode, *obs_shape),  # 1: current agent(s) state
-            torch.zeros(0, num_training_per_episode).long(),  # 2: action
-            torch.zeros(0, num_training_per_episode),  # 3: reward
-            torch.zeros(0, *global_obs_shape),  # 4: next global state
-            torch.zeros(0, num_training_per_episode, *obs_shape),  # 5: next agent(s) state
-            torch.zeros(0, num_training_per_episode).long(),  # 6: done
+            torch.zeros(0, *global_obs_shape),  # current global state
+            torch.zeros(0, num_training_per_episode, *obs_shape),  # current agent(s) state
+            # torch.zeros(0, num_training_per_episode).long(),  # action
+            torch.zeros(0, num_training_per_episode),  # reward
+            torch.zeros(0, *global_obs_shape),  # next global state
+            torch.zeros(0, num_training_per_episode, *obs_shape),  # next agent(s) state
+            # torch.zeros(0, num_training_per_episode).long(),  # done
         ]
-        if args.cuda:
-            for h in range(len(history_init)):
-                history_init[h] = history_init[h].cuda()
         return history_init
 
-    def compute_q_loss(global_state, state, action, reward, next_global_state, next_state, done):
+    def compute_q_loss(global_state, state, reward, next_global_state, next_state):
+        if args.cuda:
+            global_state = global_state.cuda()
+            state = state.cuda()
+            reward = reward.cuda()
+            next_global_state = next_global_state.cuda()
+            next_state = next_state.cuda()
+
         current_q_values, _ = training_agents[0].act(
             Variable(global_state, requires_grad=True),
             Variable(state, requires_grad=True))
@@ -187,29 +191,18 @@ def train():
             if args.render:
                 envs.render()
 
-            global_state_tensor = current_global_obs_tensor.unsqueeze(1)
-            state_tensor = current_obs_tensor.unsqueeze(1)
-            action_tensor = torch.LongTensor(training_agent_actions).unsqueeze(1)
+            global_state_tensor = current_global_obs_tensor.cpu().unsqueeze(1)
+            state_tensor = current_obs_tensor.cpu().unsqueeze(1)
             reward_tensor = torch.from_numpy(reward).float().unsqueeze(1)
             next_global_state_tensor = torch.FloatTensor(global_obs).unsqueeze(1)
             next_state_tensor = torch.from_numpy(obs).float().unsqueeze(1)
-            done_tensor = torch.from_numpy(done.astype(np.int)).long().unsqueeze(1)
-
-            if args.cuda:
-                action_tensor = action_tensor.cuda()
-                reward_tensor = reward_tensor.cuda()
-                next_global_state_tensor = next_global_state_tensor.cuda()
-                next_state_tensor = next_state_tensor.cuda()
-                done_tensor = done_tensor.cuda()
 
             for i in range(num_processes):
                 history[i][0] = torch.cat([history[i][0], global_state_tensor[i]], dim=0)
                 history[i][1] = torch.cat([history[i][1], state_tensor[i]], dim=0)
-                history[i][2] = torch.cat([history[i][2], action_tensor[i]], dim=0)
-                history[i][3] = torch.cat([history[i][3], reward_tensor[i]], dim=0)
-                history[i][4] = torch.cat([history[i][4], next_global_state_tensor[i]], dim=0)
-                history[i][5] = torch.cat([history[i][5], next_state_tensor[i]], dim=0)
-                history[i][6] = torch.cat([history[i][6], done_tensor[i]], dim=0)
+                history[i][2] = torch.cat([history[i][2], reward_tensor[i]], dim=0)
+                history[i][3] = torch.cat([history[i][3], next_global_state_tensor[i]], dim=0)
+                history[i][4] = torch.cat([history[i][4], next_state_tensor[i]], dim=0)
 
                 total_steps += 1
 
