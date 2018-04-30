@@ -142,6 +142,7 @@ def train():
     start = time.time()
 
     running_team_wins = 0
+    running_team_ties = 0
     running_num_episodes = 0
     running_mean_episode_length = 0
     value_losses = []
@@ -217,8 +218,10 @@ def train():
                     running_num_episodes += 1
                     running_mean_episode_length = running_mean_episode_length + \
                                                   (history[i][0].size(0) - running_mean_episode_length) / running_num_episodes
-                    if 'winners' in info[i] and info[i]['winners'] == training_ids:
+                    if 'winners' in info[i] and info[i]['winners'] == training_ids[i]:
                         running_team_wins += 1
+                    elif info[i]['result'] == pommerman.constants.Result.Tie:
+                        running_team_ties += 1
 
                     # Flush completed episode into buffer and clear current episode's history for next episode
                     episode_buffer.append(history[i])
@@ -246,14 +249,16 @@ def train():
             std_value_loss = np.std(value_losses)
 
             print('Num Episodes: {}, Running Num Episodes: {}, Running Mean Episode Length: {}'
-                  'Team Win Rate: {}%, Mean Value Loss: {}, Std Value Loss: {} [{} steps/s]'.format(
+                  'Team Win Rate: {}%, Tie Rate: {}%, Mean Value Loss: {}, Std Value Loss: {} [{} steps/s]'.format(
                     num_episodes, running_num_episodes, running_mean_episode_length,
                     (running_team_wins * 100.0 / running_num_episodes),
+                    (running_team_ties * 100.0 / running_num_episodes),
                     mean_value_loss, std_value_loss, steps_per_sec))
 
             running_num_episodes = 0
             running_mean_episode_length = 0
             running_team_wins = 0
+            running_team_ties = 0
             value_losses = []
 
     writer.close()

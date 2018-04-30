@@ -213,8 +213,9 @@ class SubprocVecEnv(_VecEnv):
         return [remote.recv() for remote in self.remotes]
 
     def get_training_ids(self):
-        self.remotes[0].send(('get_training_ids', None))
-        return self.remotes[0].recv()
+        for remote in self.remotes:
+            remote.send(('get_training_ids', None))
+        return [remote.recv() for remote in self.remotes]
 
     def get_game_type(self):
         self.remotes[0].send(('get_game_type', None))
