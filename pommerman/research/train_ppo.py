@@ -84,8 +84,9 @@ def train():
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
     distill_epochs = args.distill_epochs
-    do_distill = distill_target is not '' and \
-                 distill_epochs > training_agents[0].num_epoch
+    do_distill = (distill_target is not '' and \
+                 distill_epochs > training_agents[0].num_epoch) or \
+                 args.distill_expert == 'SimpleAgent'
     do_distill = do_distill or set_distill_kl >= 0
     if do_distill:
         if args.distill_expert == 'DaggerAgent':
@@ -408,11 +409,11 @@ def train():
                         DaggerAgent or SimpleAgent \n")
                 action_log_prob_distr = utils.torch_numpy_stack(
                     action_log_prob_distr)
+                if args.cuda:
+                    dagger_prob_distr.cuda()
             else:
                 dagger_prob_distr = None
                 action_log_prob_distr = None
-            if args.cuda:
-                dagger_prob_distr.cuda()
 
             value_all = utils.torch_numpy_stack(value_agents)
 
