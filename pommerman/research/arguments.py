@@ -68,6 +68,10 @@ def get_args():
     parser.add_argument('--restart-counts', default=False, action='store_true',
                         help='if True, then restart the saved counts for a '
                         'loaded model')
+    parser.add_argument('--distill-expert', type=str, default='SimpleAgent',
+                        help='expert to use for distillation: \
+                        SimpleAgent/DaggerAgent')
+
 
     # specific to Pommerman
     parser.add_argument('--board_size', type=int, default=13,

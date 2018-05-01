@@ -38,6 +38,7 @@ import envs as env_helpers
 from eval import eval as run_eval
 import ppo_agent
 import utils
+from torch.autograd import Variable
 
 
 def train():
@@ -86,24 +87,34 @@ def train():
     do_distill = distill_target is not '' and \
                  distill_epochs > training_agents[0].num_epoch
     do_distill = do_distill or set_distill_kl >= 0
+    do_distill = True
     if do_distill:
-        distill_agent = utils.load_distill_agent(obs_shape, action_space, args)
-        distill_agent.set_eval()
-        # NOTE: We have to call init_agent, but the agent_id won't matter
-        # because we will use the observations from the ppo_agent.
-        distill_agent.init_agent(0, envs.get_game_type())
-        distill_type = distill_target.split('::')[0]
-        if set_distill_kl >= 0:
-            suffix += ".dstl{}.dstlkl{}".format(distill_type, set_distill_kl)
-        else:
-            suffix += ".dstl{}.dstlepi{}".format(distill_type, distill_epochs)
+        if args.distill_expert == 'DaggerAgent':
+            distill_agent = utils.load_distill_agent(obs_shape, action_space, args)
+            distill_agent.set_eval()
+            # NOTE: We have to call init_agent, but the agent_id won't matter
+            # because we will use the observations from the ppo_agent.
+            distill_agent.init_agent(0, envs.get_game_type())
+            distill_type = distill_target.split('::')[0]
+            if set_distill_kl >= 0:
+                suffix += ".dstl{}.dstlkl{}".format(args.distill_expert, set_distill_kl)
+            else:
+                suffix += ".dstl{}.dstlepi{}".format(args.distill_expert, distill_epochs)
 
-        # TODO: Should we not run this against the distill_agent as the first
-        # opponent? The problem is that the distill_agent will just stall.
-        if how_train == 'homogenous':
-            distill_agent2 = utils.load_distill_agent(obs_shape, action_space, args)
-            distill_agent2.set_eval()
-            bad_guys = [distill_agent, distill_agent2]
+            # TODO: Should we not run this against the distill_agent as the first
+            # opponent? The problem is that the distill_agent will just stall.
+            if how_train == 'homogenous':
+                distill_agent2 = utils.load_distill_agent(obs_shape, action_space, args)
+                distill_agent2.set_eval()
+                bad_guys = [distill_agent, distill_agent2]
+        elif args.distill_expert == 'SimpleAgent':
+            if set_distill_kl >= 0:
+                suffix += ".dstl{}.dstlkl{}".format(args.distill_expert, set_distill_kl)
+            else:
+                suffix += ".dstl{}.dstlepi{}".format(args.distill_expert, distill_epochs)
+        else:
+            raise ValueError("We only support distilling from \
+                DaggerAgent or SimpleAgent \n")
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
@@ -162,6 +173,23 @@ def train():
                         if 'bomb' in l:
                             count_stats['bomb'] += 1
 
+    if how_train == 'simple':
+        expert_actions_onehot = torch.FloatTensor(num_processes, action_space.n)
+    elif how_train == 'homogenous':
+        expert_actions_onehot = torch.FloatTensor(num_processes, 4, action_space.n)
+    else:
+        raise ValueError("Only Simple and Homogenous training regimes have been \
+            implemented.")
+    onehot_dim = len(expert_actions_onehot.shape) - 1
+
+    # TODO: make the function below less hacky
+    def make_onehot(actions):
+        actions_tensor = torch.from_numpy(actions)
+        if how_train == 'homogenous':
+            actions_tensor = torch.from_numpy(actions).unsqueeze(onehot_dim)
+        expert_actions_onehot.zero_()
+        expert_actions_onehot.scatter_(onehot_dim, actions_tensor, 1)
+
     # Start the environment and set the current_obs appropriately.
     current_obs = update_current_obs(envs.reset())
 
@@ -175,10 +203,11 @@ def train():
         current_obs = current_obs.cuda()
         for agent in training_agents:
             agent.cuda()
-        if do_distill:
+        if do_distill and args.distill_expert == 'DaggerAgent':
             distill_agent.cuda()
             if how_train == 'homogenous':
                 distill_agent2.cuda()
+
 
     if how_train == 'homogenous':
         win_rate, tie_rate, loss_rate = evaluate_homogenous(
@@ -223,10 +252,19 @@ def train():
                 training_agent = training_agents[0]
 
                 if do_distill:
-                    data = training_agent.get_rollout_data(step, 0)
-                    _, _, _, _, probs, _ = distill_agent.act_on_data(
-                        *data, deterministic=True)
-                    dagger_prob_distr.append(probs)
+                    if args.distill_expert == 'DaggerAgent':
+                        data = training_agent.get_rollout_data(step, 0)
+                        _, _, _, _, probs, _ = distill_agent.act_on_data(
+                            *data, deterministic=True)
+                        dagger_prob_distr.append(probs)
+                    elif args.distill_expert == 'SimpleAgent':
+                        expert_obs = envs.get_expert_obs()
+                        expert_actions = envs.get_expert_actions(expert_obs)
+                        make_onehot(expert_actions)
+                        dagger_prob_distr.append(expert_actions_onehot)
+                    else:
+                        raise ValueError("We only support distilling from \
+                            DaggerAgent or SimpleAgent \n")
 
                 result = training_agent.actor_critic_act(step, 0)
                 cpu_actions_agents = update_actor_critic_results(result)
@@ -242,11 +280,22 @@ def train():
                     states = states.view([num_processes * 4, *states.shape[2:]])
                     masks = masks.view([num_processes * 4, *masks.shape[2:]])
                     if do_distill:
-                        _, _, _, _, probs, _ = distill_agent.act_on_data(
-                            observations, states, masks, deterministic=True)
-                        probs = probs.view([num_processes, 4, *probs.shape[1:]])
-                        for num_agent in range(4):
-                            dagger_prob_distr.append(probs[:, num_agent])
+                        if args.distill_expert == 'DaggerAgent':
+                            _, _, _, _, probs, _ = distill_agent.act_on_data(
+                                observations, states, masks, deterministic=True)   #32x6
+                            probs = probs.view([num_processes, 4, *probs.shape[1:]]) # 8x4x6
+                            for num_agent in range(4):
+                                dagger_prob_distr.append(probs[:, num_agent]) # 4 vars of tensors of 8x6
+                        elif args.distill_expert == 'SimpleAgent':
+                            # TODO: change this so that you get actions for all the agents
+                            expert_obs = envs.get_expert_obs()
+                            expert_actions = envs.get_expert_actions(expert_obs)  #8x4
+                            make_onehot(expert_actions)
+                            for num_agent in range(4):
+                                dagger_prob_distr.append(expert_actions_onehot[:, num_agent])
+                        else:
+                            raise ValueError("We only support distilling from \
+                                DaggerAgent or SimpleAgent \n")
 
                     result = training_agents[0].act_on_data(
                         observations, states, masks, deterministic=False)
@@ -350,12 +399,21 @@ def train():
             action_log_prob_all = utils.torch_numpy_stack(
                 action_log_prob_agents)
             if do_distill:
-                dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
+                if args.distill_expert == 'DaggerAgent':
+                    dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
+                elif args.distill_expert == 'SimpleAgent':
+                    dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr,\
+                        data=False)
+                else:
+                    raise ValueError("We only support distilling from \
+                        DaggerAgent or SimpleAgent \n")
                 action_log_prob_distr = utils.torch_numpy_stack(
                     action_log_prob_distr)
             else:
                 dagger_prob_distr = None
                 action_log_prob_distr = None
+            if args.cuda:
+                dagger_prob_distr.cuda()
 
             value_all = utils.torch_numpy_stack(value_agents)
 

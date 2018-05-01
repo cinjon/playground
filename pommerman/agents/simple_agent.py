@@ -94,7 +94,7 @@ class SimpleAgent(BaseAgent):
         with utility.Timer() as t:
             direction = self._near_good_powerup(
                 my_position, items, dist, prev, 2)
-            
+
         self._update_times(t.interval, 'near_good_powerup')
         if direction is not None:
             return direction.value
@@ -488,7 +488,7 @@ class SimpleAgent(BaseAgent):
                                  recently_visited_positions):
         ret = []
         for direction in directions:
-            positions = utility.get_next_position(my_position, direction) 
+            positions = utility.get_next_position(my_position, direction)
             if not positions in recently_visited_positions:
                 ret.append(direction)
 

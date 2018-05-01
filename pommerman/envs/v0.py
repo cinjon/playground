@@ -60,6 +60,8 @@ class Pomme(gym.Env):
         self._set_action_space()
         self._set_observation_space()
 
+        self.expert = SimpleAgent()
+
     def _set_action_space(self):
         self.action_space = spaces.Discrete(6)
 
@@ -124,6 +126,9 @@ class Pomme(gym.Env):
         agents = [agent for agent in agents if \
                   agent.agent_id not in acting_agent_ids]
         return self.model.act(agents, obs, self.action_space)
+
+    def get_expert_actions(self, obs):
+        return self.model.expert_act(self.expert, obs, self.action_space)
 
     def get_observations(self):
         self.observations = self.model.get_observations(

@@ -14,7 +14,7 @@ from subproc_vec_env import SubprocVecEnv
 
 def _make_train_env(config, how_train, seed, rank, game_state_file,
                     training_agents, num_stack):
-                    
+
     """Makes an environment callable for multithreading purposes.
 
     Args:
@@ -51,7 +51,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             agents.insert(training_agent_ids[0], training_agents[0])
         elif how_train == 'qmix':
             # randomly pick team [0,2] or [1,3]
-            training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)] 
+            training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)]
             agents = [pommerman.agents.SimpleAgent() for _ in range(2)]
             agents.insert(training_agent_ids[0], training_agents[0])
             agents.insert(training_agent_ids[1], training_agents[1])
@@ -74,7 +74,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 
 def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
                    num_stack):
-                   
+
     """Makes an environment callable for multithreading purposes.
 
     Used in conjunction with eval.py
@@ -170,6 +170,9 @@ class WrapPomme(gym.ObservationWrapper):
     def get_expert_obs(self):
         return self._filter(self.env.get_observations())
 
+    def get_expert_actions(self, obs):
+        return self.env.get_expert_actions(obs)
+
     def get_game_type(self):
         return self.env._game_type
 
@@ -200,8 +203,6 @@ class WrapPomme(gym.ObservationWrapper):
 # The following were graciously taken from baselines because we don't want to
 # install cv2.
 #######
-
-
 class MultiAgentFrameStack(gym.Wrapper):
     def __init__(self, env, k):
         """Stack k last frames.

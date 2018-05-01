@@ -1,8 +1,6 @@
 """Configs module: Add game configs here.
-
 Besides game configs, also includes helpers for handling configs, e.g. saving
 and loading them.
-
 NOTE: If you add a new config to this, add a _env on the end of the function
 in order for it to be picked up by the gym registrations.
 """
@@ -281,14 +279,11 @@ def radio_v2_env():
 
 def save_config(config, logdir=None):
     """Save a new configuration by name.
-
     If a logging directory is specified, is will be created and the configuration
     will be stored there. Otherwise, a log message will be printed.
-
     Args:
       config: Configuration object.
       logdir: Location for writing summaries and checkpoints if specified.
-
     Returns:
       Configuration object.
     """
@@ -311,13 +306,10 @@ def save_config(config, logdir=None):
 
 def load_config(logdir):
     """Load a configuration from the log directory.
-
     Args:
       logdir: The logging directory containing the configuration file.
-
     Raises:
       IOError: The logging directory does not contain a configuration file.
-
     Returns:
       Configuration object.
     """

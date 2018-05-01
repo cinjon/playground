@@ -16,7 +16,6 @@ def worker(remote, parent_remote, env_fn_wrapper):
             # NOTE: added .all() to work with multi-agent scenarios.
             if type(done) == list:
                 done = np.array(done)
-
             if done.all():
                 ob = env.reset()
             remote.send((ob, reward, done, info))
@@ -39,6 +38,9 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.get_training_ids()))
         elif cmd == 'get_expert_obs':
             remote.send((env.get_expert_obs()))
+        elif cmd == 'get_expert_actions':
+            action = env.get_expert_actions(data)
+            remote.send((action))
         elif cmd == 'get_global_obs':
             remote.send((env.get_global_obs()))
         elif cmd == 'get_game_type':
@@ -206,6 +208,15 @@ class SubprocVecEnv(_VecEnv):
         for remote in self.remotes:
             remote.send(('get_expert_obs', None))
         return [remote.recv() for remote in self.remotes]
+
+    def get_expert_actions(self, observations):
+        for remote, obs in zip(self.remotes, observations):
+            remote.send(('get_expert_actions', obs))
+        self.waiting = True
+
+        actions = [remote.recv() for remote in self.remotes]
+        self.waiting = False
+        return np.stack(actions)
 
     def get_global_obs(self):
         for remote in self.remotes:

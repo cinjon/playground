@@ -121,7 +121,24 @@ class ForwardModel(object):
                     ret.append(act_ex_communication(agent))
             self._update_times(
                 t.interval, "%s-%d" % (str(type(agent)), agent.agent_id))
+
         return ret
+
+    def expert_act(self, expert, obs, action_space):
+        """Returns actions for each agent in this list.
+        Args:
+          agents: A list of agent objects.
+          obs: A list of matching observations per agent.
+          action_space: The action space for the environment using this model.
+          is_communicative: Whether the action depends on communication observations as well.
+        Returns a list of actions.
+        """
+        actions = []
+        for i in range(len(obs)):
+            a = expert.act(obs[i], action_space=action_space)
+            actions.append(a)
+        return actions
+        # return expert.act(obs[0], action_space=action_space)
 
     def step(self, actions, curr_board, curr_agents, curr_bombs, curr_items,
              curr_flames):
