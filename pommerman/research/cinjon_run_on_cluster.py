@@ -36,6 +36,7 @@ abbr = {
     'num-steps-eval': 'nse',
     'use-value-loss': 'uvl',
     'num-episodes-dagger': 'ned',
+    'num-mini-batch': 'nmb'
 }
 
 def train_ppo_job(flags):
@@ -209,7 +210,7 @@ def train_dagger_job(flags):
 #     "gamma": ".995"
 # })
 
-### These are trying to have PPO learn to play with a simple agent against two other simple agents.
+### These are trying to have PPO learn to play with a simple agent against two other simple agents. None of them worked well.
 # train_ppo_job(
 #     {"num-processes": 8, "run-name": "gma995", "how-train": "simple", "num-steps": 100, "log-interval": 100,
 #      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
@@ -276,7 +277,7 @@ def train_dagger_job(flags):
 # )
 
 
-### These are trying to dagger train a PPO agent in a TeamRandom game.
+### These are trying to dagger train a PPO agent in a TeamRandom game. They are still going and might be ok. We'll see. 
 # train_dagger_job(
 #     {"num-processes": 8, "run-name": "dagg-gma99", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 25,
 #      "minibatch-size": 2000, "save-interval": 25, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
@@ -341,3 +342,60 @@ def train_dagger_job(flags):
 #      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
 #  }
 # )
+
+
+### These are ppo jobs where we "distill" the 1hot Simple Agent into the PPO Agent.
+train_ppo_job( # This job will have batch size of 800
+    {"num-processes": 8, "run-name": "gma99", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+     "config": "PommeTeamShort-v0", "gamma": ".99", "lr": 0.0003,
+     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "num-steps": 200,
+     "distill-expert": "SimpleAgent"
+    }
+)
+train_ppo_job( # This job will have batch size of 400
+    {"num-processes": 8, "run-name": "gma99", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+     "config": "PommeTeamShort-v0", "gamma": ".99", "lr": 0.0003,
+     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2,
+     "distill-expert": "SimpleAgent"
+    }
+)
+train_ppo_job( # This job will have batch size of 200
+    {"num-processes": 8, "run-name": "gma99", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+     "config": "PommeTeamShort-v0", "gamma": ".99", "lr": 0.0003,
+     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 4,
+     "distill-expert": "SimpleAgent"
+    }
+)
+train_ppo_job( # This job will have batch size of 300
+    {"num-processes": 8, "run-name": "gma99", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+     "config": "PommeTeamShort-v0", "gamma": ".99", "lr": 0.0003,
+     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 4, "num-steps": 150,
+     "distill-expert": "SimpleAgent"
+    }
+)
+train_ppo_job( # This job will have batch size of 150
+    {"num-processes": 8, "run-name": "gma99", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+     "config": "PommeTeamShort-v0", "gamma": ".99", "lr": 0.0003,
+     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "num-steps": 150,
+     "distill-expert": "SimpleAgent"
+    }
+)
+train_ppo_job( # This job will have batch size of 400
+    {"num-processes": 8, "run-name": "gma99", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+     "config": "PommeTeamShort-v0", "gamma": ".99", "lr": 0.0003,
+     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 4, "num-steps": 200,
+     "distill-expert": "SimpleAgent"
+    }
+)
