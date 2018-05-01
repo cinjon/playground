@@ -119,12 +119,16 @@ class Pomme(gym.Env):
     def make_items(self):
         self._items = utility.make_items(self._board, self._num_items)
 
-    def act(self, obs, acting_agent_ids=[]):
-        agents = [agent for agent in self._agents \
-                  if agent.agent_id not in self.training_agents]
-        # TODO: Replace this hack with something more reasonable.
-        agents = [agent for agent in agents if \
-                  agent.agent_id not in acting_agent_ids]
+    def act(self, obs, acting_agent_ids=[], ex_agent_ids=None):
+        if ex_agent_ids is not None:
+            agents = [agent for agent in self._agents \
+                      if agent.agent_id not in ex_agent_ids]
+        else:
+            agents = [agent for agent in self._agents \
+                      if agent.agent_id not in self.training_agents]
+            # TODO: Replace this hack with something more reasonable.
+            agents = [agent for agent in agents if \
+                      agent.agent_id not in acting_agent_ids]
         return self.model.act(agents, obs, self.action_space)
 
     def get_expert_actions(self, obs):

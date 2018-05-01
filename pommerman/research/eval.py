@@ -22,7 +22,9 @@ On Gpu:
 CUDA_VISIBLE_DEVICES=0 python eval.py --eval-targets ppo::/path/to/model.py \
  --num-battles-eval 200 --config PommeFFAFast-v3 --cuda-device 0 \
  --eval-opponents simple::null,simple::null,simple::null
- 
+
+On GPU, for team-simple (one agent + simple_agent vs two simple_agents) 
+CUDA_VISIBLE_DEVICES=0 python eval.py --eval-targets ppo::/path/to/model.pt --num-battles-eval 100 --eval-opponents simple::null,simple::null --eval-mode team-simple --config PommeTeamShortFast-v3 --model-str <MakeSureThisMatches> --cuda-device 0
 
 TODO: Include an example using ssh.
 """
@@ -198,13 +200,15 @@ def eval(args=None, targets=None, opponents=None):
         for position in range(4):
             print("Running Battle Position %d..." % position)
             teammate_position = (position + 2) % 4
-            training_agent_ids = [position, teammate_position]
+            teammate = pommerman.agents.SimpleAgent()
+            training_agent_ids = sorted([position, teammate_position])
+            acting_agent_ids = [position]
             num_times = args.num_battles_eval // 4
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
-            agents.insert(teammate_position, pommerman.agents.SimpleAgent())
+            agents.insert(teammate_position, teammate)
             infos = run_battles(args, num_times, agents, action_space,
-                                training_agent_ids)
+                                acting_agent_ids, training_agent_ids)
             for info in infos:
                 step_count = info['step_count']
                 if info['result'] == pommerman.constants.Result.Tie:
@@ -237,13 +241,14 @@ def eval(args=None, targets=None, opponents=None):
         one_dead = []
         for position in range(2):
             training_agent_ids = [position, position+2]
+            acting_agent_ids = list(range(4))
             print("Running Battle Position %d..." % position)
             num_times = args.num_battles_eval // 2
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
             agents.insert(position+2, targets[1])
             infos = run_battles(args, num_times, agents, action_space,
-                                training_agent_ids)
+                                acting_agent_ids, training_agent_ids)
             for info in infos:
                 step_count = info['step_count']
                 if info['result'] == pommerman.constants.Result.Tie:
@@ -284,7 +289,7 @@ def eval(args=None, targets=None, opponents=None):
             print(infos)
 
 
-def run_battles(args, num_times, agents, action_space, training_agent_ids):
+def run_battles(args, num_times, agents, action_space, acting_agent_ids, training_agent_ids):
     """Run the game a number of times.
 
     We assume here that all of the agents are using their own act function.
@@ -297,6 +302,7 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
       num_times: The number of times to run the battle.
       agents: What agents to use. If not, we will make them from the args.
       action_space: The action space for an environment. Likely Discrete(6).
+      acting_agent_ids: Which ids are the acting agents.    
       training_agent_ids: Which ids are the training_agents.
 
     Returns:
@@ -314,7 +320,7 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
 
     envs = env_helpers.make_eval_envs(
         config, args.how_train, seed, agents, training_agent_ids,
-        args.num_stack, num_processes)
+        acting_agent_ids, args.num_stack, num_processes)
 
     infos = []
     rewards = []
@@ -322,17 +328,12 @@ def run_battles(args, num_times, agents, action_space, training_agent_ids):
     st = time.time()
     obs = envs.reset()
     while len(infos) < num_times:
-        actions = [[None]*4 for _ in range(num_processes)]
-        for num_agent, agent in enumerate(agents):
-            if type(agent) == pommerman.agents.SimpleAgent:
-                agent_actions = [agent.act(o[num_agent], action_space)
-                                 for o in obs]
-            else:
-                agent_obs = [o[num_agent] for o in obs]
-                agent_actions = agent.act(agent_obs, action_space)
-
+        actions = [[None]*len(acting_agent_ids) for _ in range(num_processes)]
+        for num_action, acting_agent_id in enumerate(acting_agent_ids):
+            agent_obs = [o[num_action] for o in obs]
+            agent_actions = agents[acting_agent_id].act(agent_obs, action_space)
             for num_process in range(num_processes):
-                actions[num_process][num_agent] = agent_actions[num_process]
+                actions[num_process][num_action] = agent_actions[num_process]
                     
         obs, reward, done, info = envs.step(actions)
         if args.eval_render:

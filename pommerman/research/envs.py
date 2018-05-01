@@ -73,7 +73,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 
 
 def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
-                   num_stack):
+                   acting_agent_ids, num_stack):
 
     """Makes an environment callable for multithreading purposes.
 
@@ -96,6 +96,7 @@ def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
         env.set_training_agents(training_agent_ids)
         env.seed(seed + rank)
         env.rank = rank
+        env = WrapPommeEval(env, how_train, acting_agent_ids=acting_agent_ids)
         return env
     return _thunk
 
@@ -112,15 +113,14 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
 
 
 def make_eval_envs(config, how_train, seed, agents, training_agent_ids,
-                   num_stack, num_processes):
+                   acting_agent_ids, num_stack, num_processes):
     envs = [
         _make_eval_env(
             config=config, how_train=how_train, seed=seed, rank=rank,
             agents=agents, training_agent_ids=training_agent_ids,
-            num_stack=num_stack)
+            acting_agent_ids=acting_agent_ids, num_stack=num_stack)
         for rank in range(num_processes)
     ]
-    # return envs[0]()
     return SubprocVecEnv(envs)
 
 
@@ -132,6 +132,47 @@ def get_env_shapes(config, num_stack):
     obs_shape = (envs_shape[0], *envs_shape[1:])
     action_space = dummy_env.action_space
     return obs_shape, action_space
+
+
+class WrapPommeEval(gym.ObservationWrapper):
+    def __init__(self, env=None, how_train='simple', acting_agent_ids=None):
+        super(WrapPommeEval, self).__init__(env)
+        self._how_train = how_train
+        self._acting_agent_ids = acting_agent_ids or self.env.training_agents
+        self.render_fps = env.render_fps
+
+    def step(self, actions):
+        if self._how_train == 'simple' or self._how_train == 'dagger':
+            obs = self.env.get_observations()
+            all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
+            if type(actions) == list:
+                if len(actions) > 1:
+                    raise ValueError
+                else:
+                    actions = actions[0]
+            all_actions.insert(self.env.training_agents[0], actions)
+        elif self._how_train == 'homogenous':
+            all_actions = actions
+        elif self._how_train == 'qmix':
+            obs = self.env.get_observations()
+            all_actions = self.env.act(obs)
+            for id, action in zip(self.env.training_agents, actions):
+                all_actions.insert(id, action)
+
+        observation, reward, done, info = self.env.step(all_actions)
+        obs = self.observation(observation)
+        rew = reward
+        done = done
+        return obs, rew, done, info
+
+    def _filter(self, arr):
+        return np.array([arr[i] for i in self._acting_agent_ids])
+
+    def observation(self, observation):
+        return self._filter(observation)
+
+    def reset(self):
+        return self.observation(self.env.reset())
 
 
 class WrapPomme(gym.ObservationWrapper):
@@ -153,7 +194,8 @@ class WrapPomme(gym.ObservationWrapper):
 
     def _filter(self, arr):
         # TODO: Is arr always an np.array? If so, can do this better.
-        return np.array([arr[i] for i in self._acting_agent_ids])
+        acting_agent_ids = self._acting_agent_ids
+        return np.array([arr[i] for i in acting_agent_ids])
 
     def observation(self, observation):
         filtered = self._filter(observation)

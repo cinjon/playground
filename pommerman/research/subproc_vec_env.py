@@ -169,9 +169,9 @@ class SubprocVecEnv(_VecEnv):
         self._viewer.imshow(img)
         time.sleep(1.0 / self._render_fps)
 
-    def reset(self):
+    def reset(self, acting_agent_ids=None):
         for remote in self.remotes:
-            remote.send(('reset', None))
+            remote.send(('reset', acting_agent_ids))
         return np.stack([remote.recv() for remote in self.remotes])
 
     def step_async(self, actions):
