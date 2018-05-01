@@ -192,7 +192,10 @@ def eval(args=None, targets=None, opponents=None):
         print("\n")
         return wins, deads, ties, ranks
     elif mode == 'team-simple':
-        print('Starting Team Battles with one agent and a simple agent.')
+        if type(targets[0]) == pommerman.agents.SimpleAgent:
+            print('Starting Team Battles with two simple agents.')
+        else:
+            print('Starting Team Battles with one agent and a simple agent.')
         ties = []
         wins = []
         losses = []
@@ -201,12 +204,21 @@ def eval(args=None, targets=None, opponents=None):
             print("Running Battle Position %d..." % position)
             teammate_position = (position + 2) % 4
             teammate = pommerman.agents.SimpleAgent()
-            training_agent_ids = sorted([position, teammate_position])
-            acting_agent_ids = [position]
+            if type(targets[0]) == pommerman.agents.SimpleAgent:
+                training_agent_ids = []
+                acting_agent_ids = []
+            else:
+                training_agent_ids = sorted([position, teammate_position])
+                acting_agent_ids = [position]
+
             num_times = args.num_battles_eval // 4
             agents = [o for o in opponents]
-            agents.insert(position, targets[0])
-            agents.insert(teammate_position, teammate)
+            if position > teammate_position:
+                agents.insert(teammate_position, teammate)
+                agents.insert(position, targets[0])
+            else:
+                agents.insert(position, targets[0])
+                agents.insert(teammate_position, teammate)
             infos = run_battles(args, num_times, agents, action_space,
                                 acting_agent_ids, training_agent_ids)
             for info in infos:
@@ -328,6 +340,7 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
     st = time.time()
     obs = envs.reset()
     while len(infos) < num_times:
+        
         actions = [[None]*len(acting_agent_ids) for _ in range(num_processes)]
         for num_action, acting_agent_id in enumerate(acting_agent_ids):
             agent_obs = [o[num_action] for o in obs]

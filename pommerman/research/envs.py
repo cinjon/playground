@@ -145,12 +145,14 @@ class WrapPommeEval(gym.ObservationWrapper):
         if self._how_train == 'simple' or self._how_train == 'dagger':
             obs = self.env.get_observations()
             all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
-            if type(actions) == list:
-                if len(actions) > 1:
-                    raise ValueError
-                else:
-                    actions = actions[0]
-            all_actions.insert(self.env.training_agents[0], actions)
+            training_agents = self.env.training_agents
+            if training_agents and type(training_agents[0]) != pommerman.agents.SimpleAgent:
+                if type(actions) == list:
+                    if len(actions) > 1:
+                        raise ValueError
+                    else:
+                        actions = actions[0]
+                all_actions.insert(training_agents[0], actions)
         elif self._how_train == 'homogenous':
             all_actions = actions
         elif self._how_train == 'qmix':
