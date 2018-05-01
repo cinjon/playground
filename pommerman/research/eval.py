@@ -207,7 +207,8 @@ def eval(args=None, targets=None, opponents=None):
                     is_win = False
                     if position in winners:
                         wins.append(step_count)
-
+                        is_win = True
+                        
                     # Count the number of times that one died and not other.
                     if is_win:
                         for id_ in [position, position+2]:
