@@ -20,7 +20,9 @@ python eval.py --eval-targets ppo::/path/to/model.pt --num-battles-eval 100
 
 On Gpu:
 CUDA_VISIBLE_DEVICES=0 python eval.py --eval-targets ppo::/path/to/model.py \
- --num-battles-eval 200 --config PommeFFAFast-v3 --cuda-device 0
+ --num-battles-eval 200 --config PommeFFAFast-v3 --cuda-device 0 \
+ --eval-opponents simple::null,simple::null,simple::null
+ 
 
 TODO: Include an example using ssh.
 """
@@ -49,7 +51,7 @@ def _get_info(inp, args):
     if all([model_path, model_path != 'null',
             not os.path.exists(model_path)]):
         print("Retrieving model %s from %s..." % \
-              (model_path, ssh_address))
+              (model_path, args.ssh_address))
         model_path = utils.scp_model_from_ssh(model_path,
                                               args.ssh_address,
                                               args.ssh_password,
@@ -62,10 +64,9 @@ def _get_info(inp, args):
         return pommerman.agents.SimpleAgent, None
 
 
-def _build(info, obs_shape, action_space, cuda, cuda_device):
+def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
     agent_type, path = info
     if path:
-        model_str = args.model_str
         actor_critic = lambda state, board_size, num_channels: \
             networks.get_actor_critic(model_str)(state, obs_shape[0],
                                                  action_space, board_size,
@@ -99,6 +100,9 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
     if mode == 'ffa':
         assert(len(targets) == 1), "Exactly 1 target for ffa."
         assert(len(opponents) == 3), "Exactly 3 opponents for ffa."
+    elif mode == 'team-simple':
+        assert(len(targets) == 1), "Exactly 1 target for team-simple."
+        assert(len(opponents) == 2), "Exactly 2 opponents for team-simple."
     elif mode == 'homogenous':
         assert(len(targets) == 1), "Exactly 1 target for homogenous."
         assert(len(opponents) in [1, 2]), \
@@ -116,9 +120,11 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
         raise ValueError
 
     targets = [_build(_get_info(agent, args), obs_shape, action_space,
-                      args.cuda, args.cuda_device) for agent in targets]
+                      args.cuda, args.cuda_device, args.model_str)
+               for agent in targets]
     opponents = [_build(_get_info(agent, args), obs_shape, action_space,
-                        args.cuda, args.cuda_device) for agent in opponents]
+                        args.cuda, args.cuda_device, args.model_str)
+                 for agent in opponents]
     return targets, opponents
 
 
@@ -183,6 +189,46 @@ def eval(args=None, targets=None, opponents=None):
         print("Ties: ", ties)
         print("\n")
         return wins, deads, ties, ranks
+    elif mode == 'team-simple':
+        print('Starting Team Battles with one agent and a simple agent.')
+        ties = []
+        wins = []
+        losses = []
+        one_dead = []
+        for position in range(4):
+            print("Running Battle Position %d..." % position)
+            teammate_position = (position + 2) % 4
+            training_agent_ids = [position, teammate_position]
+            num_times = args.num_battles_eval // 4
+            agents = [o for o in opponents]
+            agents.insert(position, targets[0])
+            agents.insert(teammate_position, pommerman.agents.SimpleAgent())
+            infos = run_battles(args, num_times, agents, action_space,
+                                training_agent_ids)
+            for info in infos:
+                step_count = info['step_count']
+                if info['result'] == pommerman.constants.Result.Tie:
+                    ties.append(step_count)
+                else:
+                    winners = info['winners']
+                    is_win = False
+                    if position in winners:
+                        wins.append(step_count)
+                        is_win = True
+
+                    # Count the number of times that one died and not other.
+                    if is_win:
+                        if position not in info['alive']:
+                            one_dead.append(step_count)
+                    else:
+                        losses.append(step_count)
+
+        print("Wins: ", wins)
+        print("One Dead: ", one_dead)
+        print("Ties: ", ties)
+        print("Losses: ", losses)
+        print("\n")
+        return wins, one_dead, ties, losses
     elif mode == 'homogenous':
         print('Starting Homogenous Battles.') 
         ties = []
@@ -208,7 +254,7 @@ def eval(args=None, targets=None, opponents=None):
                     if position in winners:
                         wins.append(step_count)
                         is_win = True
-                        
+
                     # Count the number of times that one died and not other.
                     if is_win:
                         for id_ in [position, position+2]:
