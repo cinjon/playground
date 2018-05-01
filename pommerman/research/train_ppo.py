@@ -87,7 +87,6 @@ def train():
     do_distill = distill_target is not '' and \
                  distill_epochs > training_agents[0].num_epoch
     do_distill = do_distill or set_distill_kl >= 0
-    do_distill = True
     if do_distill:
         if args.distill_expert == 'DaggerAgent':
             distill_agent = utils.load_distill_agent(obs_shape, action_space, args)
