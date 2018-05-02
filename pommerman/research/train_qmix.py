@@ -61,9 +61,7 @@ def train():
 
     #####
     # Logging helpers.
-    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.seed{}".format(
-        args.run_name, how_train, config, args.model_str, args.num_channels,
-        args.lr, args.num_mini_batch, args.num_steps, args.seed)
+    suffix = args.run_name
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -241,12 +239,9 @@ def train():
             writer.add_scalar('std_value_loss', std_value_loss, num_epoch)
             writer.add_scalar('steps_per_sec', steps_per_sec, num_epoch)
 
-            print('Num Episodes: {}, Running Num Episodes: {}, Running Mean Episode Length: {}'
-                  'Team Win Rate: {}%, Tie Rate: {}%, Mean Value Loss: {}, Std Value Loss: {} [{} steps/s]'.format(
-                    num_episodes, running_num_episodes, running_mean_episode_length,
-                    (running_team_wins * 100.0 / running_num_episodes),
-                    (running_team_ties * 100.0 / running_num_episodes),
-                    mean_value_loss, std_value_loss, steps_per_sec))
+            # Partial Stats
+            print('[{} steps/s] Num Episodes: {}, Running Team Win Rate: {}%, Mean Running Loss: {}'.format(
+                  steps_per_sec, num_episodes, (running_team_wins * 100.0 / running_num_episodes), mean_value_loss))
 
             running_num_episodes = 0
             running_mean_episode_length = 0
