@@ -40,6 +40,7 @@ import ppo_agent
 import utils
 from torch.autograd import Variable
 
+import pommerman.constants as constants
 
 def train():
     args = get_args()
@@ -76,10 +77,10 @@ def train():
                                        args.game_state_file, training_agents,
                                        num_stack, num_processes)
 
-    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.clip{}.valc{}.seed{}".format(
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.gam{}.gae{}.seed{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,
-        args.lr, args.num_mini_batch, args.num_steps, args.clip_param,
-        args.value_loss_coef, args.seed)
+        args.lr, args.num_mini_batch, args.num_steps, args.gamma, args.use_gae,
+        args.seed)
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
@@ -88,6 +89,7 @@ def train():
                  distill_epochs > training_agents[0].num_epoch) or \
                  args.distill_expert == 'SimpleAgent'
     do_distill = do_distill or set_distill_kl >= 0
+
     if do_distill:
         if args.distill_expert == 'DaggerAgent':
             distill_agent = utils.load_distill_agent(obs_shape, action_space, args)
@@ -99,7 +101,7 @@ def train():
             if set_distill_kl >= 0:
                 suffix += ".dstl{}.dstlkl{}".format(args.distill_expert, set_distill_kl)
             else:
-                suffix += ".dstl{}.dstlepi{}".format(args.distill_expert, distill_epochs)
+                suffix += ".dstl{}.dstlep{}".format(args.distill_expert, distill_epochs)
 
             # TODO: Should we not run this against the distill_agent as the first
             # opponent? The problem is that the distill_agent will just stall.
@@ -111,7 +113,7 @@ def train():
             if set_distill_kl >= 0:
                 suffix += ".dstl{}.dstlkl{}".format(args.distill_expert, set_distill_kl)
             else:
-                suffix += ".dstl{}.dstlepi{}".format(args.distill_expert, distill_epochs)
+                suffix += ".dstl{}.dstlep{}".format(args.distill_expert, distill_epochs)
         else:
             raise ValueError("We only support distilling from \
                 DaggerAgent or SimpleAgent \n")
@@ -158,6 +160,16 @@ def train():
         states_agents.append(states)
         action_log_prob_distr.append(log_probs)
         return action.data.squeeze(1).cpu().numpy()
+
+    def get_game_ended(info):
+        ended_list = []
+        for inf in info:
+            result = inf.get('result', {})
+            if result == constants.Result.Incomplete:
+                ended_list.append(False)
+            else:
+                ended_list.append(True)
+        return ended_list
 
     def update_stats(info):
         # NOTE: This func has a side effect where it sets variable values.
@@ -311,8 +323,8 @@ def train():
             with utility.Timer() as t:
                 obs, reward, done, info = envs.step(cpu_actions_agents)
             reward = reward.astype(np.float)
-
             update_stats(info)
+            ended = get_game_ended(info)
 
             if args.render:
                 envs.render()
@@ -334,14 +346,31 @@ def train():
                 # the game resets, the observations do as well, so we won't
                 # have an issue with the frames overlapping. this means that we
                 # shouldn't be using the masking on the current_obs.
+
+                # training agent died and game ended
+                # finished = [[done_[0] & ended_]
+                #             for done_, ended_ in zip(done, ended)]
+                # NOTE: this mask is for the game: 1 if finished -
+                # i.e. if the training agent is dead and the game ended
+                # (both agents in any of the teams died or there is
+                # at most one agent alive) --
+                # used to get discounted rewards for the training agent
+                # if it dies first but wins as a team
                 masks = torch.FloatTensor([
+                    [0.0]*num_training_per_episode if ended_ \
+                    else [1.0]*num_training_per_episode
+                for ended_ in ended])
+
+                # NOTE: masks_kl is 1 if the agent died
+                # (game might still be going) to use for the kl
+                masks_kl = torch.FloatTensor([
                     [0.0]*num_training_per_episode if done_ \
                     else [1.0]*num_training_per_episode
                 for done_ in done])
+
             elif how_train == 'homogenous':
                 running_num_episodes += sum([int(done_.all())
                                              for done_ in done])
-
                 # NOTE: The masking for homogenous should be such that:
                 # 1. If the agent is alive, then it follows the same process as
                 # in `simple`. This means that it's 1.0.
@@ -417,6 +446,8 @@ def train():
 
             value_all = utils.torch_numpy_stack(value_agents)
 
+            action_log_prob_distr *= masks_kl
+            dagger_prob_distr *= masks_kl
             if how_train == 'simple' or how_train == 'homogenous':
                 training_agents[0].insert_rollouts(
                     step, current_obs, states_all, action_all,
