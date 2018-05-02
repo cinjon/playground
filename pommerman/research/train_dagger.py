@@ -63,7 +63,7 @@ def train():
 
     #####
     # Logging helpers.
-    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ne{}.prob{}.nopt{}.seed{}.pt" \
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ned{}.prob{}.nopt{}.seed{}.pt" \
              .format(args.run_name, args.how_train, config, args.model_str,
                      args.num_channels, args.lr, args.minibatch_size,
                      args.num_episodes_dagger, args.expert_prob,
