@@ -73,6 +73,9 @@ def get_args():
                         SimpleAgent/DaggerAgent')
     parser.add_argument('--use-lr-scheduler', default=False, action='store_true',
                         help='whether to use the pytorch ReduceLROnPlateau')
+    parser.add_argument('--half-lr-epochs', default=0, type=int,
+                        help='after how many epochs to halve the learning rate. '
+                        'if 0, this never halves the learning rate.')
     parser.add_argument('--suffix', type=str, default='', 
                         help='added suffix for the model to use.')
 

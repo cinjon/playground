@@ -90,7 +90,13 @@ class PPOAgent(ResearchAgent):
         self._optimizer.step()
         if hasattr(self, '_scheduler'):
             self._scheduler.step(loss)
-            
+
+    def halve_lr(self):
+        for i, param_group in enumerate(self._optimizer.param_groups):
+            old_lr = float(param_group['lr'])
+            new_lr = max(old_lr * 0.5, 1e-7)
+            param_group['lr'] = new_lr
+                    
     def compute_advantages(self, next_value_agents, use_gae, gamma, tau):
         for num_agent, next_value in enumerate(next_value_agents):
             self._rollout.compute_returns(next_value, use_gae, gamma, tau,
@@ -180,7 +186,7 @@ class PPOAgent(ResearchAgent):
             self._optimize(value_loss, action_loss, dist_entropy,
                            entropy_coef, value_loss_coef, max_grad_norm,
                            kl_loss, kl_factor)
-            lr = self.optimizer.param_groups[0]['lr']
+            lr = self._optimizer.param_groups[0]['lr']
 
             action_losses.append(action_loss.data[0])
             value_losses.append(value_loss.data[0])

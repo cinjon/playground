@@ -77,10 +77,15 @@ def train():
                                        args.game_state_file, training_agents,
                                        num_stack, num_processes)
 
-    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.gam{}.gae{}.seed{}.uselrs{}".format(
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.gam{}.seed{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,
-        args.lr, args.num_mini_batch, args.num_steps, args.gamma, args.use_gae,
-        args.seed, args.use_lr_scheduler)
+        args.lr, args.num_mini_batch, args.num_steps, args.gamma, args.seed)
+    if args.use_gae:
+        suffix += ".gae"
+    if args.half_lr_epochs:
+        suffix += ".halflr"
+    if args.use_lr_scheduler:
+        suffix += ".ulrs"
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
@@ -489,6 +494,8 @@ def train():
                 final_total_losses[num_agent].extend(total_losses)
 
             agent.after_epoch()
+            if args.half_lr_epochs > 0 and num_epoch > 0 and int(args.half_lr_epochs) % num_epoch == 0:
+                agent.halve_lr()
 
         total_steps += num_processes * num_steps
 

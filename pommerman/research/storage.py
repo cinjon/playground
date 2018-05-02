@@ -119,13 +119,11 @@ class RolloutStorage(object):
             num_steps, num_total, 1])
         masks = self.masks.view([num_steps+1, num_total, 1])
 
-        dagger_probs_distr_batch = None
-        action_log_probs_distr_batch = None
         if kl_factor > 0:
             distr_shape = self.dagger_probs_distr.shape[3:]
-            dagger_probs_distr_batch = self.dagger_probs_distr.view(
+            dagger_probs_distr = self.dagger_probs_distr.view(
                 [num_steps, num_total, *distr_shape])
-            action_log_probs_distr_batch = self.action_log_probs_distr.view(
+            action_log_probs_distr = self.action_log_probs_distr.view(
                 [num_steps, num_total, *distr_shape])
 
         for indices in sampler:
@@ -158,14 +156,17 @@ class RolloutStorage(object):
 
             if kl_factor > 0:
                 # TODO: Change the hard-coded 6.
-                dagger_probs_distr_batch = dagger_probs_distr_batch \
+                dagger_probs_distr_batch = dagger_probs_distr \
                                            .contiguous() \
                                            .view((num_steps*num_total), 6)
                 dagger_probs_distr_batch = dagger_probs_distr_batch[indices]
-                action_log_probs_distr_batch = action_log_probs_distr_batch \
+                action_log_probs_distr_batch = action_log_probs_distr \
                                                .contiguous() \
                                                .view((num_steps*num_total), 6)
                 action_log_probs_distr_batch = action_log_probs_distr_batch[indices]
+            else:
+                dagger_probs_distr_batch = None
+                action_log_probs_distr_batch = None
 
             yield observations_batch, states_batch, actions_batch, \
                 return_batch, masks_batch, old_action_log_probs_batch, \
