@@ -77,10 +77,10 @@ def train():
                                        args.game_state_file, training_agents,
                                        num_stack, num_processes)
 
-    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.gam{}.gae{}.seed{}".format(
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.gam{}.gae{}.seed{}.uselrs{}".format(
         args.run_name, how_train, config, args.model_str, args.num_channels,
         args.lr, args.num_mini_batch, args.num_steps, args.gamma, args.use_gae,
-        args.seed)
+        args.seed, args.use_lr_scheduler)
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
@@ -479,7 +479,7 @@ def train():
                                        args.max_grad_norm,
                                        kl_factor=distill_factor)
                 action_losses, value_losses, dist_entropies, \
-                    kl_losses, total_losses = result
+                    kl_losses, total_losses, lr = result
 
                 final_action_losses[num_agent].extend(action_losses)
                 final_value_losses[num_agent].extend(value_losses)
@@ -541,7 +541,7 @@ def train():
                             guy.cuda()
                         bad_guys.append(guy)
 
-            if do_distill:
+            if do_distill and len(final_kl_losses):
                 mean_kl_loss = np.mean([
                     kl_loss for kl_loss in final_kl_losses])
                 std_kl_loss = np.std([
@@ -566,7 +566,7 @@ def train():
                                      count_stats, array_stats,
                                      cumulative_reward, terminal_reward,
                                      success_rate, running_num_episodes,
-                                     mean_total_loss, mean_kl_loss)
+                                     mean_total_loss, mean_kl_loss, lr)
 
             # Reset stats so that plots are per the last log_interval.
             final_action_losses = [[] for agent in range(len(training_agents))]

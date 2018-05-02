@@ -218,7 +218,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        std_dist_entropy, std_value_loss, stmd_action_loss,
                        count_stats, array_stats, cumulative_reward,
                        terminal_reward, success_rate, running_num_episodes,
-                       mean_total_loss, mean_kl_loss=None):
+                       mean_total_loss, mean_kl_loss=None, lr=None):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -265,11 +265,11 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
         writer.add_scalar(title, 1.0 * count / running_num_episodes,
                           total_steps)
 
-    writer.add_scalars('bomb_distances_step', {
-        key.split(':')[1]: 1.0 * count / running_num_episodes
-        for key, count in count_stats.items() \
-        if key.startswith('bomb:')
-    }, total_steps)
+    # writer.add_scalars('bomb_distances_step', {
+    #     key.split(':')[1]: 1.0 * count / running_num_episodes
+    #     for key, count in count_stats.items() \
+    #     if key.startswith('bomb:')
+    # }, total_steps)
 
     if array_stats.get('rank'):
         writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
@@ -326,6 +326,9 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
             num_episodes)
 
     # x-axis: # epochs / updates
+    if lr is not None:
+        writer.add_scalar('learning_rate', lr, num_epoch)        
+
     writer.add_scalar('entropy_epoch', mean_dist_entropy, num_epoch)
     writer.add_scalar('action_loss_epoch', mean_action_loss, num_epoch)
     writer.add_scalar('value_loss_epoch', mean_value_loss, num_epoch)

@@ -71,6 +71,10 @@ def get_args():
     parser.add_argument('--distill-expert', type=str, default='SimpleAgent',
                         help='expert to use for distillation: \
                         SimpleAgent/DaggerAgent')
+    parser.add_argument('--use-lr-scheduler', default=False, action='store_true',
+                        help='whether to use the pytorch ReduceLROnPlateau')
+    parser.add_argument('--suffix', type=str, default='', 
+                        help='added suffix for the model to use.')
 
 
     # specific to Pommerman

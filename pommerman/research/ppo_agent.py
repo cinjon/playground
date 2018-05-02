@@ -88,7 +88,9 @@ class PPOAgent(ResearchAgent):
         loss.backward()
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
         self._optimizer.step()
-
+        if hasattr(self, '_scheduler'):
+            self._scheduler.step(loss)
+            
     def compute_advantages(self, next_value_agents, use_gae, gamma, tau):
         for num_agent, next_value in enumerate(next_value_agents):
             self._rollout.compute_returns(next_value, use_gae, gamma, tau,
@@ -105,6 +107,10 @@ class PPOAgent(ResearchAgent):
         self._optimizer = optim.Adam(params, lr=args.lr, eps=args.eps)
         if optimizer_state_dict:
             self._optimizer.load_state_dict(optimizer_state_dict)
+        if args.use_lr_scheduler:
+            self._scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                self._optimizer, mode='min', verbose=True)
+
         self._rollout = RolloutStorage(
             args.num_steps, args.num_processes, obs_shape, action_space,
             self._actor_critic.state_size, num_training_per_episode
@@ -174,6 +180,7 @@ class PPOAgent(ResearchAgent):
             self._optimize(value_loss, action_loss, dist_entropy,
                            entropy_coef, value_loss_coef, max_grad_norm,
                            kl_loss, kl_factor)
+            lr = self.optimizer.param_groups[0]['lr']
 
             action_losses.append(action_loss.data[0])
             value_losses.append(value_loss.data[0])
@@ -182,8 +189,8 @@ class PPOAgent(ResearchAgent):
                 kl_losses.append(kl_loss.data[0])
             total_losses.append(total_loss.data[0])
 
-            return action_losses, value_losses, dist_entropies, \
-                    kl_losses, total_losses
+        return action_losses, value_losses, dist_entropies, \
+            kl_losses, total_losses, lr
 
     def copy_ex_model(self):
         """Creates a copy without the model. This is for operating with homogenous training."""
