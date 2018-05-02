@@ -98,6 +98,9 @@ def train():
         ]
         return history_init
 
+    def init_action_histogram():
+        return [[] for _ in range(num_agents)]
+
     ##
     # Each history is Python list is of length num_processes. This is a list because not all
     # episodes are of the same length and we don't want information of an episode
@@ -115,6 +118,7 @@ def train():
     running_team_ties = 0
     running_num_episodes = 0
     running_mean_episode_length = 0
+    action_histogram = [init_action_histogram() for _ in range(num_processes)]
     value_losses = []
 
     def compute_q_loss(global_state, state, reward, next_global_state, next_state):
@@ -195,8 +199,12 @@ def train():
 
                 total_steps += 1
 
+                for j in range(num_agents):
+                    action_histogram[i][j].append(training_agent_actions[i][j])
+
                 if info[i]['result'] != pommerman.constants.Result.Incomplete:
                     # Update stats
+                    num_episodes += 1
                     running_num_episodes += 1
                     running_mean_episode_length = running_mean_episode_length + \
                                                   (history[i][0].size(0) - running_mean_episode_length) / running_num_episodes
@@ -208,6 +216,15 @@ def train():
                     # Flush completed episode into buffer and clear current episode's history for next episode
                     episode_buffer.append(history[i])
                     history[i] = init_history_instance()
+
+                    # Store histograms and flush for next episode
+                    for j in range(num_agents):
+                        writer.add_histogram(
+                            'agent {} actions'.format(j),
+                            np.array(action_histogram[i][j]),
+                            num_episodes
+                        )
+                    action_histogram[i] = init_action_histogram()
 
                     gradient_steps += run_dqn()
                     if gradient_steps % args.target_update_steps == 0:
@@ -223,25 +240,23 @@ def train():
         if running_num_episodes:
             end = time.time()
 
-            num_episodes += running_num_episodes
-
             steps_per_sec = 1.0 * total_steps / (end - start)
 
             mean_value_loss = np.mean(value_losses).item()
             std_value_loss = np.std(value_losses).item()
 
-            writer.add_scalar('num_episodes', num_episodes, num_epoch)
-            writer.add_scalar('running_num_episodes', running_num_episodes , num_epoch)
-            writer.add_scalar('running_mean_episode_length', running_mean_episode_length, num_epoch)
-            writer.add_scalar('win_rate', (running_team_wins * 100.0 / running_num_episodes), num_epoch)
-            writer.add_scalar('tie_rate', (running_team_ties * 100.0 / running_num_episodes), num_epoch)
-            writer.add_scalar('mean_value_loss', mean_value_loss, num_epoch)
-            writer.add_scalar('std_value_loss', std_value_loss, num_epoch)
-            writer.add_scalar('steps_per_sec', steps_per_sec, num_epoch)
+            writer.add_scalar('num episodes', num_episodes, num_epoch)
+            writer.add_scalar('running num episodes', running_num_episodes , num_epoch)
+            writer.add_scalar('mean episode length', running_mean_episode_length, num_epoch)
+            writer.add_scalar('win rate', running_team_wins / running_num_episodes, num_epoch)
+            writer.add_scalar('tie rate', running_team_ties / running_num_episodes, num_epoch)
+            writer.add_scalar('mean value loss', mean_value_loss, num_epoch)
+            writer.add_scalar('std value loss', std_value_loss, num_epoch)
+            writer.add_scalar('steps/s', steps_per_sec, num_epoch)
 
             # Partial Stats
-            print('[{} steps/s] Num Episodes: {}, Running Team Win Rate: {}%, Mean Running Loss: {}'.format(
-                  steps_per_sec, num_episodes, (running_team_wins * 100.0 / running_num_episodes), mean_value_loss))
+            print('[{} steps/s] Num Episodes: {}, Running Team Win Rate: {}, Mean Running Loss: {}'.format(
+                  steps_per_sec, num_episodes, running_team_wins / running_num_episodes, mean_value_loss))
 
             running_num_episodes = 0
             running_mean_episode_length = 0
