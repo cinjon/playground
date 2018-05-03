@@ -126,6 +126,10 @@ def train():
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
+        epoch_start_time = time.time()
+        if num_epoch > 0:
+            print("Avg Epoch Time: %.3f (%d)" % ((epoch_start_time - start)*1.0/num_epoch, num_epoch))
+
         if args.anneal_expert_prob:
             expert_prob = args.expert_prob - num_epoch * args.anneal_factor
         else:
@@ -308,8 +312,9 @@ def train():
         # Eval the current policy
         ######
         # TODO: make eval deterministic
-        if num_epoch % args.log_interval == 0:
+        if num_epoch % args.log_interval == 0 and (num_epoch == 0 or num_epoch > 249):
             agent.set_eval()
+            eval_time = time.time()
             eval_envs = env_helpers.make_train_envs(
                 config, 'simple', args.seed, args.game_state_file,
                 training_agents, num_stack, num_processes)
@@ -363,7 +368,8 @@ def train():
                 if args.render:
                     eval_envs.render()
 
-            
+            print("Eval Time: ", time.time() - eval_time)
+
             cumulative_reward = 1.0 * cumulative_reward / running_num_episodes
             terminal_reward = 1.0 * terminal_reward / running_num_episodes
             success_rate = 1.0 * success_rate / running_num_episodes
