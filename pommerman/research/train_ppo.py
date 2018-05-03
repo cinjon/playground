@@ -494,7 +494,7 @@ def train():
                 final_total_losses[num_agent].extend(total_losses)
 
             agent.after_epoch()
-            if args.half_lr_epochs > 0 and num_epoch > 0 and int(args.half_lr_epochs) % num_epoch == 0:
+            if args.half_lr_epochs > 0 and num_epoch > 0 and num_epoch % args.half_lr_epochs == 0:
                 agent.halve_lr()
 
         total_steps += num_processes * num_steps
