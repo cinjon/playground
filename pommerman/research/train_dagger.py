@@ -51,7 +51,8 @@ def train():
 
     how_train, config, num_agents, num_stack, num_steps, num_processes, \
         num_epochs, reward_sharing = utils.get_train_vars(args)
-    dagger_num_processes = 1
+    assert(num_processes % 4 == 0), "Num Processes should be a multiple of " \
+        "four so that the distribution of positions is even."
 
     obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
     num_training_per_episode = utils.validate_how_train(how_train, num_agents)
@@ -87,7 +88,6 @@ def train():
     aggregate_expert_actions = []
     aggregate_returns = []
     cross_entropy_loss = torch.nn.CrossEntropyLoss()
-    expert = SimpleAgent()
 
     dummy_states = torch.zeros(1,1)
     dummy_masks = torch.zeros(1,1)
@@ -97,16 +97,11 @@ def train():
 
     envs = env_helpers.make_train_envs(config, how_train, args.seed,
                                        args.game_state_file, training_agents,
-                                       num_stack, dagger_num_processes)
+                                       num_stack, num_processes)
 
-    agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
+    agent_obs = torch.from_numpy(envs.reset()).float().squeeze(1)
     if args.cuda:
         agent_obs = agent_obs.cuda()
-
-    eval_how_train = 'simple'
-    eval_envs = env_helpers.make_train_envs(
-        config, eval_how_train, args.seed, args.game_state_file,
-        training_agents, num_stack, num_processes)
 
     dummy_states_eval = torch.zeros(num_processes, 1)
     dummy_masks_eval = torch.zeros(num_processes, 1)
@@ -137,51 +132,51 @@ def train():
             expert_prob = args.expert_prob
 
         agent.set_eval()
-        agent_states_list = []
-        expert_actions_list = []
-        returns_list = []
+        agent_states_list = [[] for _ in range(num_processes)]
+        expert_actions_list = [[] for _ in range(num_processes)]
+        returns_list = [[] for _ in range(num_processes)]
 
         ########
         # Collect data using DAGGER
         ########
         count_episodes = 0
-        current_ep_len = 0
+        current_ep_len = [0 for _ in range(num_processes)]
         while count_episodes < args.num_episodes_dagger:
 
             expert_obs = envs.get_expert_obs()
-            expert_obs = expert_obs[0][0]
+            expert_actions = envs.get_expert_actions(expert_obs)
 
-            expert_action = expert.act(expert_obs, action_space=action_space)
-            expert_action_tensor = torch.LongTensor(1)
-            expert_action_tensor[0] = expert_action
-
-            agent_states_list.append(agent_obs.squeeze(0))
-            expert_actions_list.append(expert_action_tensor)
+            for num_process in range(num_processes):
+                agent_states_list[num_process].append(agent_obs[num_process])
+                expert_actions_list[num_process].append(expert_actions[num_process])
+                # expert_actions_list.append(expert_action_tensor)
 
             if random.random() <= expert_prob:
-                list_expert_action = []
-                list_expert_action.append(expert_action)
-                arr_expert_action = np.array(list_expert_action)
-                obs, reward, done, info = envs.step(arr_expert_action)
-                expert_act_arr.append(expert_action)
+                env_actions = expert_actions
+                expert_act_arr.append(expert_actions)
             else:
                 result = agent.act_on_data(
                     Variable(agent_obs, volatile=True),
                     Variable(dummy_states, volatile=True),
                     Variable(dummy_masks, volatile=True))
                 _, action, _, _, _, _ = result
-                cpu_actions = action.data.squeeze(1).cpu().numpy()
-                cpu_actions_agents = cpu_actions
-                obs, reward, done, info = envs.step(cpu_actions_agents)
-                agent_act_arr.append(cpu_actions_agents)
+                env_actions = action.data.squeeze(1).cpu().numpy()
+                agent_act_arr.append(env_actions)
                 del result  # for reducing memory usage
 
-            returns_list.append(float(reward[0][0]))
+            obs, reward, done, info = envs.step(env_actions)
 
-            agent_obs = torch.from_numpy(obs).float().squeeze(0)
-            current_ep_len += 1
+            agent_obs = torch.from_numpy(obs).float().squeeze(1)
+            if args.cuda:
+                agent_obs = agent_obs.cuda()
 
-            if done[0][0]: 
+            for num_process, done_ in enumerate(done):
+                returns_list[num_process].append(float(reward[num_process][0]))
+
+                if not done_[0]:
+                    current_ep_len[num_process] += 1
+                    continue
+
                 # NOTE: In a FFA game, at this point it's over for the agent so
                 # we call it. However, in a team game, it may not be over yet.
                 # That depends on if the returned Result is Incomplete. We
@@ -189,27 +184,20 @@ def train():
                 # could also change it so that the agent keeps going a la the
                 # other setups. However, that's not really the point here and
                 # so we keep it simple and give it zero reward.
-
                 count_episodes += 1
                 
-                total_data_len = len(returns_list)
-                start_current_ep = total_data_len - current_ep_len - 1
+                total_data_len = len(returns_list[num_process])
+                start_current_ep = total_data_len - current_ep_len[num_process] - 1
                 for step in range(total_data_len - 2, start_current_ep, -1):
-                    next_return = returns_list[step+1]
-                    returns_list[step] += float(next_return * args.gamma)
+                    next_return = returns_list[num_process][step+1]
+                    future_value = float(next_return * args.gamma)
+                    returns_list[num_process][step] += future_value
 
-                # instantiate new environment
-                envs.close()
-                envs = env_helpers.make_train_envs(
-                    config, how_train, args.seed, args.game_state_file,
-                    training_agents, num_stack, dagger_num_processes)
-                agent_obs = torch.from_numpy(envs.reset()).float().squeeze(0)
-                current_ep_len = 0
-
-            if args.cuda:
-                agent_obs = agent_obs.cuda()
+                current_ep_len[num_process] = 0
 
         if num_epoch % args.log_interval == 0:
+            agent_act_arr = utils.flatten(agent_act_arr)
+            expert_act_arr = utils.flatten(expert_act_arr)
             if len(agent_act_arr) > 0:
                 agent_mean_act_prob = [
                     len([i for i in agent_act_arr if i == k]) * \
@@ -237,6 +225,10 @@ def train():
         # Train using DAGGER (with supervision from the expert)
         #########
         agent.set_train()
+
+        agent_states_list = utils.flatten(agent_states_list)
+        expert_actions_list = utils.flatten(expert_actions_list)
+        returns_list = utils.flatten(returns_list)
 
         if len(aggregate_agent_states) >= 50000:
             indices_replace = np.arange(0, len(aggregate_agent_states)) \
@@ -274,8 +266,7 @@ def train():
                                     for k in indices_minibatch]
 
                 agent_states_minibatch = torch.stack(agent_states_minibatch, 0)
-                expert_actions_minibatch = torch.stack(
-                    expert_actions_minibatch, 0)
+                expert_actions_minibatch = torch.from_numpy(np.array(expert_actions_minibatch).squeeze(1))
                 returns_minibatch = torch.FloatTensor(returns_minibatch) \
                                     .unsqueeze(1)
 
@@ -289,8 +280,8 @@ def train():
                     Variable(dummy_states).detach(),
                     Variable(dummy_masks).detach())
                 action_loss = cross_entropy_loss(
-                    action_scores, Variable(
-                        expert_actions_minibatch.squeeze(1)))
+                    action_scores, Variable(expert_actions_minibatch))
+                        
 
                 value_loss = (Variable(returns_minibatch) - values) \
                                 .pow(2).mean()
@@ -317,9 +308,13 @@ def train():
         # Eval the current policy
         ######
         # TODO: make eval deterministic
-        agent.set_eval()
         if num_epoch % args.log_interval == 0:
-            dagger_obs = torch.from_numpy(eval_envs.reset())\
+            agent.set_eval()
+            eval_envs = env_helpers.make_train_envs(
+                config, 'simple', args.seed, args.game_state_file,
+                training_agents, num_stack, num_processes)
+
+            dagger_obs = torch.from_numpy(eval_envs.reset()) \
                               .float().squeeze(0).squeeze(1)
             if args.cuda:
                 dagger_obs = dagger_obs.cuda()
@@ -368,7 +363,7 @@ def train():
                 if args.render:
                     eval_envs.render()
 
-
+            
             cumulative_reward = 1.0 * cumulative_reward / running_num_episodes
             terminal_reward = 1.0 * terminal_reward / running_num_episodes
             success_rate = 1.0 * success_rate / running_num_episodes
@@ -394,6 +389,8 @@ def train():
             cumulative_reward = 0
             terminal_reward = 0
             success_rate = 0
+
+            eval_envs.close()
 
     writer.close()
 

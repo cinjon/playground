@@ -34,7 +34,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         if how_train == 'dummy':
             agents = [pommerman.agents.SimpleAgent() for _ in range(4)]
             training_agent_ids = []
-        elif how_train == 'simple':
+        elif how_train == 'simple' or how_train == 'dagger':
             training_agent_ids = [rank % 4]
             agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
             agents.insert(training_agent_ids[0], training_agents[0])
@@ -45,10 +45,6 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             training_agent_ids = list(range(4))
             agents = [training_agents[0].copy_ex_model()
                       for agent_id in training_agent_ids]
-        elif how_train == 'dagger':
-            training_agent_ids = [random.randint(0, 3)]
-            agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
-            agents.insert(training_agent_ids[0], training_agents[0])
         elif how_train == 'qmix':
             # randomly pick team [0,2] or [1,3]
             training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)]

@@ -243,7 +243,7 @@ def eval(args=None, targets=None, opponents=None):
         print("One Dead: ", one_dead)
         print("Ties: ", ties)
         print("Losses: ", losses)
-        print("Number of ties: %d / %d", len(ties), len(wins + ties + losses))
+        print("Len Ties: %d / %d" % (len(ties), len(wins + ties + losses)))
         print("Mean Game Length: ", np.mean(wins + ties + losses))
         print("\n")
         return wins, one_dead, ties, losses

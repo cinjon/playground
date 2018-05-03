@@ -405,3 +405,7 @@ def torch_load(path, cuda, cuda_device):
                           loc: storage.cuda(cuda_device))
     else:
         return torch.load(path, map_location=lambda storage, loc: storage)
+
+
+def flatten(lst):
+    return [item for sublist in lst for item in sublist]
