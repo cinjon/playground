@@ -296,8 +296,8 @@ def train():
                                 .pow(2).mean()
 
                 agent.optimize(action_loss, value_loss, args.max_grad_norm, \
-                                use_value_loss=args.use_value_loss,
-                                stop_grads_value=args.stop_grads_value)
+                               use_value_loss=args.use_value_loss,
+                               stop_grads_value=args.stop_grads_value)
 
                 if j == args.dagger_epoch - 1:
                     action_losses.append(action_loss.data[0])
