@@ -395,10 +395,6 @@ def train():
             terminal_reward = 0
             success_rate = 0
 
-        if success_rate >= 0.25: # stop early if performance is >> SimpleAgent.
-            print("STOPPING EARLY :) --> ", success_rate)
-            break
-
     writer.close()
 
 if __name__ == "__main__":
