@@ -83,7 +83,7 @@ def train():
     if args.use_gae:
         suffix += ".gae"
     if args.half_lr_epochs:
-        suffix += ".halflr"
+        suffix += ".halflr%d" % args.half_lr_epochs
     if args.use_lr_scheduler:
         suffix += ".ulrs"
 

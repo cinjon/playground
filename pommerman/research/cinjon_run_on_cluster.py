@@ -38,8 +38,8 @@ abbr = {
     'num-episodes-dagger': 'ned',
     'num-mini-batch': 'nmb',
     'use-lr-scheduler': 'ulrs',
-    'half-lr-epochs': 'hlre'
-    'use-gae': 'gae'
+    'half-lr-epochs': 'hlre',
+    'use-gae': 'gae',
 }
 
 def train_ppo_job(flags, jobname=None):
