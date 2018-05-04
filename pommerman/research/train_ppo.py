@@ -517,14 +517,15 @@ def train():
                     action_log_prob_distr)
                 if args.cuda:
                     dagger_prob_distr.cuda()
+
+                action_log_prob_distr *= masks_kl
+                dagger_prob_distr *= masks_kl
             else:
                 dagger_prob_distr = None
                 action_log_prob_distr = None
 
             value_all = utils.torch_numpy_stack(value_agents)
 
-            action_log_prob_distr *= masks_kl
-            dagger_prob_distr *= masks_kl
             if how_train == 'simple' or how_train == 'homogenous':
                 training_agents[0].insert_rollouts(
                     step, current_obs, states_all, action_all,
