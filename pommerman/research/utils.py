@@ -218,7 +218,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        std_dist_entropy, std_value_loss, stmd_action_loss,
                        count_stats, array_stats, cumulative_reward,
                        terminal_reward, success_rate, running_num_episodes,
-                       mean_total_loss, mean_kl_loss=None, lr=None):
+                       mean_total_loss, mean_kl_loss=None, lr=None,
+                       kl_factor=None):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -334,6 +335,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     writer.add_scalar('value_loss_epoch', mean_value_loss, num_epoch)
     if mean_kl_loss:
         writer.add_scalar('kl_loss_epoch', mean_kl_loss, num_epoch)
+    if kl_factor is not None:
+        writer.add_scalar('kl_factor_epoch', kl_factor, num_epoch)
     writer.add_scalar('total_loss_epoch', mean_total_loss, num_epoch)
 
     writer.add_scalar('final_reward_epoch', final_rewards.mean(), num_epoch)

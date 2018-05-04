@@ -90,6 +90,7 @@ def train():
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
     distill_epochs = args.distill_epochs
+    init_kl_factor = args.init_kl_factor
     do_distill = (distill_target is not '' and \
                  distill_epochs > training_agents[0].num_epoch) or \
                  args.distill_expert == 'SimpleAgent'
@@ -104,9 +105,11 @@ def train():
             distill_agent.init_agent(0, envs.get_game_type())
             distill_type = distill_target.split('::')[0]
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}".format(args.distill_expert, set_distill_kl)
+                suffix += ".dstl{}.dstlkl{}.ikl{}".format(
+                    args.distill_expert, set_distill_kl, init_kl_factor)
             else:
-                suffix += ".dstl{}.dstlep{}".format(args.distill_expert, distill_epochs)
+                suffix += ".dstl{}.dstlep{}.ikl{}".format(
+                    args.distill_expert, distill_epochs, init_kl_factor)
 
             # TODO: Should we not run this against the distill_agent as the first
             # opponent? The problem is that the distill_agent will just stall.
@@ -116,9 +119,11 @@ def train():
                 bad_guys = [distill_agent, distill_agent2]
         elif args.distill_expert == 'SimpleAgent':
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}".format(args.distill_expert, set_distill_kl)
+                suffix += ".dstl{}.dstlkl{}.ikl{}".format(
+                    args.distill_expert, set_distill_kl, init_kl_factor)
             else:
-                suffix += ".dstl{}.dstlep{}".format(args.distill_expert, distill_epochs)
+                suffix += ".dstl{}.dstlep{}.ikl{}".format(
+                    args.distill_expert, distill_epochs, init_kl_factor)
         else:
             raise ValueError("We only support distilling from \
                 DaggerAgent or SimpleAgent \n")
@@ -248,7 +253,7 @@ def train():
             if args.set_distill_kl >= 0:
                 distill_factor = args.set_distill_kl
             else:
-                distill_factor = distill_epochs - num_epoch
+                distill_factor = (distill_epochs - num_epoch) * init_kl_factor
                 distill_factor = 1.0 * distill_factor / distill_epochs
                 distill_factor = max(distill_factor, 0.0)
             print("Epoch %d - distill factor %.3f." % (
@@ -573,7 +578,8 @@ def train():
                                      count_stats, array_stats,
                                      cumulative_reward, terminal_reward,
                                      success_rate, running_num_episodes,
-                                     mean_total_loss, mean_kl_loss, lr)
+                                     mean_total_loss, mean_kl_loss, lr,
+                                     distill_factor)
 
             # Reset stats so that plots are per the last log_interval.
             final_action_losses = [[] for agent in range(len(training_agents))]

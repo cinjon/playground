@@ -62,6 +62,8 @@ def get_args():
                         'distill the distill-target into the model. at epoch '
                         '0, the probability is 1.0 (i.e. only use target), at '
                         'epoch distill-step and onwards, it is 0.0.')
+    parser.add_argument('--init-kl-factor', type=float, default=1.0,
+                        help='the initial kl factor.')
     parser.add_argument('--set-distill-kl', type=float, default=-1.0,
                         help='if we want a constant factor for the kl distill '
                         'loss, then set this to be that nonnegative value.')
