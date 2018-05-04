@@ -68,7 +68,7 @@ def get_args():
     parser.add_argument('--restart-counts', default=False, action='store_true',
                         help='if True, then restart the saved counts for a '
                         'loaded model')
-    parser.add_argument('--distill-expert', type=str, default='SimpleAgent',
+    parser.add_argument('--distill-expert', type=str, default=None,
                         help='expert to use for distillation: \
                         SimpleAgent/DaggerAgent')
     parser.add_argument('--use-lr-scheduler', default=False, action='store_true',

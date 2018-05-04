@@ -96,13 +96,21 @@ def train():
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
     distill_epochs = args.distill_epochs
-    do_distill = (distill_target is not '' and \
-                 distill_epochs > training_agents[0].num_epoch) or \
-                 args.distill_expert == 'SimpleAgent'
-    do_distill = do_distill or set_distill_kl >= 0
+    distill_expert = args.distill_expert
+
+    if distill_expert is not None:
+        assert(distill_epochs > training_agents[0].num_epoch), \
+        "If you are distilling, distill_epochs > trianing_agents[0].num_epoch."
+    elif distill_expert == 'DaggerAgent':
+        assert(distill_target is not ''), \
+        "If you are distilling from Dagger you need to specify distill_target."
+
+    # NOTE: you need to set the distill expert in order to do distillation
+    do_distill = distill_expert is not None
+    print("Distilling {} from {} \n".format(do_distill, distill_expert))
 
     if do_distill:
-        if args.distill_expert == 'DaggerAgent':
+        if distill_expert == 'DaggerAgent':
             distill_agent = utils.load_distill_agent(obs_shape, action_space, args)
             distill_agent.set_eval()
             # NOTE: We have to call init_agent, but the agent_id won't matter
@@ -110,9 +118,9 @@ def train():
             distill_agent.init_agent(0, envs.get_game_type())
             distill_type = distill_target.split('::')[0]
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}".format(args.distill_expert, set_distill_kl)
+                suffix += ".dstl{}.dstlkl{}".format(distill_expert, set_distill_kl)
             else:
-                suffix += ".dstl{}.dstlep{}".format(args.distill_expert, distill_epochs)
+                suffix += ".dstl{}.dstlep{}".format(distill_expert, distill_epochs)
 
             # TODO: Should we not run this against the distill_agent as the first
             # opponent? The problem is that the distill_agent will just stall.
@@ -120,11 +128,11 @@ def train():
                 distill_agent2 = utils.load_distill_agent(obs_shape, action_space, args)
                 distill_agent2.set_eval()
                 bad_guys = [distill_agent, distill_agent2]
-        elif args.distill_expert == 'SimpleAgent':
+        elif distill_expert == 'SimpleAgent':
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}".format(args.distill_expert, set_distill_kl)
+                suffix += ".dstl{}.dstlkl{}".format(distill_expert, set_distill_kl)
             else:
-                suffix += ".dstl{}.dstlep{}".format(args.distill_expert, distill_epochs)
+                suffix += ".dstl{}.dstlep{}".format(distill_expert, distill_epochs)
         else:
             raise ValueError("We only support distilling from \
                 DaggerAgent or SimpleAgent \n")
@@ -261,7 +269,7 @@ def train():
         current_obs = current_obs.cuda()
         for agent in training_agents:
             agent.cuda()
-        if do_distill and args.distill_expert == 'DaggerAgent':
+        if do_distill and distill_expert == 'DaggerAgent':
             distill_agent.cuda()
             if how_train == 'homogenous':
                 distill_agent2.cuda()
@@ -272,10 +280,6 @@ def train():
             args, good_guys, bad_guys, 0, writer, 0)
         print("Homog test before: (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
             args.num_battles_eval, win_rate, tie_rate, loss_rate))
-
-    # if do_distill and args.distill_expert == 'SimpleAgent':
-    #     assert(args.how_train == 'simple'), "WARNING: distillation does not \
-    #     work for how train homogenous yet."
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
@@ -314,12 +318,12 @@ def train():
                 training_agent = training_agents[0]
 
                 if do_distill:
-                    if args.distill_expert == 'DaggerAgent':
+                    if distill_expert == 'DaggerAgent':
                         data = training_agent.get_rollout_data(step, 0)
                         _, _, _, _, probs, _ = distill_agent.act_on_data(
                             *data, deterministic=True)
                         dagger_prob_distr.append(probs)
-                    elif args.distill_expert == 'SimpleAgent':
+                    elif distill_expert == 'SimpleAgent':
                         expert_obs = envs.get_expert_obs()
                         expert_actions = envs.get_expert_actions(expert_obs)
                         make_onehot(expert_actions)
@@ -342,13 +346,13 @@ def train():
                     states = states.view([num_processes * 4, *states.shape[2:]])
                     masks = masks.view([num_processes * 4, *masks.shape[2:]])
                     if do_distill:
-                        if args.distill_expert == 'DaggerAgent':
+                        if distill_expert == 'DaggerAgent':
                             _, _, _, _, probs, _ = distill_agent.act_on_data(
                                 observations, states, masks, deterministic=True)   #32x6
                             probs = probs.view([num_processes, 4, *probs.shape[1:]]) # 8x4x6
                             for num_agent in range(4):
                                 dagger_prob_distr.append(probs[:, num_agent]) # 4 vars of tensors of 8x6
-                        elif args.distill_expert == 'SimpleAgent':
+                        elif distill_expert == 'SimpleAgent':
                             # TODO: change this so that you get actions for all the agents
                             expert_obs = envs.get_expert_obs()
                             expert_actions = envs.get_expert_actions(expert_obs)  #8x4
@@ -501,9 +505,9 @@ def train():
             action_log_prob_all = utils.torch_numpy_stack(
                 action_log_prob_agents)
             if do_distill:
-                if args.distill_expert == 'DaggerAgent':
+                if distill_expert == 'DaggerAgent':
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
-                elif args.distill_expert == 'SimpleAgent':
+                elif distill_expert == 'SimpleAgent':
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr,\
                         data=False)
                 else:
@@ -595,11 +599,6 @@ def train():
             epochs_per_sec = 1.0 * (num_epoch - prev_epoch) / (end - start)
             episodes_per_sec =  1.0 * num_episodes / (end - start)
 
-            mean_dist_entropy = np.mean([
-                dist_entropy for dist_entropy in final_dist_entropies])
-            std_dist_entropy = np.std([
-                dist_entropy for dist_entropy in final_dist_entropies])
-
             if args.reinforce_only:
                 mean_pg_loss = np.mean([
                     pg_loss for pg_loss in final_pg_losses])
@@ -616,6 +615,11 @@ def train():
                 std_action_loss = np.std([
                     action_loss for action_loss in final_action_losses])
                 mean_pg_loss = None
+
+                mean_dist_entropy = np.mean([
+                    dist_entropy for dist_entropy in final_dist_entropies])
+                std_dist_entropy = np.std([
+                    dist_entropy for dist_entropy in final_dist_entropies])
 
             mean_total_loss = np.mean([
                 total_loss for total_loss in final_total_losses])
