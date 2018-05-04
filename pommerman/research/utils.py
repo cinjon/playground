@@ -64,7 +64,7 @@ def load_distill_agent(obs_shape, action_space, args):
         loaded_model = torch_load(path, args.cuda, args.cuda_device)
         model_state_dict = loaded_model['state_dict']
         # TODO: Remove this hardcoded obs_shape after retraining dagger agent.
-        obs_shape = [36, 13, 13]
+        # obs_shape = [36, 13, 13]
         model = networks.get_actor_critic(args.model_str)(
             model_state_dict, obs_shape[0], action_space, args.board_size,
             args.num_channels)
@@ -127,10 +127,11 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
                                  args.num_episodes_dagger, args.expert_prob,
                                  args.dagger_epoch, num_epoch, total_steps, seed)
             else:
-                suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.epoch{}.steps{}.seed{}.pt" \
+                suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.gam{}.gae{}.epoch{}.steps{}.seed{}.pt" \
                          .format(name, how_train, config, model_str,
                                  args.num_channels, args.lr, args.minibatch_size,
-                                 args.num_steps, num_epoch, total_steps, seed)
+                                 args.num_steps, args.gamma, args.use_gae,
+                                 num_epoch, total_steps, seed)
 
         if not suffix.endswith('.pt'):
             suffix += '.pt'
@@ -176,19 +177,24 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     epochs_per_sec, final_rewards, mean_dist_entropy,
                     mean_value_loss, mean_action_loss,
                     cumulative_reward, terminal_reward, success_rate,
-                    running_num_episodes, mean_total_loss, mean_kl_loss=None):
+                    success_rate_alive, running_num_episodes, mean_total_loss,
+                    mean_kl_loss=None):
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "
+          "mean success rate learning agent alive at the end {:.3f} "
           "mean final reward {:.3f}, min/max finals reward {:.3f}/{:.3f}, avg "
           "entropy {:.3f}, avg value loss {:.3f}, avg policy loss {:.3f} "
           "mean total loss {:.3f}, mean kl loss {}\n"
           .format(num_epoch, num_episodes, total_steps, steps_per_sec,
                   epochs_per_sec, 1.0*cumulative_reward/running_num_episodes,
                   1.0*terminal_reward/running_num_episodes,
-                  1.0*success_rate/running_num_episodes, final_rewards.mean(),
+                  1.0*success_rate/running_num_episodes,
+                  1.0*success_rate_alive/running_num_episodes,
+                  final_rewards.mean(),
                   final_rewards.min(), final_rewards.max() ,mean_dist_entropy,
-                  mean_value_loss, mean_action_loss, mean_total_loss, mean_kl_loss))
+                  mean_value_loss, mean_action_loss, mean_total_loss,
+                  mean_kl_loss))
 
 
 
@@ -217,9 +223,9 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        mean_dist_entropy, mean_value_loss, mean_action_loss,
                        std_dist_entropy, std_value_loss, stmd_action_loss,
                        count_stats, array_stats, cumulative_reward,
-                       terminal_reward, success_rate, running_num_episodes,
-                       mean_total_loss, mean_kl_loss=None, lr=None,
-                       kl_factor=None):
+                       terminal_reward, success_rate, success_rate_alive,
+                       running_num_episodes, mean_total_loss,
+                       mean_kl_loss=None, lr=None):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -259,6 +265,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                     1.0 * terminal_reward / running_num_episodes, total_steps)
     writer.add_scalar('success_rate_step',
                     1.0 * success_rate / running_num_episodes, total_steps)
+    writer.add_scalar('success_rate_alive_step',
+                    1.0 * success_rate_alive / running_num_episodes, total_steps)
 
     for title, count in count_stats.items():
         if title.startswith('bomb:'):
@@ -300,6 +308,9 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                     1.0 * terminal_reward / running_num_episodes, num_episodes)
     writer.add_scalar('success_rate_epi',
                     1.0 * success_rate / running_num_episodes, num_episodes)
+    writer.add_scalar('success_rate_alive_epi',
+                    1.0 * success_rate_alive / running_num_episodes,
+                    num_episodes)
 
 
     for title, count in count_stats.items():
@@ -328,7 +339,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
 
     # x-axis: # epochs / updates
     if lr is not None:
-        writer.add_scalar('learning_rate', lr, num_epoch)        
+        writer.add_scalar('learning_rate', lr, num_epoch)
 
     writer.add_scalar('entropy_epoch', mean_dist_entropy, num_epoch)
     writer.add_scalar('action_loss_epoch', mean_action_loss, num_epoch)
@@ -346,6 +357,9 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                     1.0 * terminal_reward / running_num_episodes, num_epoch)
     writer.add_scalar('success_rate_epoch',
                     1.0 * success_rate / running_num_episodes, num_epoch)
+    writer.add_scalar('success_rate_alive_epoch',
+                    1.0 * success_rate_alive / running_num_episodes,
+                    num_epoch)
 
 
     for title, count in count_stats.items():

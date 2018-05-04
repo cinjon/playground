@@ -403,13 +403,19 @@ class SimpleAgent(BaseAgent):
 
         return nearest
 
+    # TODO: hacked this function to work for when next_pos not in prev
+    # situation that shows up when how train simple and config team
+    # with multiproc in train_ppo with distill_expert = simple
+    # TODO: need to change and make sure this doesn't break sth else
+    # what should this do if prev[next_potision] is None
+    # or next_position is not in prev?
     @staticmethod
     def _get_direction_towards_position(my_position, position, prev):
         if not position:
             return None
 
         next_position = position
-        while prev[next_position] != my_position:
+        while prev[next_position] != my_position and prev[next_position] != None:
             next_position = prev[next_position]
 
         return utility.get_direction(my_position, next_position)

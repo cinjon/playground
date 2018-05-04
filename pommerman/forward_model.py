@@ -125,20 +125,15 @@ class ForwardModel(object):
         return ret
 
     def expert_act(self, expert, obs, action_space):
-        """Returns actions for each agent in this list.
-        Args:
-          agents: A list of agent objects.
-          obs: A list of matching observations per agent.
-          action_space: The action space for the environment using this model.
-          is_communicative: Whether the action depends on communication observations as well.
-        Returns a list of actions.
-        """
+        """Returns actions that the expert i.e. SimpleAgent would take."""
+        # NOTE: the loop is so that it works for homogenous
+        # if you want to give supervision to all 3 training agents
+        # NOTE: this only works for simple
         actions = []
         for i in range(len(obs)):
             a = expert.act(obs[i], action_space=action_space)
             actions.append(a)
         return actions
-        # return expert.act(obs[0], action_space=action_space)
 
     def step(self, actions, curr_board, curr_agents, curr_bombs, curr_items,
              curr_flames):
@@ -390,6 +385,7 @@ class ForwardModel(object):
                  all_agents=False):
         alive = [agent for agent in agents if agent.is_alive]
         alive_ids = sorted([agent.agent_id for agent in alive])
+
         if step_count >= max_steps:
             # The game is done. Return True.
             return [True]*4 if all_agents else True
@@ -428,7 +424,6 @@ class ForwardModel(object):
     def get_info(done, rewards, game_type, agents):
         if type(done) == list:
             done = all(done)
-
         alive = [agent for agent in agents if agent.is_alive]
         if game_type == constants.GameType.FFA:
             if done and len(alive) > 1:

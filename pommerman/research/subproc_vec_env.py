@@ -218,6 +218,11 @@ class SubprocVecEnv(_VecEnv):
         self.waiting = False
         return np.stack(actions)
 
+    # def get_expert_actions(self, observations):
+    #     for remote, obs in zip(self.remotes, observations):
+    #         remote.send(('get_expert_actions', obs))
+    #     return np.stack([remote.recv() for remote in self.remotes])
+
     def get_global_obs(self):
         for remote in self.remotes:
             remote.send(('get_global_obs', None))

@@ -11,6 +11,8 @@ import pommerman
 import networks
 from subproc_vec_env import SubprocVecEnv
 
+from pommerman.constants import GameType
+
 
 def _make_train_env(config, how_train, seed, rank, game_state_file,
                     training_agents, num_stack):
@@ -56,6 +58,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 
         env = pommerman.make(config, agents, game_state_file)
         env.set_training_agents(training_agent_ids)
+
         if rank != -1:
             env.seed(seed + rank)
         else:
@@ -166,6 +169,12 @@ class WrapPommeEval(gym.ObservationWrapper):
     def _filter(self, arr):
         return np.array([arr[i] for i in self._acting_agent_ids])
 
+    def _filter_team(self, arr):
+        # NOTE: this is only for simple (single agent training) and team config
+        acting_id = self._acting_agent_ids[0]
+        teammate_id = (acting_id + 2) % 4
+        return np.array([arr[acting_id], arr[teammate_id]])
+
     def observation(self, observation):
         return self._filter(observation)
 
@@ -178,7 +187,6 @@ class WrapPomme(gym.ObservationWrapper):
         super(WrapPomme, self).__init__(env)
         self._how_train = how_train
         self._acting_agent_ids = acting_agent_ids or self.env.training_agents
-
         obs_shape = (19, 13, 13)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]
@@ -194,6 +202,12 @@ class WrapPomme(gym.ObservationWrapper):
         # TODO: Is arr always an np.array? If so, can do this better.
         acting_agent_ids = self._acting_agent_ids
         return np.array([arr[i] for i in acting_agent_ids])
+
+    def _filter_team(self, arr):
+        # NOTE: this is only for simple (single agent training) and team config
+        acting_id = self._acting_agent_ids[0]
+        teammate_id = (acting_id + 2) % 4
+        return np.array([arr[acting_id], arr[teammate_id]])
 
     def observation(self, observation):
         filtered = self._filter(observation)
@@ -231,8 +245,15 @@ class WrapPomme(gym.ObservationWrapper):
 
         observation, reward, done, info = self.env.step(all_actions)
         obs = self.observation(observation)
-        rew = self._filter(reward)
-        done = self._filter(done)
+
+        # return done for the entire training_agent's team and reward
+        if self._how_train == 'simple' and self.env._game_type == GameType.Team:
+            done = self._filter_team(done)
+            rew = self._filter_team(reward)
+        else:
+            done = self._filter(done)
+            rew = self._filter(reward)
+
         return obs, rew, done, info
 
     def reset(self, **kwargs):

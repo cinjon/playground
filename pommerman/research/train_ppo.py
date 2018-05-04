@@ -151,6 +151,7 @@ def train():
     cumulative_reward = 0
     terminal_reward = 0
     success_rate = 0
+    success_rate_alive = 0
     prev_epoch = start_epoch
     final_action_losses = [[] for agent in range(len(training_agents))]
     final_value_losses =  [[] for agent in range(len(training_agents))]
@@ -170,16 +171,6 @@ def train():
         states_agents.append(states)
         action_log_prob_distr.append(log_probs)
         return action.data.squeeze(1).cpu().numpy()
-
-    def get_game_ended(info):
-        ended_list = []
-        for inf in info:
-            result = inf.get('result', {})
-            if result == constants.Result.Incomplete:
-                ended_list.append(False)
-            else:
-                ended_list.append(True)
-        return ended_list
 
     def update_stats(info):
         # NOTE: This func has a side effect where it sets variable values.
@@ -203,6 +194,46 @@ def train():
         raise ValueError("Only Simple and Homogenous training regimes have been \
             implemented.")
     onehot_dim = len(expert_actions_onehot.shape) - 1
+
+
+    # NOTE: only works for how_train simple because we assume training_ids
+    # has a single element
+    def get_win_alive(info, envs):
+        '''win_list: the training agent's team won
+        alive_list: the training agent's team won and the training agent
+        is alive at the end of the game'''
+
+        training_ids = [x[0] for x in envs.get_training_ids()]
+        win_list = []
+        alive_list = []
+        for inf, id_ in zip(info, training_ids):
+            result = inf.get('result', {})
+            if result == constants.Result.Win:
+                alives = inf.get('alive', {})
+                winners = inf.get('winners', {})
+                win = False
+                alive = False
+                for w in winners:
+                    if w == id_:
+                        win_list.append(True)
+                        win = True
+                        break
+                if not win:
+                    win_list.append(False)
+                    alive_list.append(False)
+                else:
+                    for a in alives:
+                        if a == id_:
+                            alive_list.append(True)
+                            alive = True
+                            break
+                    if not alive:
+                        alive_list.append(False)
+            else:
+                win_list.append(False)    # True iff training agent's team won
+                alive_list.append(False)  # True iff training won and alive
+        return np.array(win_list), np.array(alive_list)
+
 
     # TODO: make the function below less hacky
     def make_onehot(actions):
@@ -236,6 +267,10 @@ def train():
             args, good_guys, bad_guys, 0, writer, 0)
         print("Homog test before: (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
             args.num_battles_eval, win_rate, tie_rate, loss_rate))
+
+    # if do_distill and args.distill_expert == 'SimpleAgent':
+    #     assert(args.how_train == 'simple'), "WARNING: distillation does not \
+    #     work for how train homogenous yet."
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
@@ -334,18 +369,16 @@ def train():
                 obs, reward, done, info = envs.step(cpu_actions_agents)
             reward = reward.astype(np.float)
             update_stats(info)
-            ended = get_game_ended(info)
+            game_ended = np.array([done_.all() for done_ in done])
+            win, alive_win = get_win_alive(info, envs)
+
+
+
 
             if args.render:
                 envs.render()
 
             if how_train == 'simple':
-                running_num_episodes += sum([int(done_) for done_ in done])
-                terminal_reward += reward[done.squeeze() == True].sum()
-                success_rate += sum([int(s) for s in \
-                                     [(done.squeeze() == True) &
-                                      (reward.squeeze() > 0)][0]])
-
                 # NOTE: The masking for simple should be such that:
                 # - final_rewards is masked out on every step except for the
                 # last step of a process. at that point, it becomes the
@@ -357,26 +390,51 @@ def train():
                 # have an issue with the frames overlapping. this means that we
                 # shouldn't be using the masking on the current_obs.
 
-                # training agent died and game ended
-                # finished = [[done_[0] & ended_]
-                #             for done_, ended_ in zip(done, ended)]
-                # NOTE: this mask is for the game: 1 if finished -
+                # NOTE: this mask is for the game: 0 if finished -
                 # i.e. if the training agent is dead and the game ended
                 # (both agents in any of the teams died or there is
                 # at most one agent alive) --
                 # used to get discounted rewards for the training agent
                 # if it dies first but wins as a team
                 masks = torch.FloatTensor([
-                    [0.0]*num_training_per_episode if ended_ \
-                    else [1.0]*num_training_per_episode
-                for ended_ in ended])
+                    [0.0] if ended_ else [1.0]
+                for ended_ in game_ended])
 
-                # NOTE: masks_kl is 1 if the agent died
-                # (game might still be going) to use for the kl
+                if envs.get_game_type() == constants.GameType.Team:
+                    for num_process in range(num_processes):
+                        self_reward = reward[num_process][0]
+                        teammate_reward = reward[num_process][1]
+                        my_reward = (1 - reward_sharing) * self_reward + \
+                                    reward_sharing * teammate_reward
+                        reward[num_process][0] = my_reward
+                    # from here on we only need the training agent's reward & done
+                    reward = np.array([[reward_[0]] for reward_ in reward])
+                    done = np.array([[done_[0]] for done_ in done])
+
+                    # NOTE: success only for the training agent
+                    # this counts as success only the times when the
+                    # training agent wins the game and is alive at the end
+                    success_rate_alive += sum([int(s) for s in \
+                                            ((alive_win == True) &
+                                            (game_ended == True))])
+
+                # NOTE: masks_kl is 0 if the agent die (game may still be going)
+                # this must be executed after adjusting done to contain only
+                # the learning agent's done
                 masks_kl = torch.FloatTensor([
                     [0.0]*num_training_per_episode if done_ \
                     else [1.0]*num_training_per_episode
                 for done_ in done])
+
+                # NOTE: terminal_reward and success for the entire team this
+                # counts as success all the times training agent's team wins
+                # if config is team, it gets the shared reward
+                running_num_episodes += sum([int(ended_)
+                                            for ended_ in game_ended])
+                terminal_reward += reward[game_ended == True].sum()
+                success_rate += sum([int(s) for s in \
+                                    ((game_ended == True) &
+                                    (win == True))])
 
             elif how_train == 'homogenous':
                 running_num_episodes += sum([int(done_.all())
@@ -566,20 +624,28 @@ def train():
                                  mean_dist_entropy, mean_value_loss,
                                  mean_action_loss, cumulative_reward,
                                  terminal_reward, success_rate,
-                                 running_num_episodes, mean_total_loss,
-                                 mean_kl_loss)
+
+                                 success_rate_alive, running_num_episodes,
+                                 mean_total_loss, mean_kl_loss)
 
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
+
                                      episodes_per_sec, final_rewards,
                                      mean_dist_entropy, mean_value_loss,
                                      mean_action_loss, std_dist_entropy,
                                      std_value_loss, std_action_loss,
                                      count_stats, array_stats,
                                      cumulative_reward, terminal_reward,
+<<<<<<< Updated upstream
                                      success_rate, running_num_episodes,
                                      mean_total_loss, mean_kl_loss, lr,
                                      distill_factor)
+=======
+                                     success_rate, success_rate_alive,
+                                     running_num_episodes, mean_total_loss,
+                                     mean_kl_loss, lr)
+>>>>>>> Stashed changes
 
             # Reset stats so that plots are per the last log_interval.
             final_action_losses = [[] for agent in range(len(training_agents))]
@@ -598,6 +664,7 @@ def train():
             cumulative_reward = 0
             terminal_reward = 0
             success_rate = 0
+            success_rate_alive = 0
             prev_epoch = num_epoch
 
     writer.close()
