@@ -40,6 +40,7 @@ abbr = {
     'use-lr-scheduler': 'ulrs',
     'half-lr-epochs': 'hlre',
     'use-gae': 'gae',
+    'init-kl-factor': 'ikl',
 }
 
 def train_ppo_job(flags, jobname=None):
@@ -550,6 +551,9 @@ train_dagger_job(
 
 
 ### These are meant to see if we can distill the 1hot SImple Agent into the PPO while playing Team. These all have a bigger batch size.
+### These did not work but did pose some questions. Namely, the 3e-4 learning rate ones
+### seem to be learning something. We are goign to try increasing the KL factor a hell of a lot
+### and seeing if that helps.
 # train_ppo_job( # Batch size of 400
 #     {"num-processes": 8, "run-name": "a", "how-train": "simple", "num-steps": 100, "log-interval": 100,
 #      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
@@ -622,4 +626,44 @@ train_dagger_job(
 #      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
 #     }, "pmanDSS"    
 # )
+
+
+### These try to adjust for what we learned above with an attempt to bump up the KL.
+### 
+train_ppo_job( # Batch size of 400
+    {"num-processes": 8, "run-name": "a", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
+     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+    }, "pmanDSS"
+)
+train_ppo_job( # Batch size of 800
+    {"num-processes": 8, "run-name": "a", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
+     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+    }, "pmanDSS"
+)
+train_ppo_job( # Batch size of 400
+    {"num-processes": 8, "run-name": "a", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0005, "init-kl-factor": 10.0,
+     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
+     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+    }, "pmanDSS"
+)
+train_ppo_job( # Batch size of 800
+    {"num-processes": 8, "run-name": "a", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0005, "init-kl-factor": 10.0,
+     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
+     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+    }, "pmanDSS"
+)
 
