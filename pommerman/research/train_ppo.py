@@ -107,7 +107,7 @@ def train():
 
     # NOTE: you need to set the distill expert in order to do distillation
     do_distill = distill_expert is not None
-    print("Distilling {} from {} \n".format(do_distill, distill_expert))
+    print("Distilling: {} from {} \n".format(do_distill, distill_expert))
 
     if do_distill:
         if distill_expert == 'DaggerAgent':
@@ -605,6 +605,13 @@ def train():
                     pg_loss for pg_loss in final_pg_losses])
                 std_pg_loss = np.std([
                     pg_loss for pg_loss in final_pg_losses])
+
+                mean_value_loss = None
+                mean_action_loss = None
+                mean_dist_entropy = None
+                std_value_loss = None
+                std_action_loss = None
+                std_dist_entropy = None
             else:
                 mean_value_loss = np.mean([
                     value_loss for value_loss in final_value_losses])
@@ -615,12 +622,14 @@ def train():
                     action_loss for action_loss in final_action_losses])
                 std_action_loss = np.std([
                     action_loss for action_loss in final_action_losses])
-                mean_pg_loss = None
 
                 mean_dist_entropy = np.mean([
                     dist_entropy for dist_entropy in final_dist_entropies])
                 std_dist_entropy = np.std([
                     dist_entropy for dist_entropy in final_dist_entropies])
+
+                mean_pg_loss = None
+                std_pg_loss = None
 
             mean_total_loss = np.mean([
                 total_loss for total_loss in final_total_losses])
@@ -662,7 +671,7 @@ def train():
                                  terminal_reward, success_rate,
                                  success_rate_alive, running_num_episodes,
                                  mean_total_loss, mean_kl_loss, mean_pg_loss,
-                                 args.reinforce_only)
+                                 distill_factor, args.reinforce_only)
 
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
@@ -675,7 +684,7 @@ def train():
                                      success_rate, success_rate_alive,
                                      running_num_episodes, mean_total_loss,
                                      mean_kl_loss, mean_pg_loss, lr,
-                                     args.reinforce_only)
+                                     distill_factor, args.reinforce_only)
 
             # Reset stats so that plots are per the last log_interval.
             if args.reinforce_only:
