@@ -36,7 +36,7 @@ import random
 from arguments import get_args
 import envs as env_helpers
 from eval import eval as run_eval
-import ppo_agent
+import ppo_agent, reinforce_agent
 import utils
 from torch.autograd import Variable
 
@@ -60,9 +60,15 @@ def train():
     obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
     num_training_per_episode = utils.validate_how_train(how_train, num_agents)
 
-    training_agents = utils.load_agents(
-        obs_shape, action_space, num_training_per_episode, args,
-        ppo_agent.PPOAgent)
+    if args.reinforce_only:
+        training_agents = utils.load_agents(
+            obs_shape, action_space, num_training_per_episode, args,
+            reinforce_agent.ReinforceAgent)
+    else:
+        training_agents = utils.load_agents(
+            obs_shape, action_space, num_training_per_episode, args,
+            ppo_agent.PPOAgent)
+
     if how_train == 'homogenous':
         bad_guys = [SimpleAgent(), SimpleAgent()]
         model = training_agents[0].model
@@ -90,7 +96,6 @@ def train():
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
     distill_epochs = args.distill_epochs
-    init_kl_factor = args.init_kl_factor
     do_distill = (distill_target is not '' and \
                  distill_epochs > training_agents[0].num_epoch) or \
                  args.distill_expert == 'SimpleAgent'
@@ -105,11 +110,9 @@ def train():
             distill_agent.init_agent(0, envs.get_game_type())
             distill_type = distill_target.split('::')[0]
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}.ikl{}".format(
-                    args.distill_expert, set_distill_kl, init_kl_factor)
+                suffix += ".dstl{}.dstlkl{}".format(args.distill_expert, set_distill_kl)
             else:
-                suffix += ".dstl{}.dstlep{}.ikl{}".format(
-                    args.distill_expert, distill_epochs, init_kl_factor)
+                suffix += ".dstl{}.dstlep{}".format(args.distill_expert, distill_epochs)
 
             # TODO: Should we not run this against the distill_agent as the first
             # opponent? The problem is that the distill_agent will just stall.
@@ -119,11 +122,9 @@ def train():
                 bad_guys = [distill_agent, distill_agent2]
         elif args.distill_expert == 'SimpleAgent':
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}.ikl{}".format(
-                    args.distill_expert, set_distill_kl, init_kl_factor)
+                suffix += ".dstl{}.dstlkl{}".format(args.distill_expert, set_distill_kl)
             else:
-                suffix += ".dstl{}.dstlep{}.ikl{}".format(
-                    args.distill_expert, distill_epochs, init_kl_factor)
+                suffix += ".dstl{}.dstlep{}".format(args.distill_expert, distill_epochs)
         else:
             raise ValueError("We only support distilling from \
                 DaggerAgent or SimpleAgent \n")
@@ -153,9 +154,13 @@ def train():
     success_rate = 0
     success_rate_alive = 0
     prev_epoch = start_epoch
-    final_action_losses = [[] for agent in range(len(training_agents))]
-    final_value_losses =  [[] for agent in range(len(training_agents))]
-    final_dist_entropies = [[] for agent in range(len(training_agents))]
+
+    if args.reinforce_only:
+        final_pg_losses = [[] for agent in range(len(training_agents))]
+    else:
+        final_action_losses = [[] for agent in range(len(training_agents))]
+        final_value_losses =  [[] for agent in range(len(training_agents))]
+        final_dist_entropies = [[] for agent in range(len(training_agents))]
     if do_distill:
         final_kl_losses = [[] for agent in range(len(training_agents))]
     final_total_losses =  [[] for agent in range(len(training_agents))]
@@ -288,7 +293,7 @@ def train():
             if args.set_distill_kl >= 0:
                 distill_factor = args.set_distill_kl
             else:
-                distill_factor = (distill_epochs - num_epoch) * init_kl_factor
+                distill_factor = distill_epochs - num_epoch
                 distill_factor = 1.0 * distill_factor / distill_epochs
                 distill_factor = max(distill_factor, 0.0)
             print("Epoch %d - distill factor %.3f." % (
@@ -535,30 +540,49 @@ def train():
             ]
 
         # Run PPO Optimization.
-        for num_agent, agent in enumerate(training_agents):
-            agent.set_train()
-
-            for _ in range(args.ppo_epoch):
+        if args.reinforce_only:
+            for num_agent, agent in enumerate(training_agents):
+                agent.set_train()
                 with utility.Timer() as t:
-                    result = agent.ppo(advantages[num_agent],
-                                       args.num_mini_batch,
-                                       num_steps, args.clip_param,
-                                       args.entropy_coef, args.value_loss_coef,
+                    result = agent.reinforce(advantages[num_agent],
+                                       args.num_mini_batch, num_steps,
                                        args.max_grad_norm,
                                        kl_factor=distill_factor)
-                action_losses, value_losses, dist_entropies, \
-                    kl_losses, total_losses, lr = result
+                pg_losses, kl_losses, total_losses, lr = result
 
-                final_action_losses[num_agent].extend(action_losses)
-                final_value_losses[num_agent].extend(value_losses)
-                final_dist_entropies[num_agent].extend(dist_entropies)
+                final_pg_losses[num_agent].extend(pg_losses)
                 if do_distill:
                     final_kl_losses[num_agent].extend(kl_losses)
                 final_total_losses[num_agent].extend(total_losses)
 
-            agent.after_epoch()
-            if args.half_lr_epochs > 0 and num_epoch > 0 and num_epoch % args.half_lr_epochs == 0:
-                agent.halve_lr()
+                agent.after_epoch()
+                if args.half_lr_epochs > 0 and num_epoch > 0 and num_epoch % args.half_lr_epochs == 0:
+                    agent.halve_lr()
+
+        else:
+            for num_agent, agent in enumerate(training_agents):
+                agent.set_train()
+                for _ in range(args.ppo_epoch):
+                    with utility.Timer() as t:
+                        result = agent.ppo(advantages[num_agent],
+                                           args.num_mini_batch,
+                                           num_steps, args.clip_param,
+                                           args.entropy_coef, args.value_loss_coef,
+                                           args.max_grad_norm,
+                                           kl_factor=distill_factor)
+                    action_losses, value_losses, dist_entropies, \
+                        kl_losses, total_losses, lr = result
+
+                    final_action_losses[num_agent].extend(action_losses)
+                    final_value_losses[num_agent].extend(value_losses)
+                    final_dist_entropies[num_agent].extend(dist_entropies)
+                    if do_distill:
+                        final_kl_losses[num_agent].extend(kl_losses)
+                    final_total_losses[num_agent].extend(total_losses)
+
+                agent.after_epoch()
+                if args.half_lr_epochs > 0 and num_epoch > 0 and num_epoch % args.half_lr_epochs == 0:
+                    agent.halve_lr()
 
         total_steps += num_processes * num_steps
 
@@ -576,15 +600,22 @@ def train():
             std_dist_entropy = np.std([
                 dist_entropy for dist_entropy in final_dist_entropies])
 
-            mean_value_loss = np.mean([
-                value_loss for value_loss in final_value_losses])
-            std_value_loss = np.std([
-                value_loss for value_loss in final_value_losses])
+            if args.reinforce_only:
+                mean_pg_loss = np.mean([
+                    pg_loss for pg_loss in final_pg_losses])
+                std_pg_loss = np.std([
+                    pg_loss for pg_loss in final_pg_losses])
+            else:
+                mean_value_loss = np.mean([
+                    value_loss for value_loss in final_value_losses])
+                std_value_loss = np.std([
+                    value_loss for value_loss in final_value_losses])
 
-            mean_action_loss = np.mean([
-                action_loss for action_loss in final_action_losses])
-            std_action_loss = np.std([
-                action_loss for action_loss in final_action_losses])
+                mean_action_loss = np.mean([
+                    action_loss for action_loss in final_action_losses])
+                std_action_loss = np.std([
+                    action_loss for action_loss in final_action_losses])
+                mean_pg_loss = None
 
             mean_total_loss = np.mean([
                 total_loss for total_loss in final_total_losses])
@@ -624,34 +655,31 @@ def train():
                                  mean_dist_entropy, mean_value_loss,
                                  mean_action_loss, cumulative_reward,
                                  terminal_reward, success_rate,
-
                                  success_rate_alive, running_num_episodes,
-                                 mean_total_loss, mean_kl_loss)
+                                 mean_total_loss, mean_kl_loss, mean_pg_loss,
+                                 args.reinforce_only)
 
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
-
                                      episodes_per_sec, final_rewards,
                                      mean_dist_entropy, mean_value_loss,
                                      mean_action_loss, std_dist_entropy,
                                      std_value_loss, std_action_loss,
                                      count_stats, array_stats,
                                      cumulative_reward, terminal_reward,
-<<<<<<< Updated upstream
-                                     success_rate, running_num_episodes,
-                                     mean_total_loss, mean_kl_loss, lr,
-                                     distill_factor)
-=======
                                      success_rate, success_rate_alive,
                                      running_num_episodes, mean_total_loss,
-                                     mean_kl_loss, lr)
->>>>>>> Stashed changes
+                                     mean_kl_loss, mean_pg_loss, lr,
+                                     args.reinforce_only)
 
             # Reset stats so that plots are per the last log_interval.
-            final_action_losses = [[] for agent in range(len(training_agents))]
-            final_value_losses =  [[] for agent in range(len(training_agents))]
-            final_dist_entropies = [[] for agent in \
-                                    range(len(training_agents))]
+            if args.reinforce_only:
+                final_pg_losses = [[] for agent in range(len(training_agents))]
+            else:
+                final_action_losses = [[] for agent in range(len(training_agents))]
+                final_value_losses =  [[] for agent in range(len(training_agents))]
+                final_dist_entropies = [[] for agent in \
+                                        range(len(training_agents))]
             if do_distill:
                 final_kl_losses = [[] for agent in range(len(training_agents))]
             final_total_losses =  [[] for agent in range(len(training_agents))]

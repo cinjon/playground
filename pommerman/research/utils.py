@@ -178,24 +178,30 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     mean_value_loss, mean_action_loss,
                     cumulative_reward, terminal_reward, success_rate,
                     success_rate_alive, running_num_episodes, mean_total_loss,
-                    mean_kl_loss=None):
+                    mean_kl_loss=None, mean_pg_loss = None, reinforce=False):
+
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "
           "mean success rate learning agent alive at the end {:.3f} "
-          "mean final reward {:.3f}, min/max finals reward {:.3f}/{:.3f}, avg "
-          "entropy {:.3f}, avg value loss {:.3f}, avg policy loss {:.3f} "
-          "mean total loss {:.3f}, mean kl loss {}\n"
+          "mean final reward {:.3f}, min/max finals reward {:.3f}/{:.3f}"
+          "mean total loss {:.3f}, "
           .format(num_epoch, num_episodes, total_steps, steps_per_sec,
                   epochs_per_sec, 1.0*cumulative_reward/running_num_episodes,
                   1.0*terminal_reward/running_num_episodes,
                   1.0*success_rate/running_num_episodes,
                   1.0*success_rate_alive/running_num_episodes,
                   final_rewards.mean(),
-                  final_rewards.min(), final_rewards.max() ,mean_dist_entropy,
-                  mean_value_loss, mean_action_loss, mean_total_loss,
-                  mean_kl_loss))
+                  final_rewards.min(), final_rewards.max(), mean_total_loss))
 
+    if args.reinforce_only:
+        print("mean pg loss {:3f} \n", mean_pg_loss)
+
+    else:
+        print("avg entropy {:.3f}, avg value loss {:.3f}, "
+            "avg policy loss {:.3f}, mean kl loss {}\n"
+            .format(mean_dist_entropy, mean_value_loss,
+                    mean_action_loss, mean_kl_loss))
 
 
 def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
@@ -225,7 +231,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        count_stats, array_stats, cumulative_reward,
                        terminal_reward, success_rate, success_rate_alive,
                        running_num_episodes, mean_total_loss,
-                       mean_kl_loss=None, lr=None):
+                       mean_kl_loss=None, mean_pg_loss=None, lr=None,
+                       reinforce=False):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -251,9 +258,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     # }, num_episodes)
 
     # x-axis: # steps
-    writer.add_scalar('entropy_step', mean_dist_entropy, total_steps)
-    writer.add_scalar('action_loss_step', mean_action_loss, total_steps)
-    writer.add_scalar('value_loss_step', mean_value_loss, total_steps)
+    if args.reinforce_only:
+        writer.add_scalar('pg_loss_step', mean_pg_loss, total_steps)
+    else:
+        writer.add_scalar('entropy_step', mean_dist_entropy, total_steps)
+        writer.add_scalar('action_loss_step', mean_action_loss, total_steps)
+        writer.add_scalar('value_loss_step', mean_value_loss, total_steps)
     if mean_kl_loss:
         writer.add_scalar('kl_loss_step', mean_kl_loss, total_steps)
     writer.add_scalar('total_loss_step', mean_total_loss, total_steps)
@@ -294,9 +304,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
 
 
     # x-axis: # episodes
-    writer.add_scalar('entropy_epi', mean_dist_entropy, num_episodes)
-    writer.add_scalar('action_loss_epi', mean_action_loss, num_episodes)
-    writer.add_scalar('value_loss_epi', mean_value_loss, num_episodes)
+    if args.reinforce_only:
+        writer.add_scalar('pg_loss_epi', mean_pg_loss, num_episodes)
+    else:
+        writer.add_scalar('entropy_epi', mean_dist_entropy, num_episodes)
+        writer.add_scalar('action_loss_epi', mean_action_loss, num_episodes)
+        writer.add_scalar('value_loss_epi', mean_value_loss, num_episodes)
     if mean_kl_loss:
         writer.add_scalar('kl_loss_epi', mean_kl_loss, num_episodes)
     writer.add_scalar('total_loss_epi', mean_total_loss, num_episodes)
@@ -341,9 +354,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     if lr is not None:
         writer.add_scalar('learning_rate', lr, num_epoch)
 
-    writer.add_scalar('entropy_epoch', mean_dist_entropy, num_epoch)
-    writer.add_scalar('action_loss_epoch', mean_action_loss, num_epoch)
-    writer.add_scalar('value_loss_epoch', mean_value_loss, num_epoch)
+    if args.reinforce_only:
+        writer.add_scalar('pg_loss_epoch', mean_pg_loss, num_epoch)
+    else:
+        writer.add_scalar('entropy_epoch', mean_dist_entropy, num_epoch)
+        writer.add_scalar('action_loss_epoch', mean_action_loss, num_epoch)
+        writer.add_scalar('value_loss_epoch', mean_value_loss, num_epoch)
     if mean_kl_loss:
         writer.add_scalar('kl_loss_epoch', mean_kl_loss, num_epoch)
     if kl_factor is not None:

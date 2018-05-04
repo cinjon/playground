@@ -62,8 +62,6 @@ def get_args():
                         'distill the distill-target into the model. at epoch '
                         '0, the probability is 1.0 (i.e. only use target), at '
                         'epoch distill-step and onwards, it is 0.0.')
-    parser.add_argument('--init-kl-factor', type=float, default=1.0,
-                        help='the initial kl factor.')
     parser.add_argument('--set-distill-kl', type=float, default=-1.0,
                         help='if we want a constant factor for the kl distill '
                         'loss, then set this to be that nonnegative value.')
@@ -78,8 +76,10 @@ def get_args():
     parser.add_argument('--half-lr-epochs', default=0, type=int,
                         help='after how many epochs to halve the learning rate. '
                         'if 0, this never halves the learning rate.')
-    parser.add_argument('--suffix', type=str, default='', 
+    parser.add_argument('--suffix', type=str, default='',
                         help='added suffix for the model to use.')
+    parser.add_argument('--reinforce-only', action='store_true', default=False,
+                        help='train only with reinforce')
 
 
     # specific to Pommerman
