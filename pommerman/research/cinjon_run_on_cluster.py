@@ -282,136 +282,88 @@ def train_dagger_job(flags, jobname=None):
 # )
 
 
-### These are trying to dagger train an agent in a TeamRandom game. 
-train_dagger_job(
-    {"num-processes": 8, "run-name": "lol", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
- }, "loldag"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
- }, "loldag"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
- }, "loldag"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
- }, "loldag"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
- }, "loldag"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
- }, "loldag"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
- }, "loldag"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
- }, "loldag"
-)
+# ### These are trying to dagger train an agent in a TeamRandom game. 
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
+#      "minibatch-size": 275, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#  }, "loldag"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
+#      "minibatch-size": 275, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#  }, "loldag"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
+#      "minibatch-size": 275, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#  }, "loldag"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
+#      "minibatch-size": 275, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#  }, "loldag"
+# )
 
-### These are like the above but don't use the value loss.
+# ### These are like the above but don't use the value loss.
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 25, "log-interval": 50,
+#      "minibatch-size": 275, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, 
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#  }, "lolexuvl"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
+#      "minibatch-size": 275, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, 
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#  }, "lolexuvl"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 25, "log-interval": 50,
+#      "minibatch-size": 275, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, 
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#  }, "lolexuvl"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
+#      "minibatch-size": 275, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, 
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#  }, "lolexuvl"
+# )
 train_dagger_job(
-    {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
- }, "lolexuvl"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
+    {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 275, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100, "use-value-loss": "",
      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
- }, "lolexuvl"
+ }, "loldag"
 )
 train_dagger_job(
-    {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
- }, "lolexuvl"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
+    {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 275, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100, "use-value-loss": "",
      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
      "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
- }, "lolexuvl"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
- }, "lolexuvl"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
- }, "lolexuvl"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
- }, "lolexuvl"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "lolexuvl", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-     "minibatch-size": 2000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
- }, "lolexuvl"
+ }, "loldag"
 )
 
 
@@ -630,40 +582,40 @@ train_dagger_job(
 
 ### These try to adjust for what we learned above with an attempt to bump up the KL.
 ### 
-train_ppo_job( # Batch size of 400
-    {"num-processes": 8, "run-name": "a", "how-train": "simple", "num-steps": 100, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
-    }, "pmanDSS"
-)
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "a", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
-    }, "pmanDSS"
-)
-train_ppo_job( # Batch size of 400
-    {"num-processes": 8, "run-name": "a", "how-train": "simple", "num-steps": 100, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0005, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
-    }, "pmanDSS"
-)
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "a", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0005, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
-    }, "pmanDSS"
-)
+# train_ppo_job( # Batch size of 400
+#     {"num-processes": 8, "run-name": "b", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#     }, "pmanDSS"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "b", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#     }, "pmanDSS"
+# )
+# train_ppo_job( # Batch size of 400
+#     {"num-processes": 8, "run-name": "b", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0005, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#     }, "pmanDSS"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "b", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0005, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "half-lr-epochs": 5000,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#     }, "pmanDSS"
+# )
 
