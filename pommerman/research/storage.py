@@ -174,7 +174,7 @@ class RolloutStorage(object):
                 dagger_probs_distr_batch
 
 
-class EpisodeBuffer:
+class CPUReplayBuffer:
     """
     This buffer stores episode rollouts. Each call to `extend` must contain a list of
     episodes and will be sampled by using a call to `sample`. Note that the `sample`
@@ -200,9 +200,7 @@ class EpisodeBuffer:
             'Unable to sample {} items, current buffer size {}'.format(
                 batch_size, self.__len__())
 
-        batch_index = random.sample(range(self.__len__()), batch_size)
-        for index in batch_index:
-            yield self.buffer[index]
+        return random.sample(self.buffer, batch_size)
 
     def __len__(self):
         return len(self.buffer)

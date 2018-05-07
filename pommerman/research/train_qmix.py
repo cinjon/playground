@@ -24,7 +24,7 @@ import torch
 from torch.nn import MSELoss
 from torch.autograd import Variable
 
-from storage import EpisodeBuffer
+from storage import CPUReplayBuffer
 from arguments import get_args
 import envs as env_helpers
 import qmix_agent
@@ -68,7 +68,7 @@ def train():
 
     writer = SummaryWriter(log_dir)
 
-    episode_buffer = EpisodeBuffer(size=5000)
+    buffer = CPUReplayBuffer(size=args.buffer_size)
 
     # TODO: When we implement heterogenous, change this to be per agent.
     start_epoch = training_agents[0].num_epoch
@@ -102,12 +102,9 @@ def train():
         return [[] for _ in range(num_agents)]
 
     ##
-    # Each history is Python list is of length num_processes. This is a list because not all
-    # episodes are of the same length and we don't want information of an episode
-    # after it has ended. Each history item has the first dimension as time step, second
-    # dimension as the number of training agents and then appropriate shape for the item
+    # Runtime stats
     #
-    history = [init_history_instance() for _ in range(num_processes)]
+    len_history = [0] * num_processes
     eps = args.eps_max
     eps_steps = 0
     gradient_steps = 0
@@ -137,7 +134,7 @@ def train():
             Variable(next_state, volatile=True))
         max_next_q_values = max_next_q_values.max(1)[0]
         # sum the rewards for individual agents
-        expected_q_values = reward.sum(dim=1) + args.gamma * max_next_q_values.data
+        expected_q_values = reward.mean(dim=1) + args.gamma * max_next_q_values.data
 
         loss = MSELoss()(current_q_values, Variable(expected_q_values))
         loss.backward()
@@ -145,9 +142,12 @@ def train():
         value_losses.append(loss.cpu().data[0])
 
     def run_dqn():
-        if len(episode_buffer) >= args.episode_batch:
-            for episode in episode_buffer.sample(args.episode_batch):
-                compute_q_loss(*episode)
+        if len(buffer) >= args.minibatch_size:
+            batch = buffer.sample(args.minibatch_size)
+            item_batch = list(zip(*batch))
+            for i in range(len(item_batch)):
+                item_batch[i] = torch.cat(item_batch[i])
+            compute_q_loss(*item_batch)
             training_agents[0].optimizer_step()
             return 1
         return 0
@@ -191,11 +191,14 @@ def train():
             next_state_tensor = torch.from_numpy(obs).float().unsqueeze(1)
 
             for i in range(num_processes):
-                history[i][0] = torch.cat([history[i][0], global_state_tensor[i]], dim=0)
-                history[i][1] = torch.cat([history[i][1], state_tensor[i]], dim=0)
-                history[i][2] = torch.cat([history[i][2], reward_tensor[i]], dim=0)
-                history[i][3] = torch.cat([history[i][3], next_global_state_tensor[i]], dim=0)
-                history[i][4] = torch.cat([history[i][4], next_state_tensor[i]], dim=0)
+                len_history[i] += 1
+                buffer.append([
+                    global_state_tensor[i],
+                    state_tensor[i],
+                    reward_tensor[i],
+                    next_global_state_tensor[i],
+                    next_state_tensor[i],
+                ])
 
                 total_steps += 1
 
@@ -207,15 +210,11 @@ def train():
                     num_episodes += 1
                     running_num_episodes += 1
                     running_mean_episode_length = running_mean_episode_length + \
-                                                  (history[i][0].size(0) - running_mean_episode_length) / running_num_episodes
+                                                  (len_history[i] - running_mean_episode_length) / running_num_episodes
                     if 'winners' in info[i] and info[i]['winners'] == training_ids[i]:
                         running_team_wins += 1
                     elif info[i]['result'] == pommerman.constants.Result.Tie:
                         running_team_ties += 1
-
-                    # Flush completed episode into buffer and clear current episode's history for next episode
-                    episode_buffer.append(history[i])
-                    history[i] = init_history_instance()
 
                     # Store histograms and flush for next episode
                     for j in range(num_agents):
@@ -224,18 +223,17 @@ def train():
                             np.array(action_histogram[i][j]),
                             num_episodes
                         )
+                    len_history[i] = 0
                     action_histogram[i] = init_action_histogram()
 
-                    gradient_steps += run_dqn()
-                    if gradient_steps % args.target_update_steps == 0:
-                        training_agents[0].update_target()
+            gradient_steps += run_dqn()
+            if gradient_steps % args.target_update_steps == 0:
+                training_agents[0].update_target()
 
             # Update for next step
             eps_steps = min(eps_steps + 1, args.eps_max_steps)
             current_obs = obs
             current_global_obs = global_obs
-
-        history = [init_history_instance() for _ in range(num_processes)]
 
         if running_num_episodes:
             end = time.time()

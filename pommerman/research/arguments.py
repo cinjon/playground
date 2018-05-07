@@ -181,8 +181,8 @@ def get_args():
                         when training the dagger agent')
 
     # for QMIX
-    parser.add_argument('--episode-batch', type=int, default=1,
-                        help='number of episodes to sample from the episode buffer for training (default 1)')
+    parser.add_argument('--buffer-size', type=int, default=int(1e6),
+                        help='size of the replay buffer (default 1e6)')
     parser.add_argument('--eps-max', type=float, default=1.0,
                         help='maximum epsilon for epsilon-greedy action selection (default 1.0)')
     parser.add_argument('--eps-min', type=float, default=0.05,
