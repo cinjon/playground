@@ -83,8 +83,10 @@ def train():
                                        args.game_state_file, training_agents,
                                        num_stack, num_processes)
 
+    model_str = args.model_str.strip('PommeCNNPolicy')
+    config_str = config.strip('Pomme').replace('Short', 'Sh')
     suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.gam{}.seed{}".format(
-        args.run_name, how_train, config, args.model_str, args.num_channels,
+        args.run_name, how_train, config_str, model_str, args.num_channels,
         args.lr, args.num_mini_batch, args.num_steps, args.gamma, args.seed)
     if args.use_gae:
         suffix += ".gae"
@@ -96,6 +98,7 @@ def train():
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
     distill_epochs = args.distill_epochs
+    init_kl_factor = args.init_kl_factor
     distill_expert = args.distill_expert
 
     if distill_expert is not None:
@@ -118,9 +121,11 @@ def train():
             distill_agent.init_agent(0, envs.get_game_type())
             distill_type = distill_target.split('::')[0]
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}".format(distill_expert, set_distill_kl)
+                suffix += ".dstl{}.dstlkl{}.ikl{}".format(
+                    distill_expert, set_distill_kl, init_kl_factor)
             else:
-                suffix += ".dstl{}.dstlep{}".format(distill_expert, distill_epochs)
+                suffix += ".dstl{}.dstlep{}.ikl{}".format(
+                    args.distill_expert, distill_epochs, init_kl_factor)
 
             # TODO: Should we not run this against the distill_agent as the first
             # opponent? The problem is that the distill_agent will just stall.
@@ -130,9 +135,11 @@ def train():
                 bad_guys = [distill_agent, distill_agent2]
         elif distill_expert == 'SimpleAgent':
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}".format(distill_expert, set_distill_kl)
+                suffix += ".dstl{}.dstlkl{}.ikl{}".format(
+                    args.distill_expert, set_distill_kl, init_kl_factor)
             else:
-                suffix += ".dstl{}.dstlep{}".format(distill_expert, distill_epochs)
+                suffix += ".dstl{}.dstlep{}.ikl{}".format(
+                    args.distill_expert, distill_epochs, init_kl_factor)
         else:
             raise ValueError("We only support distilling from \
                 DaggerAgent or SimpleAgent \n")
@@ -297,7 +304,7 @@ def train():
             if args.set_distill_kl >= 0:
                 distill_factor = args.set_distill_kl
             else:
-                distill_factor = distill_epochs - num_epoch
+                distill_factor = (distill_epochs - num_epoch) * init_kl_factor
                 distill_factor = 1.0 * distill_factor / distill_epochs
                 distill_factor = max(distill_factor, 0.0)
             print("Epoch %d - distill factor %.3f." % (
