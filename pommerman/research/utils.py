@@ -132,6 +132,8 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
                                  args.num_channels, args.lr, args.minibatch_size,
                                  args.num_steps, args.gamma, args.use_gae,
                                  num_epoch, total_steps, seed)
+        else:
+            suffix += "epoch{}.steps{}".format(num_epoch, total_steps)
 
         if not suffix.endswith('.pt'):
             suffix += '.pt'
