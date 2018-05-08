@@ -1,19 +1,14 @@
 """Train script for dagger learning.
-
 Currently uses SimpleAgent as the expert.
 The training is performed on one processor,
 but evaluation is run on multiple processors
-
 TODO:
 make code less redundant
 if not using the value loss it will store and do many unnecessary operations
-
 Example args:
-
 python train_dagger.py --num-processes 16 --run-name a --how-train dagger \
  --minibatch-size 5000 --num-steps 5000 --log-interval 10 --save-interval 10 \
  --lr 0.005 --expert-prob 0.5 --num-steps-eval 500 --use-value-loss
-
 The --use-value-loss setting makes it so that the value loss is considered.
 The --stop-grads-value setting stops the gradients from the value loss in going
 through the rest of the shared params of the network. Both default to false.
@@ -189,7 +184,7 @@ def train():
                 # other setups. However, that's not really the point here and
                 # so we keep it simple and give it zero reward.
                 count_episodes += 1
-                
+
                 total_data_len = len(returns_list[num_process])
                 start_current_ep = total_data_len - current_ep_len[num_process] - 1
                 for step in range(total_data_len - 2, start_current_ep, -1):
@@ -285,14 +280,15 @@ def train():
                     Variable(dummy_masks).detach())
                 action_loss = cross_entropy_loss(
                     action_scores, Variable(expert_actions_minibatch))
-                        
+
 
                 value_loss = (Variable(returns_minibatch) - values) \
                                 .pow(2).mean()
 
                 agent.optimize(action_loss, value_loss, args.max_grad_norm, \
                                use_value_loss=args.use_value_loss,
-                               stop_grads_value=args.stop_grads_value)
+                               stop_grads_value=args.stop_grads_value,
+                               add_nonlin=args.add_nonlin_valhead)
 
                 if j == args.dagger_epoch - 1:
                     action_losses.append(action_loss.data[0])

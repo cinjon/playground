@@ -42,7 +42,10 @@ def orthogonal(tensor, gain=1):
 
 def get_actor_critic(model):
     """Gets an actor critic from this """
-    actor_critics = ['PommeCNNPolicySmall', 'PommeCNNPolicySmaller']
+    actor_critics = ['PommeCNNPolicySmall', \
+                    'PommeCNNPolicySmaller', \
+                    'PommeCNNPolicySmallNonlinCritic', \
+                    'PommeCNNPolicySmallerNonlinCritic']
 
     for name, obj in inspect.getmembers(sys.modules[__name__]):
         if name not in actor_critics:
@@ -163,6 +166,7 @@ class PommeCNNPolicySmall(_FFPolicy):
         x = x.view(-1, self.num_channels * self.board_size**2)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+
         return self.critic_linear(x), x, states
 
 
@@ -203,6 +207,101 @@ class PommeCNNPolicySmaller(PommeCNNPolicySmall):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         return self.critic_linear(x), x, states
+
+
+class PommeCNNPolicySmallNonlinCritic(PommeCNNPolicySmall):
+    """Class implementing a policy that adds extra nonlinearity to the value head.
+
+    Args:
+      state_dict: The state dict from which we are loading. If this is None,
+        then initializes anew.
+      num_inputs: The int number of inputs to the convnet.
+      action_space: The action space from the environment.
+      board_size: The size of the game board (13).
+      num_channels: The number of channels to use in the convnet.
+    """
+    def _init_network(self, num_inputs):
+        self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
+                               padding=1)
+        self.conv2 = nn.Conv2d(self.num_channels, self.num_channels, 3,
+                               stride=1, padding=1)
+        self.conv3 = nn.Conv2d(self.num_channels, self.num_channels, 3,
+                               stride=1, padding=1)
+        self.conv4 = nn.Conv2d(self.num_channels, self.num_channels, 3,
+                               stride=1, padding=1)
+        self.fc1 = nn.Linear(
+            self.num_channels*(self.board_size)*(self.board_size), 1024)
+        self.fc2 = nn.Linear(1024, 512)
+
+        self.fc_critic = nn.Linear(512, 512)
+        self.critic_linear = nn.Linear(512, 1)
+        self.actor_linear = nn.Linear(512, 1)
+
+    def reset_parameters(self):
+        self.apply(_weights_init)
+        relu_gain = nn.init.calculate_gain('relu')
+        self.conv1.weight.data.mul_(relu_gain)
+        self.conv2.weight.data.mul_(relu_gain)
+        self.conv3.weight.data.mul_(relu_gain)
+        self.conv4.weight.data.mul_(relu_gain)
+        self.fc1.weight.data.mul_(relu_gain)
+        self.fc2.weight.data.mul_(relu_gain)
+
+    def forward(self, inputs, states, masks):
+        x = F.relu(self.conv1(inputs)) # 2x256x13x13
+        x = F.relu(self.conv2(x)) # 2x256x13x13
+        x = F.relu(self.conv3(x)) # 2x256x13x13
+        x = F.relu(self.conv4(x)) # 2x256x13x13
+        x = x.view(-1, self.num_channels * self.board_size**2)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+
+        y = F.tanh(self.fc_critic(x))
+
+        return self.critic_linear(y), x, states
+
+class PommeCNNPolicySmallerNonlinCritic(PommeCNNPolicySmaller):
+    """Class implementing a policy that adds extra nonlinearity to the value head.
+
+    Args:
+      state_dict: The state dict from which we are loading. If this is None,
+        then initializes anew.
+      num_inputs: The int number of inputs to the convnet.
+      action_space: The action space from the environment.
+      board_size: The size of the game board (13).
+      num_channels: The number of channels to use in the convnet.
+    """
+    def _init_network(self, num_inputs):
+        self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
+                               padding=1)
+        self.conv2 = nn.Conv2d(self.num_channels, self.num_channels, 3,
+                               stride=1, padding=1)
+        self.fc1 = nn.Linear(
+            self.num_channels*(self.board_size)*(self.board_size), 1024)
+        self.fc2 = nn.Linear(1024, 512)
+
+        self.fc_critic = nn.Linear(512, 512)
+        self.critic_linear = nn.Linear(512, 1)
+        self.actor_linear = nn.Linear(512, 1)
+
+    def reset_parameters(self):
+        self.apply(_weights_init)
+        relu_gain = nn.init.calculate_gain('relu')
+        self.conv1.weight.data.mul_(relu_gain)
+        self.conv2.weight.data.mul_(relu_gain)
+        self.fc1.weight.data.mul_(relu_gain)
+        self.fc2.weight.data.mul_(relu_gain)
+
+    def forward(self, inputs, states, masks):
+        x = F.relu(self.conv1(inputs)) # 2x256x13x13
+        x = F.relu(self.conv2(x)) # 2x256x13x13
+        x = x.view(-1, self.num_channels * self.board_size**2)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+
+        y = F.tanh(self.fc_critic(x))
+
+        return self.critic_linear(y), x, states
 
 
 class QMIXNet(nn.Module):

@@ -44,7 +44,7 @@ class DaggerAgent(ResearchAgent):
 
     # TODO: debug the stop_grads_value implementation
     def optimize(self, action_classification_loss, value_loss, max_grad_norm,
-                 use_value_loss=False, stop_grads_value=False):
+                 use_value_loss=False, stop_grads_value=False, add_nonlin=False):
         self._optimizer.zero_grad()
         if use_value_loss:
             if stop_grads_value:
@@ -52,6 +52,8 @@ class DaggerAgent(ResearchAgent):
                 for p in self._actor_critic.parameters():
                     p.requires_grad = False
                 self._actor_critic.critic_linear.requires_grad = True
+                if add_nonlin:
+                    self._actor_critic.fc_critic.requires_grad = True
                 value_loss.backward()
             else:
                 (action_classification_loss + value_loss).backward()
