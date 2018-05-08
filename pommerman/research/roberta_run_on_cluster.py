@@ -39,7 +39,9 @@ abbr = {
     'num-mini-batch': 'nmb',
     'use-lr-scheduler': 'ulrs',
     'half-lr-epochs': 'hlre',
-    'use-gae': 'gae'
+    'use-gae': 'gae',
+    'stop-grads-value': 'sgv',
+    'add-nonlin-valhead': 'anv',
 }
 
 def train_ppo_job(flags, jobname=None):
@@ -106,64 +108,631 @@ def train_dagger_job(flags, jobname=None):
 
 ################ JOBS: top to bottom = most recent to oldest  ####################
 
+### May 8 ### trying a different HP set - similar to Cinjon's one and my initial ones
+# smaller minibatch-size (1000/500 -> 275), larger num-episodes-dagger (2 -> 50),
+# larger lr (0.001 -> 0.005)
+
+### These are trying to dagger train an agent in FFA w/ value loss game. After Dagger was put on multiprocesses.
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+     "use-value-loss": "",
+     }, "new-dag-val"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+     "use-value-loss": "",
+     }, "new-dag-val"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+     "use-value-loss": "",
+     }, "new-dag-val"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+     }, "new-dag-val"
+)
+
+### These are trying to dagger train an agent in FFA w/ value loss game. After Dagger was put on multiprocesses.
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+     "use-value-loss": "",
+     }, "new-dag-val"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+     "use-value-loss": "",
+     }, "new-dag-val"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+     "use-value-loss": "",
+     }, "new-dag-val"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+     }, "new-dag-val"
+)
+
+
+### These are trying to dagger train an agent in FFA with value loss and stopgrads
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val-stop", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+     "use-value-loss": "", "stop-grads-value": "",
+     }, "new-dag-val-stop"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val-stop", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+     "use-value-loss": "", "stop-grads-value": "",
+     }, "new-dag-val-stop"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val-stop", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+     "use-value-loss": "", "stop-grads-value": "",
+     }, "new-dag-val-stop"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val-stop", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+     "use-value-loss": "", "stop-grads-value": "",
+     }, "new-dag-val-stop"
+)
+
+
+### These are trying to dagger train an agent in FFA with value loss and stopgrads
+# They also have extra hidden and nonlinear layer in value head only.
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val-stop-nonlin", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmallerNonlinCritic",
+     "use-value-loss": "", "stop-grads-value": "", "add-nonlin-valhead": "",
+     }, "new-dag-val-stop-nonlin"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val-stop-nonlin", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmallNonlinCritic",
+     "use-value-loss": "", "stop-grads-value": "", "add-nonlin-valhead": "",
+     }, "new-dag-val-stop-nonlin"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val-stop-nonlin", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmallerNonlinCritic",
+     "use-value-loss": "", "stop-grads-value": "", "add-nonlin-valhead": "",
+     }, "new-dag-val-stop-nonlin"
+)
+
+train_dagger_job(
+    {"num-processes": 8, "run-name": "new-dag-val-stop-nonlin", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmallNonlinCritic",
+     "use-value-loss": "", "stop-grads-value": "", "add-nonlin-valhead": "",
+     }, "new-dag-val-stop-nonlin"
+)
+
+# TODO: DID NOT RUN THESE ONES YET
+### These are trying to dagger train an agent in FFA w/out value loss game. After Dagger was put on multiprocesses.
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "new-dag-noval", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "dag-noval"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "new-dag-noval", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "dag-noval"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "new-dag-noval", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "dag-noval"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "new-dag-noval", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "dag-noval"
+# )
+
+
+### May 7 ### none of them works!!! still below 10% success rate!!
+
+### These are trying to dagger train an agent in FFA w/out value loss game. After Dagger was put on multiprocesses.
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-noval", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "dag-noval"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-noval", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "dag-noval"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-noval", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "dag-noval"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-noval", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "dag-noval"
+# )
+#
+# ### These are trying to dagger train an agent in FFA w/ value loss game. After Dagger was put on multiprocesses.
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-noval", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      "use-value-loss": "",
+#      }, "dag-noval"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-noval", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      "use-value-loss": "",
+#      }, "dag-noval"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-noval", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      "use-value-loss": "",
+#      }, "dag-noval"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-noval", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "dag-noval"
+# )
+#
+# ### These are trying to dagger train an agent in FFA with value loss and stopgrads
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-val-stop", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      "use-value-loss": "", "stop-grads-value": "",
+#      }, "dag-val-stop"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-val-stop", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      "use-value-loss": "", "stop-grads-value": "",
+#      }, "dag-val-stop"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-val-stop", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      "use-value-loss": "", "stop-grads-value": "",
+#      }, "dag-val-stop"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-val-stop", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      "use-value-loss": "", "stop-grads-value": "",
+#      }, "dag-val-stop"
+# )
+#
+#
+# ### These are trying to dagger train an agent in FFA with value loss and stopgrads
+# # They also have extra hidden and nonlinear layer in value head only.
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-val-stop-nonlin", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmallerNonlinCritic",
+#      "use-value-loss": "", "stop-grads-value": "", "add-nonlin-valhead": "",
+#      }, "dag-val-stop-nonlin"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-val-stop-nonlin", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmallNonlinCritic",
+#      "use-value-loss": "", "stop-grads-value": "", "add-nonlin-valhead": "",
+#      }, "dag-val-stop-nonlin"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-val-stop-nonlin", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmallerNonlinCritic",
+#      "use-value-loss": "", "stop-grads-value": "", "add-nonlin-valhead": "",
+#      }, "dag-val-stop-nonlin"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "dag-val-stop-nonlin", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmallNonlinCritic",
+#      "use-value-loss": "", "stop-grads-value": "", "add-nonlin-valhead": "",
+#      }, "dag-val-stop-nonlin"
+# )
+
+
+
+
+
+
+
+### These are trying to dagger train an agent in FFA w/out value loss game. After Dagger was put on multiprocesses.
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag-novalnet", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "loldag-novalnet"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag-novalnet", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "loldag-novalnet"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag-novalnet", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "loldag-novalnet"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag-novalnet", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "loldag-novalnet"
+# )
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag-novalnet", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "loldag-novalnet"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag-novalnet", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "loldag-novalnet"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag-novalnet", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "loldag-novalnet"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag-novalnet", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "loldag-novalnet"
+# )
+
+
+### May 5 ###
+
+### Train PPO + Distilling for FFA -- high kl_facto 10x distill_factor with distill_epoch 10k
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "kl10fix", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#     }, "pmanKL10fix"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "kl10dstl", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#     }, "pmanKL10dstl"
+# )
+
+# ### Train PPO + Distilling for FFA -- high kl_facto fixed to 10
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "kl10fix", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#      "set-distill-kl": 10,
+#     }, "pmanKL10fix"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "kl10fix", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#      "set-distill-kl": 10,
+#     }, "pmanKL10fix"
+# )
+
+
+
+
+
+### These are trying to dagger train an agent in FFA with value loss game. After Dagger was put on multiprocesses
+###
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "loldag"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "loldag"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "loldag"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "loldag"
+# )
+#
+#
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "loldag"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#      }, "loldag"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "loldag"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 2, "log-interval": 50,
+#      "minibatch-size": 500, "save-interval": 50, "lr": 0.001, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#      }, "loldag"
+# )
+
+
+#### May 5th ####
+
 ### Jobs with PPO but no distillation: FFA, both v0 and v3; only Small net.
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAShort-v3", "gamma": ".995", "lr": 0.0003,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-    }, "pmanPPO"
-)
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAShort-v0", "gamma": ".995", "lr": 0.0003,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-    }, "pmanPPO"
-)
-
-
-### Jobs with reinforce-only (no PPO): FFA, both distill from Simple and not distill, \
-### both v0 and v3; only Small net.
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "pg-dstl", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAShort-v3", "gamma": ".995", "lr": 0.0003,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "reinforce-only": "",
-    }, "pmanPGdstl"
-)
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "pg-dstl", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAShort-v0", "gamma": ".995", "lr": 0.0003,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "reinforce-only": "",
-    }, "pmanPGdstl"
-)
-
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "pg", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAShort-v3", "gamma": ".995", "lr": 0.0003,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "reinforce-only": "",
-    }, "pmanPGdstl"
-)
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "pg", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAShort-v0", "gamma": ".995", "lr": 0.0003,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "reinforce-only": "",
-    }, "pmanPGdstl"
-)
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#     }, "pmanPPO"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#     }, "pmanPPO"
+# )
+#
+#
+# ### Jobs with reinforce-only (no PPO): FFA, both distill from Simple and not distill, \
+# ### both v0 and v3; only Small net.
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "pg-dstl", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "reinforce-only": "",
+#     }, "pmanPGdstl"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "pg-dstl", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "reinforce-only": "",
+#     }, "pmanPGdstl"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "pg", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v3", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "reinforce-only": "",
+#     }, "pmanPGdstl"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "pg", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAShort-v0", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2, "reinforce-only": "",
+#     }, "pmanPGdstl"
+# )
 
 ### These are meant to see if we can distill the 1hot SImple Agent into the PPO while playing Team. These all have a bigger batch size.
 # train_ppo_job( # Batch size of 400
@@ -239,71 +808,7 @@ train_ppo_job( # Batch size of 800
 #     }, "pmanDSS"
 # )
 
-### These are trying to dagger train an agent in FFA game. After Dagger was put on multiprocesses
-# train_dagger_job(
-#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-#      "config": "PommeFFAShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
-#      }, "loldag"
-# )
-# train_dagger_job(
-#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
-#      }, "loldag"
-# )
-# train_dagger_job(
-#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-#      "config": "PommeFFAShort-v3", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
-#      }, "loldag"
-# )
-# train_dagger_job(
-#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-#      "minibatch-size": 1000, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
-#      }, "loldag"
-# )
-# train_dagger_job(
-#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-#      "config": "PommeFFAShort-v0", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
-#      }, "loldag"
-# )
-# train_dagger_job(
-#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 50, "log-interval": 50,
-#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-#      "config": "PommeFFAShort-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
-#      }, "loldag"
-# )
-# train_dagger_job(
-#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-#      "config": "PommeFFAShort-v3", "gamma": ".99", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
-#      }, "loldag"
-# )
-# train_dagger_job(
-#     {"num-processes": 8, "run-name": "loldag", "how-train": "dagger", "num-episodes-dagger": 15, "log-interval": 50,
-#      "minibatch-size": 500, "save-interval": 50, "lr": 0.005, "num-steps-eval": 100, "use-value-loss": "",
-#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-#      "config": "PommeFFAShort-v3", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
-#      }, "loldag"
-# )
+
 #
 # ### This is just like above but without value loss
 # train_dagger_job(
