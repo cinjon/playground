@@ -62,7 +62,7 @@ def train():
     #####
     # Logging helpers.
     suffix = args.run_name
-    log_dir = os.path.join(args.log_dir, suffix)
+    log_dir = os.path.join(args.log_dir)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
@@ -254,7 +254,7 @@ def train():
 
             # Partial Stats
             print('[{} steps/s] Num Episodes: {}, Running Team Win Rate: {}, Mean Running Loss: {}'.format(
-                  steps_per_sec, num_episodes, running_team_wins / running_num_episodes, mean_value_loss))
+                  steps_per_sec, num_episodes, running_team_wins / running_num_episodes, mean_value_loss), flush=True)
 
             running_num_episodes = 0
             running_mean_episode_length = 0
