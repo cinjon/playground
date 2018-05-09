@@ -9,12 +9,15 @@ from . import utility
 class Bomber(object):
     """Container to keep the agent state."""
 
-    def __init__(self, agent_id=None, game_type=None):
+    def __init__(self, agent_id=None, game_type=None,
+                bomb_life=constants.DEFAULT_BOMB_LIFE,
+                blast_strength=constants.DEFAULT_BLAST_STRENGTH):
         self._game_type = game_type
         self.ammo = 1
         self.is_alive = True
-        self.blast_strength = constants.DEFAULT_BLAST_STRENGTH
+        self.blast_strength = blast_strength
         self.can_kick = False
+        self.bomb_life = bomb_life
         if agent_id is not None:
             self.set_agent_id(agent_id)
 
@@ -34,7 +37,7 @@ class Bomber(object):
     def maybe_lay_bomb(self):
         if self.ammo > 0:
             self.ammo -= 1
-            return Bomb(self, self.position, constants.DEFAULT_BOMB_LIFE, self.blast_strength)
+            return Bomb(self, self.position, self.bomb_life, self.blast_strength)
         return None
 
     def incr_ammo(self):
@@ -64,7 +67,7 @@ class Bomber(object):
         self.position = self.start_position
         self.ammo = ammo
         self.is_alive = is_alive
-        self.blast_strength = blast_strength or constants.DEFAULT_BLAST_STRENGTH
+        self.blast_strength = self.blast_strength
         self.can_kick = can_kick
 
     def pick_up(self, item):
@@ -91,7 +94,8 @@ class Bomber(object):
             "position": self.position,
             "ammo": self.ammo,
             "blast_strength": self.blast_strength,
-            "can_kick": self.can_kick
+            "can_kick": self.can_kick,
+            "bomb_life": self.bomb_life,
         }
 
 

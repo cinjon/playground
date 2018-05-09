@@ -23,10 +23,21 @@ ITEM_COLORS = [[240,248,255], [128,128,128], [210,180,140], [255, 153, 51],
 ITEM_COLORS += [(153, 153, 255), (153, 204, 204), (97, 169, 169),
                 (48, 117, 117)]
 # If using collapsing boards, the step at which the board starts to collapse.
-FIRST_COLLAPSE = 500 
+FIRST_COLLAPSE = 500
 MAX_STEPS = 2500
 RADIO_VOCAB_SIZE = 8
 RADIO_NUM_WORDS = 2
+
+
+# Constants for easier setting of the game
+BOARD_SIZE_EASY = 11
+NUM_RIGID_EASY = 36
+NUM_WOOD_EASY = 36
+DEFAULT_BOMB_LIFE_EASY = 10
+MAX_STEPS_EASY = 800
+NUM_ITEMS_EASY = int(NUM_WOOD_EASY/2)
+DEFAULT_BLAST_STRENGTH_EASY = 2
+# NOTE: should we also change the blast strength? or agent view size?
 
 
 class Item(Enum):
@@ -67,7 +78,7 @@ class GameType(Enum):
     TeamRadio: 2v2. Submit two agents; they are matched up against two other
       agents. Each team passes discrete communications to each other.
     """
-    FFA = 1 
+    FFA = 1
     Team = 2
     TeamRadio = 3
 

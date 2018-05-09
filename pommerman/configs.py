@@ -34,6 +34,26 @@ def ffa_v0_env():
     agent = characters.Bomber
     return locals()
 
+def ffa_v0_easy_env():
+    """Start up a FFA config with a lower complexity board."""
+    env = envs.v0.Pomme
+    game_type = constants.GameType.FFA
+    env_entry_point = 'pommerman.envs.v0:Pomme'
+    env_id = 'PommeFFAEasy-v0'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.BOARD_SIZE_EASY,
+        'agent_view_size': constants.AGENT_VIEW_SIZE,
+        'num_rigid': constants.NUM_RIGID_EASY,
+        'num_wood': constants.NUM_WOOD_EASY,
+        'num_items': constants.NUM_ITEMS_EASY,
+        'max_steps': constants.MAX_STEPS_EASY,
+        'render_fps': constants.RENDER_FPS,
+        'use_skull': False,
+    }
+    agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
+                            blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
+    return locals()
 
 def ffa_v3_env():
     """Start up a FFA config dense reward."""
@@ -54,6 +74,26 @@ def ffa_v3_env():
     agent = characters.Bomber
     return locals()
 
+def ffa_v3_easy_env():
+    """Start up a FFA config with dense reward and a lower complexity board."""
+    env = envs.v3.Pomme
+    game_type = constants.GameType.FFA
+    env_entry_point = 'pommerman.envs.v3:Pomme'
+    env_id = 'PommeFFAEasy-v3'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.BOARD_SIZE_EASY,
+        'agent_view_size': constants.AGENT_VIEW_SIZE,
+        'num_rigid': constants.NUM_RIGID_EASY,
+        'num_wood': constants.NUM_WOOD_EASY,
+        'num_items': constants.NUM_ITEMS_EASY,
+        'max_steps': constants.MAX_STEPS_EASY,
+        'render_fps': constants.RENDER_FPS,
+        'use_skull': False,
+    }
+    agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
+                            blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
+    return locals()
 
 def ffa_v3_fast_env():
     """Start up a FFA config with dense reward and faster rendering."""
@@ -175,6 +215,26 @@ def team_v0_env():
     agent = characters.Bomber
     return locals()
 
+def team_v0_easy_env():
+    """Start up a team config with a lower complexity board."""
+    env = envs.v0.Pomme
+    game_type = constants.GameType.Team
+    env_entry_point = 'pommerman.envs.v0:Pomme'
+    env_id = 'PommeTeamEasy-v0'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.BOARD_SIZE_EASY,
+        'agent_view_size': constants.AGENT_VIEW_SIZE,
+        'num_rigid': constants.NUM_RIGID_EASY,
+        'num_wood': constants.NUM_WOOD_EASY,
+        'num_items': constants.NUM_ITEMS_EASY,
+        'max_steps': constants.MAX_STEPS_EASY,
+        'render_fps': constants.RENDER_FPS,
+        'use_skull': False,
+    }
+    agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
+                            blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
+    return locals()
 
 def team_v0_fast_env():
     """Start up a team config with faster rendering."""
@@ -234,6 +294,26 @@ def team_v3_env():
     agent = characters.Bomber
     return locals()
 
+def team_v3_easy_env():
+    """Start up a team config with dense reward and a lower complexity board."""
+    env = envs.v3.Pomme
+    game_type = constants.GameType.Team
+    env_entry_point = 'pommerman.envs.v3:Pomme'
+    env_id = 'PommeTeamEasy-v3'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.BOARD_SIZE_EASY,
+        'agent_view_size': constants.AGENT_VIEW_SIZE,
+        'num_rigid': constants.NUM_RIGID_EASY,
+        'num_wood': constants.NUM_WOOD_EASY,
+        'num_items': constants.NUM_ITEMS_EASY,
+        'max_steps': constants.MAX_STEPS_EASY,
+        'render_fps': constants.RENDER_FPS,
+        'use_skull': False,
+    }
+    agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
+                            blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
+    return locals()
 
 def team_v3_short_env():
     """Start up a team config with dense reward

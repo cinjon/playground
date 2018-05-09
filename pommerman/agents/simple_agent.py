@@ -171,8 +171,8 @@ class SimpleAgent(BaseAgent):
         Q = queue.PriorityQueue()
 
         mx, my = my_position
-        for r in range(max(0, mx - depth), min(13, mx + depth)):
-            for c in range(max(0, my - depth), min(13, my + depth)):
+        for r in range(max(0, mx - depth), min(len(board), mx + depth)):
+            for c in range(max(0, my - depth), min(len(board), my + depth)):
                 position = (r, c)
                 if any([
                         out_of_range(my_position, position),

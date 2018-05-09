@@ -35,6 +35,8 @@ class Pomme(gym.Env):
                  num_items=None,
                  max_steps=1000,
                  is_partially_observable=False,
+                 default_bomb_life=None,
+                 use_skull=True,
                  **kwargs
     ):
         self.render_fps = render_fps
@@ -48,6 +50,8 @@ class Pomme(gym.Env):
         self._max_steps = max_steps
         self._viewer = None
         self._is_partially_observable = is_partially_observable
+        self._default_bomb_life = default_bomb_life
+        self._use_skull = use_skull
 
         self.training_agents = []
         self.model = forward_model.ForwardModel()
@@ -59,7 +63,6 @@ class Pomme(gym.Env):
         # they are actually returned as a dict for easier understanding.
         self._set_action_space()
         self._set_observation_space()
-
         self.expert = SimpleAgent()
 
     def _set_action_space(self):
@@ -117,7 +120,7 @@ class Pomme(gym.Env):
                                          self._num_wood)
 
     def make_items(self):
-        self._items = utility.make_items(self._board, self._num_items)
+        self._items = utility.make_items(self._board, self._num_items, self._use_skull)
 
     def act(self, obs, acting_agent_ids=[], ex_agent_ids=None):
         if ex_agent_ids is not None:
@@ -232,7 +235,7 @@ class Pomme(gym.Env):
         for row in range(self._board_size):
             for col in range(self._board_size):
                 value = self._board[row][col]
-                if utility.position_is_agent(self._board, (row, col)):
+                if utility.position_is_agent(self._board, (row, col), self._use_skull):
                     num_agent = value - num_items
                     if self._agents[num_agent].is_alive:
                         all_frame[row][col] = constants.AGENT_COLORS[num_agent]

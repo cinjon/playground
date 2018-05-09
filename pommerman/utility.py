@@ -128,7 +128,7 @@ def make_board(size, num_rigid=0, num_wood=0):
     return board
 
 
-def make_items(board, num_items):
+def make_items(board, num_items, use_skull=True):
     item_positions = {}
     while num_items > 0:
         row = random.randint(0, len(board)-1)
@@ -138,9 +138,14 @@ def make_items(board, num_items):
         if (row, col) in item_positions:
             continue
 
-        item_positions[(row, col)] = random.choice([
-            constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick, constants.Item.Skull
-        ]).value
+        if use_skull:
+            item_positions[(row, col)] = random.choice([
+                constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick, constants.Item.Skull
+            ]).value
+        else:
+            item_positions[(row, col)] = random.choice([
+                constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick
+            ]).value
         num_items -= 1
     return item_positions
 
@@ -202,8 +207,11 @@ def _position_is_item(board, position, item):
     return board[position] == item.value
 
 
-def position_is_powerup(board, position):
-    powerups = [constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick, constants.Item.Skull]
+def position_is_powerup(board, position, use_skull=True):
+    if use_skull:
+        powerups = [constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick, constants.Item.Skull]
+    else:
+        powerups = [constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick]
     item_values = [item.value for item in powerups]
     return board[position] in item_values
 
@@ -258,6 +266,14 @@ def position_in_items(board, position, items):
 
 def position_on_board(board, position):
     x, y = position
+    # print("position ", position)
+    # print("len board ", len(board))
+    # print("len board[0] ", len(board[0]))
+    # print("len board > x", len(board) > x)
+    # print("len board[0] > y", len(board[0]) > y)
+    # print("x >= 0 ", x >= 0)
+    # print("y >= 0", y >= 0)
+    # print("position on board ", all([len(board) > x,len(board[0]) > y,x >= 0,y >= 0]))
     return all([
         len(board) > x,
         len(board[0]) > y,

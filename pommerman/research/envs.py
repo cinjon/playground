@@ -65,7 +65,12 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             env.seed(seed)
         env.rank = rank
 
-        env = WrapPomme(env, how_train)
+        if config == 'PommeFFAEasy-v0' or config == 'PommeFFAEasy-v3' or \
+            config == 'PommeTeamEasy-v0' or config == 'PommeTeamEasy-v3':
+            env = WrapPomme(env, how_train, easy=True)
+        else:
+            env = WrapPomme(env, how_train, easy=False)
+
         env = MultiAgentFrameStack(env, num_stack)
         return env
     return _thunk
@@ -183,16 +188,21 @@ class WrapPommeEval(gym.ObservationWrapper):
 
 
 class WrapPomme(gym.ObservationWrapper):
-    def __init__(self, env=None, how_train='simple', acting_agent_ids=None):
+    def __init__(self, env=None, how_train='simple', acting_agent_ids=None,
+                easy=False):
         super(WrapPomme, self).__init__(env)
         self._how_train = how_train
         self._acting_agent_ids = acting_agent_ids or self.env.training_agents
-        obs_shape = (19, 13, 13)
+        if easy:
+            obs_shape = (19, 11, 11)
+        else:
+            obs_shape = (19, 13, 13)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]
         self.observation_space = spaces.Box(
             self.observation_space.low[0],
             self.observation_space.high[0],
+
             extended_shape,
             dtype=np.float32
         )
