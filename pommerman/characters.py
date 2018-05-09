@@ -15,6 +15,7 @@ class Bomber(object):
         self._game_type = game_type
         self.ammo = 1
         self.is_alive = True
+        self.init_blast_strength = blast_strength
         self.blast_strength = blast_strength
         self.can_kick = False
         self.bomb_life = bomb_life
@@ -67,7 +68,7 @@ class Bomber(object):
         self.position = self.start_position
         self.ammo = ammo
         self.is_alive = is_alive
-        self.blast_strength = self.blast_strength
+        self.blast_strength = blast_strength or self.init_blast_strength
         self.can_kick = can_kick
 
     def pick_up(self, item):
