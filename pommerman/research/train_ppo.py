@@ -21,6 +21,10 @@ python train_ppo.py --how-train homogenous --num-processes 10 \
  --run-name distill --num-steps 100 --log-interval 5 --distill-epochs 100 \
  --distill-target dagger::/path/to/model.pt --config PommeTeam-v0 \
  --eval-mode homogenous --num-battles-eval 100 --seed 100
+
+Lower Complexity example:
+python train_ppo.py --how-train simple --num-processes 10 --run-name test \
+ --num-steps 50 --log-interval 5 --config PommeFFAEasy-v0 --board-size 11
 """
 from collections import defaultdict
 import os
