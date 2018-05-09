@@ -36,7 +36,7 @@ def ffa_v0_env():
 
 
 def ffa_v3_env():
-    """Start up a FFA config with the default settings."""
+    """Start up a FFA config dense reward."""
     env = envs.v3.Pomme
     game_type = constants.GameType.FFA
     env_entry_point = 'pommerman.envs.v3:Pomme'
@@ -56,7 +56,7 @@ def ffa_v3_env():
 
 
 def ffa_v3_fast_env():
-    """Start up a FFA config with the default settings."""
+    """Start up a FFA config with dense reward and faster rendering."""
     env = envs.v3.Pomme
     game_type = constants.GameType.FFA
     env_entry_point = 'pommerman.envs.v3:Pomme'
@@ -76,7 +76,8 @@ def ffa_v3_fast_env():
 
 
 def ffa_v3_short_env():
-    """Start up a FFA config with the default settings."""
+    """Start up a FFA config with dense reward
+        and shorter maximum episode length."""
     env = envs.v3.Pomme
     game_type = constants.GameType.FFA
     env_entry_point = 'pommerman.envs.v3:Pomme'
@@ -96,7 +97,7 @@ def ffa_v3_short_env():
 
 
 def ffa_v0_fast_env():
-    """Start up a FFA config with the default settings."""
+    """Start up a FFA config with faster rendering."""
     env = envs.v0.Pomme
     game_type = constants.GameType.FFA
     env_entry_point = 'pommerman.envs.v0:Pomme'
@@ -115,7 +116,7 @@ def ffa_v0_fast_env():
     return locals()
 
 def ffa_v0_short_env():
-    """Start up a FFA config with the default settings."""
+    """Start up a FFA config with shorter maximum episode length."""
     env = envs.v0.Pomme
     game_type = constants.GameType.FFA
     env_entry_point = 'pommerman.envs.v0:Pomme'
@@ -176,7 +177,7 @@ def team_v0_env():
 
 
 def team_v0_fast_env():
-    """Start up a team config with the default settings."""
+    """Start up a team config with faster rendering."""
     env = envs.v0.Pomme
     game_type = constants.GameType.Team
     env_entry_point = 'pommerman.envs.v0:Pomme'
@@ -215,7 +216,7 @@ def team_v0_short_env():
 
 
 def team_v3_env():
-    """Start up a team config with the default settings."""
+    """Start up a team config with dense reward."""
     env = envs.v3.Pomme
     game_type = constants.GameType.Team
     env_entry_point = 'pommerman.envs.v3:Pomme'
@@ -235,7 +236,8 @@ def team_v3_env():
 
 
 def team_v3_short_env():
-    """Start up a team config with the default settings."""
+    """Start up a team config with dense reward
+        and shorter maximum episode length."""
     env = envs.v3.Pomme
     game_type = constants.GameType.Team
     env_entry_point = 'pommerman.envs.v3:Pomme'
