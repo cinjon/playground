@@ -662,129 +662,207 @@ def train_dagger_job(flags, jobname=None):
 
 ### These are again trying to initialize from a dagger trained agent.
 ### 
-train_ppo_job( # Batch size of 400
-    {"num-processes": 8, "run-name": "initexuvl", "how-train": "simple", "num-steps": 100, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
-)
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, 
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
-)
-train_ppo_job( # Batch size of 400
-    {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 100, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, 
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
-)
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, 
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
-)
+# train_ppo_job( # Batch size of 400
+#     {"num-processes": 8, "run-name": "initexuvl", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, 
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
+# train_ppo_job( # Batch size of 400
+#     {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, 
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, 
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
 
 
-### These are like the above but additioanlyl distills from SimpleAgent
-train_ppo_job( # Batch size of 400
-    {"num-processes": 8, "run-name": "initexuvl", "how-train": "simple", "num-steps": 100, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
-)
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
-)
-train_ppo_job( # Batch size of 400
-    {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 100, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
-)
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
-)
+# ### These are like the above but additioanlyl distills from SimpleAgent
+# train_ppo_job( # Batch size of 400
+#     {"num-processes": 8, "run-name": "initexuvl", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
+# train_ppo_job( # Batch size of 400
+#     {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
 
 
-### These are like the above but additioanlyl distills from DaggerAgent
-train_ppo_job( # Batch size of 400
-    {"num-processes": 8, "run-name": "initexuvl", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+# ### These are like the above but additioanlyl distills from DaggerAgent
+# train_ppo_job( # Batch size of 400
+#     {"num-processes": 8, "run-name": "initexuvl", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
+#      "distill-expert": "DaggerAgent", "distill-epochs": 10000,
+#      "distill-target": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt",
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
+#      "distill-expert": "DaggerAgent", "distill-epochs": 10000,
+#      "distill-target": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt",
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
+# train_ppo_job( # Batch size of 400
+#     {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
+#      "distill-expert": "DaggerAgent", "distill-epochs": 10000,
+#      "distill-target": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt",
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
+#      "distill-expert": "DaggerAgent", "distill-epochs": 10000,
+#      "distill-target": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt",
+#      "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
+#     }, "pmaninit"
+# )
+
+
+### These are trying to do homogenous training on EasyEnv but distilling from SimpleAgent
+train_ppo_job({ # Batch size of 400
+    "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
+    "log-interval": 150, "lr": 0.0003, "num-steps": 100,
+    "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
+    "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
+    "distill-epochs": 10000, "distill-expert": "SimpleAgent",
+    "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
+    "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmaller",
+    "half-lr-epochs": 5000, "use-gae": ""
+}, "pmanhomo")
+train_ppo_job({ # Batch size of 600
+    "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
+    "log-interval": 150, "lr": 0.0003, "num-steps": 150,
+    "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
+    "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
+    "distill-epochs": 10000, "distill-expert": "SimpleAgent",
+    "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
+    "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmaller",
+    "half-lr-epochs": 5000, "use-gae": ""
+}, "pmanhomo")
+train_ppo_job({ # Batch size of 400
+    "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
+    "log-interval": 150, "lr": 0.0003, "num-steps": 100,
+    "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
+    "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
+    "distill-epochs": 10000, "distill-expert": "SimpleAgent",
+    "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
+    "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmall",
+    "half-lr-epochs": 5000, "use-gae": ""
+}, "pmanhomo")
+train_ppo_job({ # Batch size of 600
+    "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
+    "log-interval": 150, "lr": 0.0003, "num-steps": 150,
+    "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
+    "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
+    "distill-epochs": 10000, "distill-expert": "SimpleAgent",
+    "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
+    "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmall",
+    "half-lr-epochs": 5000, "use-gae": ""
+}, "pmanhomo")
+
+
+### Dagger agents on the easy env.
+train_dagger_job(
+    {"num-processes": 8, "run-name": "easyexuvl", "how-train": "dagger", "num-episodes-dagger": 20,
+     "log-interval": 50, "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, 
      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
-     "distill-expert": "DaggerAgent", "distill-epochs": 10000,
-     "distill-target": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt",
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
+     "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+ }, "easyexuvl"
 )
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+train_dagger_job(
+    {"num-processes": 8, "run-name": "easydag", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, "use-value-loss": "",
      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000, "use-gae": "",
-     "distill-expert": "DaggerAgent", "distill-epochs": 10000,
-     "distill-target": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt",
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
+     "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+ }, "easydag"
 )
-train_ppo_job( # Batch size of 400
-    {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 100, "log-interval": 100,
+train_dagger_job(
+    {"num-processes": 8, "run-name": "easyexuvl", "how-train": "dagger", "num-episodes-dagger": 20,
+     "log-interval": 50, "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, 
      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
-     "distill-expert": "DaggerAgent", "distill-epochs": 10000,
-     "distill-target": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt",
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
+     "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+ }, "easyexuvl"
 )
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "init", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+train_dagger_job(
+    {"num-processes": 8, "run-name": "easydag", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+     "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, "use-value-loss": "",
      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamShort-v0", "gamma": ".995", "lr": 0.0003, "init-kl-factor": 10.0,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2, "half-lr-epochs": 5000,
-     "distill-expert": "DaggerAgent", "distill-epochs": 10000,
-     "distill-target": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt",
-     "saved-paths": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-lolexuvl.dagger.PommeTeamShort-v0.PommeCNNPolicySmaller.nc256.lr0.005.mb275.ne25.prob0.5.nopt1.epoch900.steps720800.seed1.pt"
-    }, "pmaninit"
+     "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+ }, "easydag"
 )
