@@ -274,6 +274,24 @@ def team_v0_short_env():
     agent = characters.Bomber
     return locals()
 
+def team_v0_short_fast_env():
+    """Start up a team config with the default settings."""
+    env = envs.v0.Pomme
+    game_type = constants.GameType.Team
+    env_entry_point = 'pommerman.envs.v0:Pomme'
+    env_id = 'PommeTeamShortFast-v0'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.BOARD_SIZE,
+        'agent_view_size': constants.AGENT_VIEW_SIZE,
+        'num_rigid': constants.NUM_RIGID,
+        'num_wood': constants.NUM_WOOD,
+        'num_items': constants.NUM_ITEMS,
+        'max_steps': 900,
+        'render_fps': 2000,
+    }
+    agent = characters.Bomber
+    return locals()
 
 def team_v3_env():
     """Start up a team config with dense reward."""
