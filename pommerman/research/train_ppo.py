@@ -285,7 +285,6 @@ def train():
             if how_train == 'homogenous':
                 distill_agent2.cuda()
 
-
     if how_train == 'homogenous':
         win_rate, tie_rate, loss_rate = evaluate_homogenous(
             args, good_guys, bad_guys, 0, writer, 0)
@@ -392,9 +391,6 @@ def train():
             game_ended = np.array([done_.all() for done_ in done])
             win, alive_win = get_win_alive(info, envs)
 
-
-
-
             if args.render:
                 envs.render()
 
@@ -474,6 +470,7 @@ def train():
                 masks = torch.FloatTensor([[0.0]*4 if done_.all() else [1.0]*4
                                            for done_ in done]) \
                              .transpose(0, 1).unsqueeze(2).unsqueeze(2)
+                masks_kl = [[0.0]*4 for _ in range(num_processes)]
                 for num_process in range(num_processes):
                     for id_ in range(4):
                         tid = (id_ + 2) % 4
@@ -482,6 +479,12 @@ def train():
                         my_reward = (1 - reward_sharing) * self_reward + \
                                     reward_sharing * teammate_reward
                         reward[num_process][id_] = my_reward
+                        if not done[num_process][id_]:
+                            masks_kl[num_process][id_] = 1.0
+
+                # NOTE: masks_kl is 0 if the agent died.
+                masks_kl = torch.FloatTensor(masks_kl).transpose(0, 1) \
+                                                      .unsqueeze(2)
 
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
             # NOTE: These don't mean anything for homogenous training
