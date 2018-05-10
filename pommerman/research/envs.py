@@ -15,7 +15,7 @@ from pommerman.constants import GameType
 
 
 def _make_train_env(config, how_train, seed, rank, game_state_file,
-                    training_agents, num_stack):
+                    training_agents, num_stack, do_filter_team=True):
 
     """Makes an environment callable for multithreading purposes.
 
@@ -67,9 +67,11 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 
         if config == 'PommeFFAEasy-v0' or config == 'PommeFFAEasy-v3' or \
             config == 'PommeTeamEasy-v0' or config == 'PommeTeamEasy-v3':
-            env = WrapPomme(env, how_train, easy=True)
+            env = WrapPomme(env, how_train, easy=True,
+                            do_filter_team=do_filter_team)
         else:
-            env = WrapPomme(env, how_train, easy=False)
+            env = WrapPomme(env, how_train, easy=False,
+                            do_filter_team=do_filter_team)
 
         env = MultiAgentFrameStack(env, num_stack)
         return env
@@ -106,11 +108,12 @@ def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
 
 
 def make_train_envs(config, how_train, seed, game_state_file, training_agents,
-                    num_stack, num_processes):
+                    num_stack, num_processes, do_filter_team=True):
     envs = [
         _make_train_env(config=config, how_train=how_train, seed=seed,
                         rank=rank, game_state_file=game_state_file,
-                        training_agents=training_agents, num_stack=num_stack)
+                        training_agents=training_agents, num_stack=num_stack,
+                        do_filter_team=do_filter_team)
         for rank in range(num_processes)
     ]
     return SubprocVecEnv(envs)
@@ -189,9 +192,10 @@ class WrapPommeEval(gym.ObservationWrapper):
 
 class WrapPomme(gym.ObservationWrapper):
     def __init__(self, env=None, how_train='simple', acting_agent_ids=None,
-                easy=False):
+                 easy=False, do_filter_team=True):
         super(WrapPomme, self).__init__(env)
         self._how_train = how_train
+        self._do_filter_team = do_filter_team
         self._acting_agent_ids = acting_agent_ids or self.env.training_agents
         if easy:
             obs_shape = (19, 11, 11)
@@ -202,7 +206,6 @@ class WrapPomme(gym.ObservationWrapper):
         self.observation_space = spaces.Box(
             self.observation_space.low[0],
             self.observation_space.high[0],
-
             extended_shape,
             dtype=np.float32
         )
@@ -257,7 +260,11 @@ class WrapPomme(gym.ObservationWrapper):
         obs = self.observation(observation)
 
         # return done for the entire training_agent's team and reward
-        if self._how_train == 'simple' and self.env._game_type == GameType.Team:
+        if all([
+                self._do_filter_team,
+                self._how_train == 'simple',
+                self.env._game_type == GameType.Team
+        ]):
             done = self._filter_team(done)
             rew = self._filter_team(reward)
         else:

@@ -94,6 +94,7 @@ def train():
                                        args.game_state_file, training_agents,
                                        num_stack, num_processes)
 
+    # [num_proc, num_frame*19, board_size, board_size]
     agent_obs = torch.from_numpy(envs.reset()).float().squeeze(1)
     if args.cuda:
         agent_obs = agent_obs.cuda()
@@ -313,7 +314,8 @@ def train():
             eval_time = time.time()
             eval_envs = env_helpers.make_train_envs(
                 config, 'simple', args.seed, args.game_state_file,
-                training_agents, num_stack, num_processes)
+                training_agents, num_stack, num_processes,
+                do_filter_team=False)
 
             dagger_obs = torch.from_numpy(eval_envs.reset()) \
                               .float().squeeze(0).squeeze(1)

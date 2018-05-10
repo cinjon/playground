@@ -255,12 +255,13 @@ def eval(args=None, targets=None, opponents=None):
         one_dead = []
         for position in range(2):
             training_agent_ids = [position, position+2]
-            acting_agent_ids = list(range(4))
             print("Running Battle Position %d..." % position)
             num_times = args.num_battles_eval // 2
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
             agents.insert(position+2, targets[1])
+            acting_agent_ids = [num for num, agent in enumerate(agents)
+                                if type(agent) != pommerman.agents.SimpleAgent]
             infos = run_battles(args, num_times, agents, action_space,
                                 acting_agent_ids, training_agent_ids)
             for info in infos:
@@ -342,7 +343,6 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
     st = time.time()
     obs = envs.reset()
     while len(infos) < num_times:
-        
         actions = [[None]*len(acting_agent_ids) for _ in range(num_processes)]
         for num_action, acting_agent_id in enumerate(acting_agent_ids):
             agent_obs = [o[num_action] for o in obs]
