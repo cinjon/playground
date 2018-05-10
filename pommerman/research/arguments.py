@@ -87,7 +87,7 @@ def get_args():
 
 
     # specific to Pommerman
-    parser.add_argument('--board_size', type=int, default=13,
+    parser.add_argument('--board_size', type=int, default=11,
                         help='size of the board')
     parser.add_argument('--config', type=str, default='PommeFFA-v3',
                         help='Configuration to execute. See env_ids in '
