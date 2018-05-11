@@ -29,8 +29,8 @@ time_avg = defaultdict(float)
 time_max = defaultdict(float)
 time_cnt = defaultdict(int)
 
-def run(args, num_times=1, seed=None, agents=None, training_agent_ids=[],
-        acting_agents=None):
+def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
+        acting_agent_ids=None):
     """Run the game a number of times.
 
     Args:
@@ -39,7 +39,7 @@ def run(args, num_times=1, seed=None, agents=None, training_agent_ids=[],
       seed: The random seed to use for the battles.
       agents: What agents to use. If not, we will make them from the args.
       training_agent_ids: Which ids are the training_agents.
-      acting_agents: Which, if any agents, use an act function.
+      acting_agent_ids: Which, if any agents, use an act function.
 
     Returns:
       infos: The list of information dicts returned from these games.
@@ -48,6 +48,7 @@ def run(args, num_times=1, seed=None, agents=None, training_agent_ids=[],
     record_pngs_dir = args.record_pngs_dir
     record_json_dir = args.record_json_dir
     game_state_file = args.game_state_file
+    num_times = num_times or int(args.num_times)
 
     # TODO: After https://github.com/MultiAgentLearning/playground/pull/40
     #       this is still missing the docker_env_dict parsing for the agents.
@@ -80,20 +81,21 @@ def run(args, num_times=1, seed=None, agents=None, training_agent_ids=[],
         time_avg[key] = new_avg
         time_max[key] = max(time_max[key], float(t))
 
-    def _run(seed, acting_agents, record_pngs_dir=None, record_json_dir=None):
+    def _run(seed, acting_agent_ids, record_pngs_dir=None, record_json_dir=None):
         global time_avg
         global time_max
         global time_cnt
         obs = env.reset()
         steps = 0
         done = False
+        acting_agent_ids = acting_agent_ids or []
         while not done:
             steps += 1
             if args.render:
                 env.render(record_pngs_dir=record_pngs_dir,
                            record_json_dir=record_json_dir)
-            actions = env.act(obs, acting_agents=acting_agents)
-            for agent_id in acting_agents:
+            actions = env.act(obs, acting_agent_ids=acting_agent_ids)
+            for agent_id in acting_agent_ids:
                 with utility.Timer() as t:
                     agent_obs = obs[agent_id]
                     action = agents[agent_id].act(agent_obs, env.action_space)
@@ -138,13 +140,14 @@ def run(args, num_times=1, seed=None, agents=None, training_agent_ids=[],
 
     infos = []
     times = []
+    print(num_times)
     for i in range(num_times):
         record_pngs_dir_ = record_pngs_dir + '/%d' % (i+1) \
                            if record_pngs_dir else None
         record_json_dir_ = record_json_dir + '/%d' % (i+1) \
                            if record_json_dir else None
         with utility.Timer() as t:
-            info = _run(seed, acting_agents, record_pngs_dir_, record_json_dir_)
+            info = _run(seed, acting_agent_ids, record_pngs_dir_, record_json_dir_)
         infos.append(info)
         times.append(t.interval)
         print("Game %d final result (%.4f): " % (i, times[-1]), infos[-1])
@@ -183,6 +186,9 @@ def main():
     parser.add_argument('--game_state_file',
                         default=None,
                         help="File from which to load game state.")
+    parser.add_argument('--num-times',
+                        default=1,
+                        help="The number of battles to run")
     args = parser.parse_args()
     run(args)
 
