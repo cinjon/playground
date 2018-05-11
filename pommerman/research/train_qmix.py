@@ -104,6 +104,8 @@ def train():
     running_mean_episode_length = 0
     action_histogram = [init_action_histogram() for _ in range(num_processes)]
     value_losses = []
+    action_times = []
+    train_times = []
 
     def compute_q_loss(global_state, state, reward, next_global_state, next_state):
         if args.cuda:
@@ -158,10 +160,12 @@ def train():
                 current_obs_tensor = current_obs_tensor.cuda()
 
             # Ignore critic values during trajectory generation (decentralized actors)
+            act_start = time.time()
             _, actions = training_agents[0].act(
                 Variable(current_global_obs_tensor, volatile=True),
                 Variable(current_obs_tensor, volatile=True),
                 eps=eps)
+            action_times.append(time.time() - act_start)
 
             training_agent_actions = actions.cpu().data.numpy().tolist()
             obs, reward, done, info = envs.step(training_agent_actions)
@@ -213,14 +217,16 @@ def train():
                     len_history[i] = 0
                     action_histogram[i] = init_action_histogram()
 
+            train_start = time.time()
+            gradient_steps += run_dqn()
+            if gradient_steps % args.target_update_steps == 0:
+                training_agents[0].update_target()
+            train_times.append(time.time() - train_start)
+
             # Update for next step
             eps_steps = min(eps_steps + 1, args.eps_max_steps)
             current_obs = obs
             current_global_obs = global_obs
-
-        gradient_steps += run_dqn()
-        if gradient_steps % args.target_update_steps == 0:
-            training_agents[0].update_target()
 
         if running_num_episodes:
             end = time.time()
@@ -229,6 +235,10 @@ def train():
 
             mean_value_loss = np.mean(value_losses).item()
             std_value_loss = np.std(value_losses).item()
+            mean_action_time = np.mean(action_times).item()
+            # std_action_time = np.std(action_times).item()
+            mean_train_time = np.mean(train_times).item()
+            # std_train_time = np.mean(train_times).item()
 
             writer.add_scalar('num episodes', num_episodes, num_epoch)
             writer.add_scalar('running num episodes', running_num_episodes , num_epoch)
@@ -240,14 +250,18 @@ def train():
             writer.add_scalar('steps/s', steps_per_sec, num_epoch)
 
             # Partial Stats
-            print('[{} steps/s] Num Episodes: {}, Running Team Win Rate: {}, Mean Running Loss: {}'.format(
-                  steps_per_sec, num_episodes, running_team_wins / running_num_episodes, mean_value_loss), flush=True)
+            print('[{} steps/s] Num Episodes: {}, Running Team Win Rate: {}, Mean Running Loss: {}, '
+                  'Mean Action Time: {}s, Mean Train Time: {}s'.format(
+                  steps_per_sec, num_episodes, running_team_wins / running_num_episodes, mean_value_loss,
+                  mean_action_time, mean_train_time), flush=True)
 
             running_num_episodes = 0
             running_mean_episode_length = 0
             running_team_wins = 0
             running_team_ties = 0
             value_losses = []
+            action_times = []
+            train_times = []
 
     writer.close()
 
