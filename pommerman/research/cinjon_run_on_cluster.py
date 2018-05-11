@@ -791,6 +791,7 @@ def train_dagger_job(flags, jobname=None):
 
 
 ### These are trying to do homogenous training on EasyEnv but distilling from SimpleAgent
+# These didn't work. They all went to random.
 train_ppo_job({ # Batch size of 400
     "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
     "log-interval": 150, "lr": 0.0003, "num-steps": 100,
@@ -834,6 +835,18 @@ train_ppo_job({ # Batch size of 600
 
 
 ### Dagger agents on the easy env.
+# These had good results in the tensorboard but were terrible when I ran eval.
+# For example:
+# CUDA_VISIBLE_DEVICES=0 python eval.py --eval-targets
+# ppo::/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-easydag.dagger.PommeTeamEasy-v0.PommeCNNPolicySmall.nc256.lr0.003.mb275.ne20.prob0.5.nopt1.epoch1050.steps840800.seed1.pt
+# --eval-opponents simple::null,simple::null --num-battles-eval 100 --config PommeTeamEasy-v0
+# --cuda-device 0 --eval-mode team-simple --model-str PommeCNNPolicySmall
+# had a 37% success rate in the TB but yielded 25 / 25 / 60 for w/l/t.
+# CUDA_VISIBLE_DEVICES=0 python eval.py --eval-targets
+# ppo::/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/agent0-dagger-easyexuvl.dagger.PommeTeamEasy-v0.PommeCNNPolicySmaller.nc256.lr0.003.mb275.ne20.prob0.5.nopt1.epoch900.steps720800.seed1.pt
+# --eval-opponents simple::null,simple::null --num-battles-eval 100 --config PommeTeamEasy-v0
+# --cuda-device 0 --eval-mode team-simple --model-str PommeCNNPolicySmaller
+# had a 37% success rate in the TB but yielded 24 / 25 / 61. 
 train_dagger_job(
     {"num-processes": 8, "run-name": "easyexuvl", "how-train": "dagger", "num-episodes-dagger": 20,
      "log-interval": 50, "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, 
