@@ -1,5 +1,4 @@
 """Eval script.
-
 We have a target model ("target") that we are evaluating. The modes considered:
 
 1. "ffa": Eval "target" against three agents in an FFA.

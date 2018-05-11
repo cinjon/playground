@@ -262,6 +262,12 @@ class Pomme(gym.Env):
 
         return frames
 
+    def record_json(self, directory):
+        info = self.get_json_info()
+        step_count = self._step_count
+        with open(os.path.join(directory, '%d.json' % step_count), 'w') as f:
+            f.write(json.dumps(info, sort_keys=True, indent=4))
+            
     def render(self, mode='human', close=False, record_pngs_dir=None,
                record_json_dir=None):
         if close:
@@ -308,10 +314,7 @@ class Pomme(gym.Env):
                 os.path.join(record_pngs_dir, '%d.png' % self._step_count))
 
         if record_json_dir:
-            info = self.get_json_info()
-            with open(os.path.join(record_json_dir,
-                                   '%d.json' % self._step_count), 'w') as f:
-                f.write(json.dumps(info, sort_keys=True, indent=4))
+            self.record_json(record_json_dir)
 
         time.sleep(1.0 / self.render_fps)
 

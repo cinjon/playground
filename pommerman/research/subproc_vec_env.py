@@ -45,6 +45,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.get_global_obs()))
         elif cmd == 'get_game_type':
             remote.send((env.get_game_type()))
+        elif cmd == 'record_json':
+            remote.send((env.record_json(data)))
         else:
             raise NotImplementedError
 
@@ -236,3 +238,8 @@ class SubprocVecEnv(_VecEnv):
     def get_game_type(self):
         self.remotes[0].send(('get_game_type', None))
         return self.remotes[0].recv()
+
+    def record_json(self, directories):
+        for remote, directory in zip(self.remotes, directories):
+            remote.send(('record_json', directory))
+        return [remote.recv() for remote in self.remotes]

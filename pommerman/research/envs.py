@@ -189,6 +189,9 @@ class WrapPommeEval(gym.ObservationWrapper):
     def reset(self):
         return self.observation(self.env.reset())
 
+    def record_json(self, directory):
+        self.env.record_json(directory)
+
 
 class WrapPomme(gym.ObservationWrapper):
     def __init__(self, env=None, how_train='simple', acting_agent_ids=None,

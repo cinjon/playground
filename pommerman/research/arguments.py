@@ -87,6 +87,10 @@ def get_args():
 
 
     # specific to Pommerman
+    parser.add_argument('--agents',
+                        default=','.join(['simple::null']*4),
+                        help='Comma delineated list of agent types to run in '
+                        'run_battle or generate_game_data.')
     parser.add_argument('--board_size', type=int, default=11,
                         help='size of the board')
     parser.add_argument('--config', type=str, default='PommeFFA-v3',
@@ -101,6 +105,12 @@ def get_args():
                         help='comma separated paths to the saved models.')
     parser.add_argument('--game-state-file', type=str, default='',
                         help='a game state file from which to load.')
+    parser.add_argument('--state-directory', type=str, default='',
+                        help='a game state directory from which to load.')
+    parser.add_argument('--state-directory-distribution', type=str,
+                        default='uniform', help='a distribution to load the '
+                        'states in the directory. uniform will choose on
+                        randomly. for the others, see envs.py.')
     parser.add_argument('--how-train', type=str, default='simple',
                         help='how to train: simple, homogenous, heterogenous, '
                         'dagger.')
@@ -195,6 +205,11 @@ def get_args():
                         help='maximum number of steps to linearly anneal epsilon over (default 100000)')
     parser.add_argument('--target-update-steps', type=int, default=2,
                         help='number of gradient steps to update target network after (default 2)')
+
+    # for Generating Game Data
+    parser.add_argument('--num-episodes', type=int, default=2,
+                        help='number of episodes for which to generate data.')
+
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
