@@ -38,7 +38,6 @@ def train():
 
     if args.cuda:
         torch.cuda.empty_cache()
-        torch.cuda.set_device(args.cuda_device)
 
     assert args.run_name
     print("\n###############")
@@ -86,18 +85,6 @@ def train():
         for agent in training_agents:
             agent.cuda()
 
-    def init_history_instance():
-        history_init = [
-            torch.zeros(0, *global_obs_shape),  # current global state
-            torch.zeros(0, num_training_per_episode, *obs_shape),  # current agent(s) state
-            # torch.zeros(0, num_training_per_episode).long(),  # action
-            torch.zeros(0, num_training_per_episode),  # reward
-            torch.zeros(0, *global_obs_shape),  # next global state
-            torch.zeros(0, num_training_per_episode, *obs_shape),  # next agent(s) state
-            # torch.zeros(0, num_training_per_episode).long(),  # done
-        ]
-        return history_init
-
     def init_action_histogram():
         return [[] for _ in range(num_agents)]
 
@@ -134,9 +121,9 @@ def train():
             Variable(next_state, volatile=True))
         max_next_q_values = max_next_q_values.max(1)[0]
         # sum the rewards for individual agents
-        expected_q_values = reward.mean(dim=1) + args.gamma * max_next_q_values.data
+        expected_q_values = Variable(reward.mean(dim=1)) + args.gamma * max_next_q_values
 
-        loss = MSELoss()(current_q_values, Variable(expected_q_values))
+        loss = MSELoss()(current_q_values, expected_q_values)
         loss.backward()
 
         value_losses.append(loss.cpu().data[0])
@@ -226,14 +213,14 @@ def train():
                     len_history[i] = 0
                     action_histogram[i] = init_action_histogram()
 
-            gradient_steps += run_dqn()
-            if gradient_steps % args.target_update_steps == 0:
-                training_agents[0].update_target()
-
             # Update for next step
             eps_steps = min(eps_steps + 1, args.eps_max_steps)
             current_obs = obs
             current_global_obs = global_obs
+
+        gradient_steps += run_dqn()
+        if gradient_steps % args.target_update_steps == 0:
+            training_agents[0].update_target()
 
         if running_num_episodes:
             end = time.time()

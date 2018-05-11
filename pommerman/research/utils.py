@@ -12,7 +12,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
                 agent_type, network_type='ac'):
     if network_type == 'qmix':
         net = lambda state: networks.get_q_network(args.model_str)(
-            state, obs_shape[0], action_space, args.board_size,
+            state, obs_shape[0], action_space, obs_shape[1],
             args.num_channels, args.num_agents)
     else:
         net = lambda state: networks.get_actor_critic(args.model_str)(

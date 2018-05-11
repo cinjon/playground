@@ -381,14 +381,14 @@ class QMIXNet(nn.Module):
 
     def forward(self, global_state, agent_state, eps=-1.0):
         """
-        :param global_state: batch_size x 4 x 18 x 13 x 13
-        :param agent_state: batch_size x num_agents x 36 x 13 x 13
+        :param global_state: batch_size x 4 x 19 x 13 x 13
+        :param agent_state: batch_size x num_agents x 38 x 13 x 13
         :param eps: parameter for the epsilon greedy action selection, negative if don't want it
         :return:
         """
         batch_size, num_agents, *agent_obs_shape = agent_state.shape
-        agents_flattened = agent_state.view(-1, *agent_obs_shape)  # (batch_size*num_agents) x 36 x 13 x 13
-        global_state_flattened = global_state.view(batch_size, -1) # batch_size x (4*18*13*13)
+        agents_flattened = agent_state.view(-1, *agent_obs_shape)  # (batch_size*num_agents) x 38 x 13 x 13
+        global_state_flattened = global_state.view(batch_size, -1) # batch_size x (4*19*13*13)
         x = F.relu(self.conv1(agents_flattened)) # (batch_size*num_agents) x 256 x 13 x 13
         x = F.relu(self.conv2(x)) # (batch_size*num_agents) x 256 x 13 x 13
         x = F.relu(self.conv3(x)) # (batch_size*num_agents) x 256 x 13 x 13
