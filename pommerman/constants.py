@@ -35,9 +35,10 @@ NUM_RIGID_EASY = 36
 NUM_WOOD_EASY = 36
 DEFAULT_BOMB_LIFE_EASY = 10
 MAX_STEPS_EASY = 800
-NUM_ITEMS_EASY = int(NUM_WOOD_EASY/2)
+# NOTE: Should we make the number of items higher?
+# NOTE: Should we get rid of can_kick? That's a hard one to use as well...
+NUM_ITEMS_EASY = int(NUM_WOOD_EASY/2) 
 DEFAULT_BLAST_STRENGTH_EASY = 2
-# NOTE: should we also change the blast strength? or agent view size?
 
 
 class Item(Enum):

@@ -55,6 +55,27 @@ def ffa_v0_easy_env():
                             blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
     return locals()
 
+def ffa_v0_easy_fast_env():
+    """Start up a FFA config with a lower complexity board."""
+    env = envs.v0.Pomme
+    game_type = constants.GameType.FFA
+    env_entry_point = 'pommerman.envs.v0:Pomme'
+    env_id = 'PommeFFAEasyFast-v0'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.BOARD_SIZE_EASY,
+        'agent_view_size': constants.AGENT_VIEW_SIZE,
+        'num_rigid': constants.NUM_RIGID_EASY,
+        'num_wood': constants.NUM_WOOD_EASY,
+        'num_items': constants.NUM_ITEMS_EASY,
+        'max_steps': constants.MAX_STEPS_EASY,
+        'render_fps': 2000,
+        'use_skull': False,
+    }
+    agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
+                              blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
+    return locals()
+
 def ffa_v3_env():
     """Start up a FFA config dense reward."""
     env = envs.v3.Pomme

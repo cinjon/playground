@@ -235,7 +235,7 @@ class Pomme(gym.Env):
         for row in range(self._board_size):
             for col in range(self._board_size):
                 value = self._board[row][col]
-                if utility.position_is_agent(self._board, (row, col), self._use_skull):
+                if utility.position_is_agent(self._board, (row, col)):
                     num_agent = value - num_items
                     if self._agents[num_agent].is_alive:
                         all_frame[row][col] = constants.AGENT_COLORS[num_agent]
@@ -313,7 +313,7 @@ class Pomme(gym.Env):
                                    '%d.json' % self._step_count), 'w') as f:
                 f.write(json.dumps(info, sort_keys=True, indent=4))
 
-        time.sleep(1.0 / self._render_fps)
+        time.sleep(1.0 / self.render_fps)
 
     def close(self):
         if self._viewer is not None:
