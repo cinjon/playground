@@ -287,11 +287,15 @@ class Pomme(gym.Env):
         if record_pngs_dir:
             self._viewer.save(record_pngs_dir)
         if record_json_dir:
-            info = self.get_json_info()
-            with open(os.path.join(record_json_dir, suffix), 'w') as f:
-                f.write(json.dumps(info, sort_keys=True, indent=4))
+            self.record_json(os.path.join(record_json_dir, suffix))
 
         time.sleep(1.0 / self.render_fps)
+
+    def record_json(self, directory):
+        info = self.get_json_info()
+        step_count = self._step_count
+        with open(os.path.join(directory, '%d.json' % step_count), 'w') as f:
+            f.write(json.dumps(info, sort_keys=True, indent=4))
 
     def close(self):
         if self._viewer is not None:

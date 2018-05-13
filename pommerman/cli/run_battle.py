@@ -197,7 +197,8 @@ def main():
                         help="Whether to render or not. Defaults to False.")
     parser.add_argument('--render_mode',
                         default='human',
-                        help="What mode to render. Options are human, rgb_pixel, and rgb_array")
+                        help="What mode to render. Options are human, "
+                        "rgb_pixel, and rgb_array.")
     parser.add_argument('--game_state_file',
                         default=None,
                         help="File from which to load game state.")

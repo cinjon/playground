@@ -56,7 +56,8 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         else:
             raise
 
-        env = pommerman.make(config, agents, game_state_file)
+        env = pommerman.make(config, agents, game_state_file,
+                             render_mode='rgb_pixel')
         env.set_training_agents(training_agent_ids)
 
         if rank != -1:
@@ -98,7 +99,7 @@ def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
     Returns a callable to instantiate an environment.
     """
     def _thunk():
-        env = pommerman.make(config, agents, None)
+        env = pommerman.make(config, agents, None, render_mode='rgb_pixel')
         env.set_training_agents(training_agent_ids)
         env.seed(seed + rank)
         env.rank = rank
