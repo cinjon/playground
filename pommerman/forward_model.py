@@ -313,13 +313,14 @@ class ForwardModel(object):
             bomb.tick()
             if bomb.is_moving():
                 invalid_values = list(range(len(constants.Item)+1))[1:]
-                bomb_next_position = utility.get_next_position(
+                next_position = utility.get_next_position(
                     bomb.position, bomb.moving_direction)
-                if utility.position_is_passage(curr_board, bomb_next_position):
+                if not utility.position_on_board(curr_board, next_position):
+                    bomb.stop()
+                elif utility.position_is_passage(curr_board, next_position):
                     curr_board[bomb.position] = constants.Item.Passage.value
                     bomb.move()
-                elif utility.position_is_flames(curr_board,
-                                                bomb_next_position):
+                elif utility.position_is_flames(curr_board, next_position):
                     bomb.move()
                     bomb.fire()
                 else:
