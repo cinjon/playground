@@ -28,6 +28,25 @@ MAX_STEPS = 2500
 RADIO_VOCAB_SIZE = 8
 RADIO_NUM_WORDS = 2
 
+# Files for images and and fonts
+RESOURCE_DIR = 'resources/'
+file_names = ['Passage', 'Rigid', 'Wood', 'Bomb', 'Flames', 'Fog', 'ExtraBomb', 'IncrRange', 'Kick',
+                'Skull', 'AgentDummy', 'Agent0', 'Agent1', 'Agent2', 'Agent3', 'AgentDummy-No-Background',
+                'Agent0-No-Background', 'Agent1-No-Background', 'Agent2-No-Background',
+                'Agent3-No-Background', 'X-No-Background']
+IMAGES_DICT = {num: {'id': num, 'file_name': '%s.png' % file_name, 'name': file_name, 'image': None} for num, file_name in enumerate(file_names)}
+FONTS_FILE_NAMES = [
+    'Cousine-Regular.ttf'
+]
+
+# Human view board configurations
+BORDER_SIZE = 20
+MARGIN_SIZE = 10
+TILE_SIZE = 50
+BACKGROUND_COLOR = (41, 39, 51, 255)
+TILE_COLOR = (248, 221, 82, 255)
+TEXT_COLOR = (170, 170, 170, 255)
+
 
 # Constants for easier setting of the game
 BOARD_SIZE_EASY = 11

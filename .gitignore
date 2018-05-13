@@ -106,6 +106,7 @@ venv.bak/
 
 #IDEA
 .idea
+.vscode/
 
 # Compiled source #
 ###################

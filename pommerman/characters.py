@@ -113,6 +113,10 @@ class Bomb(object):
     def tick(self):
         self.life -= 1
 
+    def fire(self):
+        """Encounter Flames and blow up."""
+        self.life = 0
+
     def move(self):
         if self.is_moving():
             self.position = utility.get_next_position(self.position, self.moving_direction)

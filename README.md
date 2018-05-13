@@ -1,6 +1,8 @@
 # Playground
 
-#### First time? check out our [website](https://www.pommerman.com) for more information and our [Discord](https://discordapp.com/invite/wjVJEDc) to join the community.
+> First time? check out our [website](https://www.pommerman.com) for more information,
+> our [Discord](https://discordapp.com/invite/wjVJEDc) to join the community,
+> or read the [documentation](./docs) to get started.
 
 Playground hosts Pommerman, a clone of Bomberman built for AI research. People from around the world submit agents that they've trained to play. We run regular competitions on our servers and report the results and replays.
 
@@ -33,3 +35,11 @@ The setup for submitting agents will be live shortly. It involves making a [Dock
 #### How can I help?
 
 To see the ways you can get invovled with the project head over to our [Contributing Guide](https://github.com/MultiAgentLearning/playground/blob/master/CONTRIBUTING.md) and checkout our current [issues](https://github.com/MultiAgentLearning/playground/issues).
+
+# Contributing
+
+We welcome contributions through pull request. See [CONTRIBUTING](../CONTRIBUTING.md) for more details.
+
+# Code of Conduct
+
+We strive for an open community. Please read over our [CODE OF CONDUCT](../CODE_OF_CONDUCT.md)

@@ -29,7 +29,7 @@ def _register():
 _register()
 
 
-def make(config_id, agent_list, game_state_file=None):
+def make(config_id, agent_list, game_state_file=None, render_mode='human'):
     assert config_id in registry, "Unknown configuration '{}'. " \
         "Possible values: {}".format(config_id, registry)
     env = gym.make(config_id)
@@ -41,6 +41,7 @@ def make(config_id, agent_list, game_state_file=None):
 
     env.set_agents(agent_list)
     env.set_init_game_state(game_state_file)
+    env.set_render_mode(render_mode)
     return env
 
 # We put this down here to avoid a circular import concern.

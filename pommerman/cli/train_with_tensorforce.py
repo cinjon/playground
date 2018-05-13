@@ -7,7 +7,7 @@ and then report back the result.
 An example with all three simple agents running ffa:
 python train_with_tensorforce.py \
  --agents=tensorforce::ppo,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent \
- --config=ffa_v0
+ --config=PommeFFA-v0
 """
 import atexit
 import functools
@@ -84,8 +84,9 @@ def main():
                         help="Directory to record the JSON representations of "
                         "the game. Doesn't record if None.")
     parser.add_argument("--render",
-                        default=True,
-                        help="Whether to render or not. Defaults to True.")
+                        default=False,
+                        action='store_true',
+                        help="Whether to render or not. Defaults to False.")
     parser.add_argument("--game_state_file",
                         default=None,
                         help="File from which to load game state. Defaults to "

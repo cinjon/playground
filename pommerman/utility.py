@@ -181,8 +181,9 @@ def inaccessible_passages(board, agent_positions):
 
 def is_valid_direction(board, position, direction, invalid_values=None):
     row, col = position
-    invalid_values = invalid_values or [item.value for item \
-                                        in [constants.Item.Rigid, constants.Item.Wood]]
+    if invalid_values is None:
+        invalid_values = [item.value for item in \
+                          [constants.Item.Rigid, constants.Item.Wood]]
 
     if constants.Action(direction) == constants.Action.Stop:
         return True
@@ -212,12 +213,22 @@ def position_is_powerup(board, position, use_skull=True):
         powerups = [constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick, constants.Item.Skull]
     else:
         powerups = [constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick]
-    item_values = [item.value for item in powerups]
-    return board[position] in item_values
 
 
-def position_is_bomb(board, position):
-    return _position_is_item(board, position, constants.Item.Bomb)
+def position_is_flames(board, position):
+    return _position_is_item(board, position, constants.Item.Flames)
+
+
+def position_is_bomb(bombs, position):
+    """Check if a given position is a bomb.
+    
+    We don't check the board because that is an unreliable source. An agent
+    may be obscuring the bomb on the board.
+    """
+    for bomb in bombs:
+        if position == bomb.position:
+            return True
+    return False
 
 
 def position_is_passage(board, position):

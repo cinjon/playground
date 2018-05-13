@@ -34,6 +34,17 @@ The general workflow for commiting code.
 * Commit your changes and push your created branch to your fork
 * Open a new pull request into our master branch
 
+## Formating
+
+**Spacing** - In between methods in classes use one line space. Functions, Classes, and groups of variables outside of a Class use two line spaces.
+
+**Naming** - Classes use caps camelcase whereas functions, methods, and variables use snake case. Names should not exceed 80 characters.
+
 ## Discord
 
 Discussions, correspondence, and announcements often happen in Discord. You can get access through our [Discord invite.](https://discord.gg/wjVJEDc)
+
+## Formating
+
+**Spacing** - In between methods in classes use one line space. Functions, Classes, and groups of variables outside of a Class use two line spaces.
+

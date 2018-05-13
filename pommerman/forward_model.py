@@ -27,22 +27,30 @@ class ForwardModel(object):
         self._time_avg[key] = new_avg
         self._time_max[key] = max(self._time_max[key], float(t))
 
-    def run(self, num_times, board, agents, bombs, items, flames, is_partially_observable, agent_view_size, action_space, training_agent=None, is_communicative=False):
+    def run(self, num_times, board, agents, bombs, items, flames,
+            is_partially_observable, agent_view_size, action_space,
+            training_agent=None, is_communicative=False):
         """Run the forward model.
         Args:
-          num_times: The number of times to run it for. This is a maximum and it will stop early if we reach a done.
+          num_times: The number of times to run it for. This is a maximum and
+            it will stop early if we reach a done.
           board: The board state to run it from.
           agents: The agents to use to run it.
           bombs: The starting bombs.
           items: The starting items.
           flames: The starting flames.
-          is_partially_observable: Whether the board is partially observable or not. Only applies to TeamRadio.
-          agent_view_size: If it's partially observable, then the size of the square that the agent can view.
+          is_partially_observable: Whether the board is partially observable or
+            not. Only applies to TeamRadio.
+          agent_view_size: If it's partially observable, then the size of the
+            square that the agent can view.
           action_space: The actions that each agent can take.
           training_agent: The training agent to pass to done.
-          is_communicative: Whether the action depends on communication observations as well.
+          is_communicative: Whether the action depends on communication
+            observations as well.
+
         Returns:
-          steps: The list of step results, which are each a dict of "obs", "next_obs", "reward", "action".
+          steps: The list of step results, which are each a dict of "obs",
+            "next_obs", "reward", "action".
           board: Updated board.
           agents: Updated agents, same models though.
           bombs: Updated bombs.
@@ -89,7 +97,9 @@ class ForwardModel(object):
           agents: A list of agent objects.
           obs: A list of matching observations per agent.
           action_space: The action space for the environment using this model.
-          is_communicative: Whether the action depends on communication observations as well.
+          is_communicative: Whether the action depends on communication
+            observations as well.
+
         Returns a list of actions.
         """
         # TODO: Use a timeout here.
@@ -142,7 +152,8 @@ class ForwardModel(object):
 
         board_size = len(curr_board)
 
-        # Tick the flames. Replace any dead ones with passages. If there is an item there, then reveal that item.
+        # Tick the flames. Replace any dead ones with passages. If there is an
+        # item there, then reveal that item.
         flames = []
         for flame in curr_flames:
             position = flame.position
@@ -159,12 +170,16 @@ class ForwardModel(object):
         curr_flames = flames
 
         # Step the living agents.
-        # If two agents try to go to the same spot, they should bounce back to their previous spots.
-        # This is a little complicated because what if there are three agents all in a row.
-        # If the one in the middle tries to go to the left and bounces with the one on the left,
-        # and then the one on the right tried to go to the middle one's position, she should also bounce.
-        # A way of doing this is to gather all the new positions before taking any actions.
-        # Then, if there are disputes, correct those disputes iteratively.
+        # If two agents try to go to the same spot, they should bounce back to
+        # their previous spots. This is a little complicated because what if
+        # there are three agents all in a row. If the one in the middle tries
+        # to go to the left and bounces with the one on the left, and then the
+        # one on the right tried to go to the middle one's position, she should
+        # also bounce. A way of doing this is to gather all the new positions
+        # before taking any actions. Then, if there are disputes, correct those
+        # disputes iteratively.
+        # Additionally, if two agents try to switch spots by moving into each
+        # other's location, then they should also bounce. 
         def make_counter(next_positions):
             counter = defaultdict(list)
             for num, next_position in enumerate(next_positions):
@@ -173,7 +188,8 @@ class ForwardModel(object):
             return counter
 
         def has_position_conflict(counter):
-            return any([len(agent_ids) > 1 for next_position, agent_ids in counter.items() if next_position])
+            return any([len(agent_ids) > 1 for next_position, agent_ids in
+                        counter.items() if next_position])
 
         def dist_nearest_enemy(agent):
             agent_position = agent.position
@@ -223,18 +239,43 @@ class ForwardModel(object):
                 elif utility.is_valid_direction(curr_board, position, action):
                     next_position = agent.get_next_position(action)
 
-                    # This might be a bomb position. Only move in that case if the agent can kick.
-                    if not utility.position_is_bomb(curr_board, next_position):
+                    # This might be a bomb position. Only move in that case if
+                    # the agent can kick.
+                    if not utility.position_is_bomb(curr_bombs, next_position):
                         next_positions[agent.agent_id] = next_position
                     elif not agent.can_kick:
                         agent.stop()
                     else:
-                        next_positions[agent.agent_id] = next_position
+                        after_next_position = utility.get_next_position(next_position, constants.Action(action))
+                        if not utility.position_on_board(curr_board, after_next_position) or not utility.position_is_passage(curr_board, after_next_position):
+                            agent.stop()
+                        else:
+                            next_positions[agent.agent_id] = next_position
                 else:
                     # The agent made an invalid direction.
                     agent.stop()
             else:
                 next_positions[agent.agent_id] = None
+
+        for num_agent, agent in enumerate(curr_agents):
+            if not agent.is_alive:
+                continue
+
+            for num_agent2 in range(num_agent+1, len(curr_agents)):
+                agent2 = curr_agents[num_agent2]
+                if not agent2.is_alive:
+                    continue
+
+                # Check if the agents are about to switch into each other's
+                # prior spaces. If so, revert this move.
+                if all([
+                    curr_positions[num_agent] != next_positions[num_agent],
+                    curr_positions[num_agent2] != next_positions[num_agent2],
+                    curr_positions[num_agent] == next_positions[num_agent2],
+                    curr_positions[num_agent2] == next_positions[num_agent]
+                ]):
+                    next_positions[num_agent] = curr_positions[num_agent]
+                    next_positions[num_agent2] = curr_positions[num_agent2]                    
 
         counter = make_counter(next_positions)
         while has_position_conflict(counter):
@@ -244,14 +285,16 @@ class ForwardModel(object):
                         next_positions[agent_id] = curr_positions[agent_id]
             counter = make_counter(next_positions)
 
-        for agent, curr_position, next_position, direction in zip(curr_agents, curr_positions, next_positions, actions):
+        for agent, curr_position, next_position, direction in zip(
+                curr_agents, curr_positions, next_positions, actions):
             if not agent.is_alive:
                 continue
 
             if curr_position != next_position:
                 agent.move(direction)
                 if agent.can_kick:
-                    bombs = [bomb for bomb in curr_bombs if bomb.position == agent.position]
+                    bombs = [bomb for bomb in curr_bombs \
+                             if bomb.position == agent.position]
                     if bombs:
                         bombs[0].moving_direction = constants.Action(direction)
 
@@ -270,9 +313,15 @@ class ForwardModel(object):
             bomb.tick()
             if bomb.is_moving():
                 invalid_values = list(range(len(constants.Item)+1))[1:]
-                if utility.is_valid_direction(curr_board, bomb.position, bomb.moving_direction.value, invalid_values=invalid_values):
+                bomb_next_position = utility.get_next_position(
+                    bomb.position, bomb.moving_direction)
+                if utility.position_is_passage(curr_board, bomb_next_position):
                     curr_board[bomb.position] = constants.Item.Passage.value
                     bomb.move()
+                elif utility.position_is_flames(curr_board,
+                                                bomb_next_position):
+                    bomb.move()
+                    bomb.fire()
                 else:
                     bomb.stop()
 
@@ -280,7 +329,8 @@ class ForwardModel(object):
                 bomb.bomber.incr_ammo()
                 for _, indices in bomb.explode().items():
                     for r, c in indices:
-                        if not all([r >= 0, c >= 0, r < board_size, c < board_size]):
+                        if not all([r >= 0, c >= 0, r < board_size,
+                                    c < board_size]):
                             break
                         if curr_board[r][c] == constants.Item.Rigid.value:
                             break
@@ -310,10 +360,11 @@ class ForwardModel(object):
             curr_board[bomb.position] = constants.Item.Bomb.value
 
         for agent in curr_agents:
-            position = np.where(curr_board == utility.agent_value(agent.agent_id))
+            agent_id = agent.agent_id
+            position = np.where(curr_board == utility.agent_value(agent_id))
             curr_board[position] = constants.Item.Passage.value
             if agent.is_alive:
-                curr_board[agent.position] = utility.agent_value(agent.agent_id)
+                curr_board[agent.position] = utility.agent_value(agent_id)
 
         flame_positions = np.where(exploded_map == 1)
         for row, col in zip(flame_positions[0], flame_positions[1]):
@@ -338,10 +389,8 @@ class ForwardModel(object):
 
             for bomb in bombs:
                 x, y = bomb.position
-
-
-
-                if not is_partially_observable or in_view_range(position, x, y):
+                if not is_partially_observable \
+                   or in_view_range(position, x, y):
                     blast_strengths[(x, y)] = bomb.blast_strength
                     life[(x, y)] = bomb.life
             return blast_strengths, life

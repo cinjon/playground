@@ -14,7 +14,7 @@ from . import v0
 
 class Pomme(v0.Pomme):
     metadata = {
-        'render.modes': ['human', 'rgb_array'],
+        'render.modes': ['human', 'rgb_array', 'rgb_pixel'],
         'video.frames_per_second' : constants.RENDER_FPS
     }
 
