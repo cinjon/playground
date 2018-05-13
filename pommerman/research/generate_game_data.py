@@ -165,7 +165,7 @@ def generate(args, agents, action_space, acting_agent_ids):
 
     end = time.time()
     print("Generate Times (%d) --> Total: %.3f, Avg: %.3f" % (
-        num_episodes, end - st, (end - st)/num_episodes))
+        init_num_episodes, end - st, (end - st)/init_num_episodes))
 
     envs.close()
     print("Directories can be found at %s." % record_json_dir)
