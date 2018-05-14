@@ -38,8 +38,6 @@ _resource_path = os.path.join(__location__, constants.RESOURCE_DIR)
 
 class Viewer(object):
     def __init__(self):
-        from gym.envs.classic_control import rendering
-
         self.window = None
         self.display = None
         self._agents = []
@@ -93,6 +91,7 @@ class PixelViewer(Viewer):
                 partially_observable=False,
                 game_type=None
         ):
+        from gym.envs.classic_control import rendering
         super().__init__()
         self.display = rendering.get_display(display)
         self._board_size = board_size
@@ -188,6 +187,7 @@ class PommeViewer(Viewer):
                 partially_observable=False,
                 game_type=None
     ):
+        from gym.envs.classic_control import rendering
         super().__init__()
         self.display = rendering.get_display(display)
         board_height = constants.TILE_SIZE * board_size
