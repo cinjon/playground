@@ -107,7 +107,7 @@ class Pomme(gym.Env):
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
         self._applicable_games = []
-        if self._init_game_state_directory is not None:
+        if self._init_game_state_directory:
             for directory in os.listdir(self._init_game_state_directory):
                 path = os.path.join(self._init_game_state_directory, directory)
                 endgame_file = os.path.join(path, 'endgame.json')
