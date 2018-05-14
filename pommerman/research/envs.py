@@ -68,14 +68,14 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 
         env = pommerman.make(config, agents, game_state_file,
                              render_mode='rgb_pixel')
-        env.set_training_agents(training_agent_ids)
-        env.set_state_directory(state_directory, state_directory_distribution)
-
         if rank != -1:
             env.seed(seed + rank)
         else:
             env.seed(seed)
         env.rank = rank
+
+        env.set_training_agents(training_agent_ids)
+        env.set_state_directory(state_directory, state_directory_distribution)
 
         if config == 'PommeFFAEasy-v0' or config == 'PommeFFAEasy-v3' or \
             config == 'PommeTeamEasy-v0' or config == 'PommeTeamEasy-v3':
@@ -123,11 +123,12 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
                     num_stack, num_processes, do_filter_team=True,
                     state_directory=None, state_directory_distribution=None):
     envs = [
-        _make_train_env(config=config, how_train=how_train, seed=seed,
-                        rank=rank, game_state_file=game_state_file,
-                        training_agents=training_agents, num_stack=num_stack,
-                        do_filter_team=do_filter_team, state_directory,
-                        state_directory_distribution
+        _make_train_env(
+            config=config, how_train=how_train, seed=seed, rank=rank,
+            game_state_file=game_state_file, training_agents=training_agents,
+            num_stack=num_stack, do_filter_team=do_filter_team,
+            state_directory=state_directory,
+            state_directory_distribution=state_directory_distribution
         )
         for rank in range(num_processes)
     ]

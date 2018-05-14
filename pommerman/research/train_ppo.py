@@ -85,8 +85,8 @@ def train():
         eval_round = 0
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
-        num_stack, num_processes, args.state_directory,
-        args.state_directory_distribution)
+        num_stack, num_processes, state_directory=args.state_directory,
+        state_directory_distribution=args.state_directory_distribution)
 
     model_str = args.model_str.strip('PommeCNNPolicy')
     config_str = config.strip('Pomme').replace('Short', 'Sh')

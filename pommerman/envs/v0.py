@@ -106,9 +106,30 @@ class Pomme(gym.Env):
     def set_state_directory(self, directory, distribution):
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
+        self._applicable_games = []
         if self._init_game_state_directory is not None:
-            self._init_game_state_sub_directories = os.listdir(
-                self._init_game_state_directory)
+            for directory in os.listdir(self._init_game_state_directory):
+                path = os.path.join(self._init_game_state_directory, directory)
+                endgame_file = os.path.join(path, 'endgame.json')
+                with open(endgame_file, 'r') as f:
+                    endgame = json.loads(f.read())
+                    winners = endgame['winners']
+                    # An agent must be represented in the winners.
+                    if not any([agent in winners
+                                for agent in self.training_agents]):
+                        continue
+
+                    # An agent must be alive.
+                    alive = endgame.get('alive', self.training_agents)
+                    if len(winners) == 2 and not any([
+                            agent in alive for agent in self.training_agents]):
+                        continue
+
+                    step_count = endgame['step_count']
+                    # print("%d: " % self.rank, self.training_agents, endgame)
+                    self._applicable_games.append((path, step_count))
+            print("Environment has %d applicable games." % \
+                  len(self._applicable_games))
 
     def set_init_game_state(self, game_state_file):
         """Set the initial game state.
@@ -176,18 +197,28 @@ class Pomme(gym.Env):
     def reset(self):
         assert(self._agents is not None)
 
-        if self._init_game_state_directory is not None:
-            directory = random.choice(self._init_game_state_sub_directories)
-            endgame = os.path.join(self._init_game_state_directory, directory,
-                                   'endgame.json')
-            step_count = int(endgame['step_count'])
+        # TODO: Position the agent in the shoes of the winning agent...
+        if hasattr(self, '_applicable_games') and self._applicable_games:
+            directory, step_count = random.choice(self._applicable_games)
             if self._game_state_distribution == 'uniform':
+                # Pick a random game state to start from.
                 step = random.choice(range(step_count))
             elif self._game_state_distribution == 'backloaded':
+                # Pick a game state with the distribution probabilities:
+                # step_count - 2: 20%
+                # step_count - 3: 20%
+                # step_count - 4: 20%
+                # step_count - 5: 10%
+                # step_count - 6: 10%
+                # step_count - 7: 10%
+                # step_count - 8: 5%
+                # step_count - 9: 2.5%
+                # [0, step_count - 10]: uniform out of 2.5%.
+
                 step = None
                 choice = random.random()
                 for num, value in enumerate(
-                        [.8, .6, .4, .35, .30, .25, .20, .15, .10]
+                        [.8, .6, .4, .3, .2, .15, .10, .05, .025]
                 ):
                     if choice > value:
                         step = step_count - 2 - num
@@ -197,11 +228,14 @@ class Pomme(gym.Env):
             else:
                 raise
 
-            game_state_file = os.path.join(self._init_game_state_directory,
-                                           directory, '%d.json' % step)
+            game_state_file = os.path.join(directory, '%d.json' % step)
             with open(game_state_file, 'r') as f:
-                 self.set_json_info(json.loads(f.read()))
-        if self._init_game_state is not None:
+                # NOTE: The rank is set by envs.py. Remove if causing problems.
+                print("Env %d using game state %s (%d / %d) %.3f" % (
+                    self.rank, game_state_file, step, step_count, choice))
+                print(game_state_file)
+                self.set_json_info(json.loads(f.read()))
+        elif self._init_game_state is not None:
             self.set_json_info()
         else:
             self._step_count = 0
@@ -271,13 +305,8 @@ class Pomme(gym.Env):
         if close:
             self.close()
             return
-        
-        mode = mode
 
-        if self._mode is not None:
-            mode = self._mode
-        elif mode is None:
-            mode = 'human'
+        mode = mode or self._mode or 'human'
 
         if mode == 'rgb_array':
             rgb_array = graphics.PixelViewer.rgb_array(
