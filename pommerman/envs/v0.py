@@ -5,6 +5,7 @@ such as in v1.py, will inherit from this.
 from collections import defaultdict
 import json
 import os
+import random
 
 import numpy as np
 import time
@@ -102,6 +103,13 @@ class Pomme(gym.Env):
     def set_training_agents(self, agent_ids):
         self.training_agents = agent_ids
 
+    def set_state_directory(self, directory, distribution):
+        self._init_game_state_directory = directory
+        self._game_state_distribution = distribution
+        if self._init_game_state_directory is not None:
+            self._init_game_state_sub_directories = os.listdir(
+                self._init_game_state_directory)
+
     def set_init_game_state(self, game_state_file):
         """Set the initial game state.
         The expected game_state_file JSON format is:
@@ -168,6 +176,31 @@ class Pomme(gym.Env):
     def reset(self):
         assert(self._agents is not None)
 
+        if self._init_game_state_directory is not None:
+            directory = random.choice(self._init_game_state_sub_directories)
+            endgame = os.path.join(self._init_game_state_directory, directory,
+                                   'endgame.json')
+            step_count = int(endgame['step_count'])
+            if self._game_state_distribution == 'uniform':
+                step = random.choice(range(step_count))
+            elif self._game_state_distribution == 'backloaded':
+                step = None
+                choice = random.random()
+                for num, value in enumerate(
+                        [.8, .6, .4, .35, .30, .25, .20, .15, .10]
+                ):
+                    if choice > value:
+                        step = step_count - 2 - num
+                        break
+
+                step = step or random.choice(range(step_count - 8))
+            else:
+                raise
+
+            game_state_file = os.path.join(self._init_game_state_directory,
+                                           directory, '%d.json' % step)
+            with open(game_state_file, 'r') as f:
+                 self.set_json_info(json.loads(f.read()))
         if self._init_game_state is not None:
             self.set_json_info()
         else:
@@ -337,13 +370,18 @@ class Pomme(gym.Env):
             ret[key] = json.dumps(value, cls=utility.PommermanJSONEncoder)
         return ret
 
-    def set_json_info(self):
-        """Sets the game state as the init_game_state."""
-        board_size = int(self._init_game_state['board_size'])
-        self._board_size = board_size
-        self._step_count = int(self._init_game_state['step_count'])
+    def set_json_info(self, game_state=None):
+        """Sets the game state.
 
-        board_array = json.loads(self._init_game_state['board'])
+        If no game_state is given, then uses the init_game_state.
+        """
+        game_state = game_state or self._init_game_state
+
+        board_size = int(game_state['board_size'])
+        self._board_size = board_size
+        self._step_count = int(game_state['step_count'])
+
+        board_array = json.loads(game_state['board'])
         self._board = np.ones((board_size, board_size)).astype(np.uint8)
         self._board *= constants.Item.Passage.value
         for x in range(self._board_size):
@@ -351,11 +389,11 @@ class Pomme(gym.Env):
                 self._board[x,y] = board_array[x][y]
 
         self._items = {}
-        item_array = json.loads(self._init_game_state['items'])
+        item_array = json.loads(game_state['items'])
         for i in item_array:
             self._items[tuple(i[0])] = i[1]
 
-        agent_array = json.loads(self._init_game_state['agents'])
+        agent_array = json.loads(game_state['agents'])
         for a in agent_array:
             agent = next(x for x in self._agents \
                          if x.agent_id == a['agent_id'])
@@ -364,7 +402,7 @@ class Pomme(gym.Env):
                         int(a['blast_strength']), bool(a['can_kick']))
 
         self._bombs = []
-        bomb_array = json.loads(self._init_game_state['bombs'])
+        bomb_array = json.loads(game_state['bombs'])
         for b in bomb_array:
             bomber = next(x for x in self._agents \
                           if x.agent_id == b['bomber_id'])
@@ -374,7 +412,7 @@ class Pomme(gym.Env):
 
 
         self._flames = []
-        flameArray = json.loads(self._init_game_state['flames'])
+        flameArray = json.loads(game_state['flames'])
         for f in flameArray:
             self._flames.append(
                 characters.Flame(tuple(f['position']), f['life']))
