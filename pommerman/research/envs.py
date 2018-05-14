@@ -15,7 +15,8 @@ from pommerman.constants import GameType
 
 
 def _make_train_env(config, how_train, seed, rank, game_state_file,
-                    training_agents, num_stack, do_filter_team=True):
+                    training_agents, num_stack, do_filter_team=True,
+                    state_directory=None, state_directory_distribution=None):
 
     """Makes an environment callable for multithreading purposes.
 
@@ -28,6 +29,15 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
       game_state_file: Str location of game state from which to instantiate.
       training_agents: The list of training agents to use.
       num_stack: For stacking frames.
+      do_filter_team: Whether we should filter the full team.
+      state_directory: A directory of game states to use as inputs. These will
+        be loaded randomly by game sub-directory and then by the given
+        state_directory_distribution.
+      state_directory_distribution: The distribution of how to load a random
+        game's state. Options are "uniform" (equally likely to load any of the
+        states in the game) and "backloaded" (20% chance of loading each of
+        the last three states, 5% chance of loading the next six states,
+        uniform chance of remainder).
 
     Returns a callable to instantiate an environment fit for our PPO training
       purposes.
@@ -59,6 +69,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         env = pommerman.make(config, agents, game_state_file,
                              render_mode='rgb_pixel')
         env.set_training_agents(training_agent_ids)
+        env.set_state_directory(state_directory, state_directory_distribution)
 
         if rank != -1:
             env.seed(seed + rank)
@@ -109,12 +120,15 @@ def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
 
 
 def make_train_envs(config, how_train, seed, game_state_file, training_agents,
-                    num_stack, num_processes, do_filter_team=True):
+                    num_stack, num_processes, do_filter_team=True,
+                    state_directory=None, state_directory_distribution=None):
     envs = [
         _make_train_env(config=config, how_train=how_train, seed=seed,
                         rank=rank, game_state_file=game_state_file,
                         training_agents=training_agents, num_stack=num_stack,
-                        do_filter_team=do_filter_team)
+                        do_filter_team=do_filter_team, state_directory,
+                        state_directory_distribution
+        )
         for rank in range(num_processes)
     ]
     return SubprocVecEnv(envs)
