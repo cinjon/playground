@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import Categorical as TorchCategorical
 
 
 class Categorical(nn.Module):
@@ -15,9 +16,13 @@ class Categorical(nn.Module):
 
         probs = F.softmax(x, dim=1)
         if deterministic is False:
-            action = probs.multinomial()
+            # NOTE: changed to work for Pytorch 0.3.0
+            multinomial = TorchCategorical(probs)
+            action = multinomial.sample().view(-1, 1)
+
         else:
             action = probs.max(1, keepdim=True)[1]
+
         return action
 
     def logprobs_and_entropy(self, x, actions):
@@ -29,4 +34,5 @@ class Categorical(nn.Module):
         action_log_probs = log_probs.gather(1, actions)
 
         dist_entropy = -(log_probs * probs).sum(-1).mean()
+
         return action_log_probs, dist_entropy, probs, log_probs
