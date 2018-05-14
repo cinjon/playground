@@ -96,7 +96,7 @@ class PPOAgent(ResearchAgent):
             old_lr = float(param_group['lr'])
             new_lr = max(old_lr * 0.5, 1e-7)
             param_group['lr'] = new_lr
-                    
+
     def compute_advantages(self, next_value_agents, use_gae, gamma, tau):
         for num_agent, next_value in enumerate(next_value_agents):
             self._rollout.compute_returns(next_value, use_gae, gamma, tau,
@@ -108,7 +108,8 @@ class PPOAgent(ResearchAgent):
 
     def initialize(self, args, obs_shape, action_space,
                    num_training_per_episode, num_episodes, total_steps,
-                   num_epoch, optimizer_state_dict):
+                   num_epoch, optimizer_state_dict, num_steps
+                   ):
         params = self._actor_critic.parameters()
         self._optimizer = optim.Adam(params, lr=args.lr, eps=args.eps)
         if optimizer_state_dict:
@@ -118,7 +119,7 @@ class PPOAgent(ResearchAgent):
                 self._optimizer, mode='min', verbose=True)
 
         self._rollout = RolloutStorage(
-            args.num_steps, args.num_processes, obs_shape, action_space,
+            num_steps, args.num_processes, obs_shape, action_space,
             self._actor_critic.state_size, num_training_per_episode
         )
         self.num_episodes = num_episodes
@@ -136,7 +137,7 @@ class PPOAgent(ResearchAgent):
                              action_log_prob_distr, dagger_prob_distr)
 
 
-    def ppo(self, advantages, num_mini_batch, num_steps, clip_param,
+    def ppo(self, advantages, num_mini_batch, batch_size, num_steps, clip_param,
             entropy_coef, value_loss_coef, max_grad_norm, anneal=False,
             lr=1e-4, eps=1e-5, kl_factor=0):
         action_losses = []
@@ -147,7 +148,7 @@ class PPOAgent(ResearchAgent):
         total_losses = []
 
         for sample in self._rollout.feed_forward_generator(
-                advantages, num_mini_batch, num_steps, kl_factor):
+                advantages, num_mini_batch, batch_size, num_steps, kl_factor):
             observations_batch, states_batch, actions_batch, return_batch, \
                 masks_batch, old_action_log_probs_batch, adv_targ, \
                 action_log_probs_distr_batch, dagger_probs_distr_batch = sample

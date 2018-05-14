@@ -88,8 +88,8 @@ class RolloutStorage(object):
     def compute_advantages(self):
         return self.returns[:-1] - self.value_preds[:-1]
 
-    def feed_forward_generator(self, advantages, num_mini_batch, num_steps,
-                               kl_factor):
+    def feed_forward_generator(self, advantages, num_mini_batch, batch_size,
+                               num_steps, kl_factor):
         # TODO: Consider excluding from the indices the rollouts where the
         # agent died before this rollout. They're signature is that every step
         # is masked out.
@@ -102,10 +102,9 @@ class RolloutStorage(object):
         action_shape = self.actions.shape[3:]
         state_size = self.states.size(3)
 
-        batch_size = num_total * num_steps
-        mini_batch_size = batch_size // num_mini_batch
-        sampler = BatchSampler(SubsetRandomSampler(range(batch_size)),
-                               mini_batch_size, drop_last=False)
+        total_steps = num_training_per_episode * num_processes * num_steps
+        sampler = BatchSampler(SubsetRandomSampler(range(total_steps)),
+                               batch_size, drop_last=False)
 
         # Reshape so that trajectories per agent look like new processes.
         observations = self.observations.view([
@@ -117,6 +116,8 @@ class RolloutStorage(object):
         actions = self.actions.view([num_steps, num_total, *action_shape])
         action_log_probs = self.action_log_probs.view([
             num_steps, num_total, 1])
+
+
         masks = self.masks.view([num_steps+1, num_total, 1])
 
         if kl_factor > 0:

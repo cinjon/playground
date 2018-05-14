@@ -58,20 +58,21 @@ def train():
     print("args ", args)
     print("##############\n")
 
+    num_training_per_episode = utils.validate_how_train(args)
     how_train, config, num_agents, num_stack, num_steps, num_processes, \
-        num_epochs, reward_sharing = utils.get_train_vars(args)
+        num_epochs, reward_sharing, batch_size, num_mini_batch = \
+        utils.get_train_vars(args, num_training_per_episode)
 
     obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
-    num_training_per_episode = utils.validate_how_train(how_train, num_agents)
 
     if args.reinforce_only:
         training_agents = utils.load_agents(
-            obs_shape, action_space, num_training_per_episode, args,
+            obs_shape, action_space, num_training_per_episode, num_steps, args,
             reinforce_agent.ReinforceAgent)
     else:
         training_agents = utils.load_agents(
-            obs_shape, action_space, num_training_per_episode, args,
-            ppo_agent.PPOAgent)
+            obs_shape, action_space, num_training_per_episode, num_steps,
+            args, ppo_agent.PPOAgent)
 
     if how_train == 'homogenous':
         bad_guys = [SimpleAgent(), SimpleAgent()]
@@ -85,14 +86,15 @@ def train():
         eval_round = 0
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
-        num_stack, num_processes, state_directory=args.state_directory,
+        num_stack, num_processes
+        , state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution)
 
     model_str = args.model_str.strip('PommeCNNPolicy')
     config_str = config.strip('Pomme').replace('Short', 'Sh')
-    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.gam{}.seed{}".format(
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ns{}.gam{}.seed{}".format(
         args.run_name, how_train, config_str, model_str, args.num_channels,
-        args.lr, args.num_mini_batch, args.num_steps, args.gamma, args.seed)
+        args.lr, args.batch_size, args.num_steps, args.gamma, args.seed)
     if args.use_gae:
         suffix += ".gae"
     if args.half_lr_epochs:
@@ -269,6 +271,7 @@ def train():
         expert_actions_onehot.scatter_(onehot_dim, actions_tensor, 1)
 
     # Start the environment and set the current_obs appropriately.
+
     current_obs = update_current_obs(envs.reset())
 
     if how_train == 'simple' or how_train == 'homogenous':
@@ -585,7 +588,8 @@ def train():
                 for _ in range(args.ppo_epoch):
                     with utility.Timer() as t:
                         result = agent.ppo(advantages[num_agent],
-                                           args.num_mini_batch,
+                                           num_mini_batch,
+                                           batch_size,
                                            num_steps, args.clip_param,
                                            args.entropy_coef, args.value_loss_coef,
                                            args.max_grad_norm,

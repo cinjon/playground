@@ -84,7 +84,8 @@ def get_args():
                         help='train only with reinforce')
     parser.add_argument('--add-nonlin-valhead', action='store_true', default=False,
                         help='add nonlinearity to value head')
-
+    parser.add_argument('--batch-size', type=int, default=5120,
+                        help='batch size used for training')
 
     # specific to Pommerman
     parser.add_argument('--agents',
@@ -126,6 +127,11 @@ def get_args():
                         help='whether to render the first process in eval.')
     parser.add_argument('--cuda-device', type=int, default=0,
                         help='gpu id to be used')
+    parser.add_argument('--do-filter-team', default=True, action='store_true',
+                        help='whether we should filter the full team: \
+                        if True, for simple and team, \
+                        env.step returns the rewards and done for both \
+                        the training agent and its teammate')
 
     ### Eval Specific
     parser.add_argument('--eval-mode', type=str, default='ffa',

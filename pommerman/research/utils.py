@@ -8,8 +8,8 @@ import dagger_agent
 import networks
 
 
-def load_agents(obs_shape, action_space, num_training_per_episode, args,
-                agent_type, network_type='ac'):
+def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
+                args, agent_type, network_type='ac'):
     if network_type == 'qmix':
         net = lambda state: networks.get_q_network(args.model_str)(
             state, obs_shape[0], action_space, obs_shape[1],
@@ -51,7 +51,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode, args,
         agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda)
         agent.initialize(args, obs_shape, action_space,
                          num_training_per_episode, num_episodes, total_steps,
-                         num_epoch, optimizer_state_dict)
+                         num_epoch, optimizer_state_dict, num_steps)
         training_agents.append(agent)
 
     return training_agents
@@ -121,15 +121,15 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
         save_dict['args'] = vars(args)
         if not suffix:
             if how_train == 'dagger':
-                suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ne{}.prob{}.nopt{}.epoch{}.steps{}.seed{}.pt" \
+                suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ne{}.prob{}.nopt{}.epoch{}.steps{}.seed{}.pt" \
                          .format(name, how_train, config, model_str,
-                                 args.num_channels, args.lr, args.minibatch_size,
+                                 args.num_channels, args.lr, args.batch_size,
                                  args.num_episodes_dagger, args.expert_prob,
                                  args.dagger_epoch, num_epoch, total_steps, seed)
             else:
-                suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ns{}.gam{}.gae{}.epoch{}.steps{}.seed{}.pt" \
+                suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ns{}.gam{}.gae{}.epoch{}.steps{}.seed{}.pt" \
                          .format(name, how_train, config, model_str,
-                                 args.num_channels, args.lr, args.minibatch_size,
+                                 args.num_channels, args.lr, args.batch_size,
                                  args.num_steps, args.gamma, args.use_gae,
                                  num_epoch, total_steps, seed)
         else:
@@ -157,22 +157,24 @@ def scp_model_from_ssh(saved_paths, ssh_address, ssh_password,
         return None
 
 
-def get_train_vars(args):
+def get_train_vars(args, num_training_per_episode):
     how_train = args.how_train
     config = args.config
     num_agents = args.num_agents
     num_stack = args.num_stack
-    num_steps = args.num_steps
+    num_mini_batch = args.num_mini_batch
+    batch_size = args.batch_size
     num_processes = args.num_processes
+    num_steps = int(batch_size // num_training_per_episode // num_processes) + 1
     num_epochs = int(args.num_frames // num_steps // num_processes)
     reward_sharing = args.reward_sharing
     s = "NumEpochs {} NumFrames {} NumSteps {} NumProcesses {} Cuda {} " \
-        "RewardSharing {}\n" \
+        "RewardSharing {} Batch Size {} Num Mini Batch {}\n" \
         .format(num_epochs, args.num_frames, num_steps, num_processes,
-                args.cuda, reward_sharing)
+                args.cuda, reward_sharing, batch_size, num_mini_batch)
     print(s)
     return how_train, config, num_agents, num_stack, num_steps, \
-        num_processes, num_epochs, reward_sharing
+        num_processes, num_epochs, reward_sharing, batch_size, num_mini_batch
 
 def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     epochs_per_sec, final_rewards, mean_dist_entropy,
@@ -405,7 +407,9 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
             num_epoch)
 
 
-def validate_how_train(how_train, nagents):
+def validate_how_train(args):
+    how_train = args.how_train
+    nagents = args.num_agents
     if how_train == 'simple':
         # Simple trains a single agent with three SimpleAgents.
         assert(nagents == 1), "Simple training should have one agent."
