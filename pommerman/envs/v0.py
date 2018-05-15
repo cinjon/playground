@@ -69,6 +69,7 @@ class Pomme(gym.Env):
         self._set_action_space()
         self._set_observation_space()
         self.expert = SimpleAgent()
+        self._init_step = 0
 
     def _set_action_space(self):
         self.action_space = spaces.Discrete(6)
@@ -128,8 +129,8 @@ class Pomme(gym.Env):
                     step_count = endgame['step_count']
                     # print("%d: " % self.rank, self.training_agents, endgame)
                     self._applicable_games.append((path, step_count))
-            print("Environment has %d applicable games." % \
-                  len(self._applicable_games))
+            # print("Environment has %d applicable games." % \
+            #       len(self._applicable_games))
 
     def set_init_game_state(self, game_state_file):
         """Set the initial game state.
@@ -211,6 +212,48 @@ class Pomme(gym.Env):
                 step = random.choice(
                     range(max(0, step_count - 22), step_count - 1)
                 )
+            elif self._game_state_distribution == 'overfit-20max':
+                # Pick a game state with the distribution probabilities:
+                # step_count - 2: 20%
+                # step_count - 3: 20%
+                # step_count - 4: 20%
+                # step_count - 5: 10%
+                # step_count - 6: 10%
+                # step_count - 7: 10%
+                # step_count - 8: 5%
+                # step_count - 9: 2.5%
+                # [0, step_count - 10]: uniform out of 2.5%.
+                step = None
+                choice = random.random()
+                for num, value in enumerate(
+                        [.8, .6, .4, .3, .2, .1, .05, .025]
+                ):
+                    if choice > value:
+                        step = step_count - 2 - num
+                        break
+                step = step or random.choice(
+                    range(max(0, step_count - 20), step_count - 9)
+                )
+            elif self._game_state_distribution == 'overfit-0max':
+                # Pick a game state with the distribution probabilities:
+                # step_count - 2: 20%
+                # step_count - 3: 20%
+                # step_count - 4: 20%
+                # step_count - 5: 10%
+                # step_count - 6: 10%
+                # step_count - 7: 10%
+                # step_count - 8: 5%
+                # step_count - 9: 2.5%
+                # [0, step_count - 10]: uniform out of 2.5%.
+                step = None
+                choice = random.random()
+                for num, value in enumerate(
+                        [.8, .6, .4, .3, .2, .1, .05, .025]
+                ):
+                    if choice > value:
+                        step = step_count - 2 - num
+                        break
+                step = step or random.choice(range(step_count - 9))
             else:
                 raise
 
@@ -236,6 +279,7 @@ class Pomme(gym.Env):
                 agent.set_start_position((row, col))
                 agent.reset()
 
+        self._init_step = step
         return self.get_observations()
 
     def seed(self, seed=None):
@@ -303,12 +347,12 @@ class Pomme(gym.Env):
             if mode == 'rgb_pixel':
                 self._viewer = graphics.PixelViewer(
                     board_size=self._board_size,
-                    agents=self._agents, 
+                    agents=self._agents,
                     partially_observable=self._is_partially_observable)
             else:
                 self._viewer = graphics.PommeViewer(
                     board_size=self._board_size,
-                    agents=self._agents, 
+                    agents=self._agents,
                     partially_observable=self._is_partially_observable,
                     game_type=self._game_type)
 
