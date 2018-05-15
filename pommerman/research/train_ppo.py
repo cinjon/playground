@@ -86,8 +86,7 @@ def train():
         eval_round = 0
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
-        num_stack, num_processes
-        , state_directory=args.state_directory,
+        num_stack, num_processes, state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution)
 
     model_str = args.model_str.replace('PommeCNNPolicy', '')
@@ -101,6 +100,8 @@ def train():
         suffix += ".halflr%d" % args.half_lr_epochs
     if args.use_lr_scheduler:
         suffix += ".ulrs"
+    if args.state_directory_distribution:
+        suffix += ".%s" % args.state_directory_distribution
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target

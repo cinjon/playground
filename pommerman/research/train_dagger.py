@@ -64,6 +64,9 @@ def train():
                      args.num_channels, args.lr, args.minibatch_size,
                      args.num_episodes_dagger, args.expert_prob,
                      args.dagger_epoch, args.seed)
+    if args.state_directory_distribution:
+        suffix += ".%s" % args.state_directory_distribution
+
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -90,9 +93,10 @@ def train():
         dummy_states = dummy_states.cuda()
         dummy_masks = dummy_masks.cuda()
 
-    envs = env_helpers.make_train_envs(config, how_train, args.seed,
-                                       args.game_state_file, training_agents,
-                                       num_stack, num_processes)
+    envs = env_helpers.make_train_envs(
+        config, how_train, args.seed, args.game_state_file, training_agents,
+        num_stack, num_processes, state_directory=args.state_directory,
+        state_directory_distribution=args.state_directory_distribution)
 
     # [num_proc, num_frame*19, board_size, board_size]
     agent_obs = torch.from_numpy(envs.reset()).float().squeeze(1)
