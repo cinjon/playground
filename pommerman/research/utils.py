@@ -183,7 +183,6 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     success_rate_alive, running_num_episodes, mean_total_loss,
                     mean_kl_loss=None, mean_pg_loss = None, distill_factor=0,
                     reinforce_only=False):
-
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "

@@ -315,8 +315,9 @@ def train():
                 distill_factor = (distill_epochs - num_epoch) * init_kl_factor
                 distill_factor = 1.0 * distill_factor / distill_epochs
                 distill_factor = max(distill_factor, 0.0)
-            print("Epoch %d - distill factor %.3f." % (
-                num_epoch, distill_factor))
+            if num_epoch % 50 == 0:
+                print("Epoch %d - distill factor %.3f." % (
+                    num_epoch, distill_factor))
         else:
             distill_factor = 0
 
@@ -692,7 +693,7 @@ def train():
                                  success_rate_alive, running_num_episodes,
                                  mean_total_loss, mean_kl_loss, mean_pg_loss,
                                  distill_factor, args.reinforce_only)
-
+                
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
                                      episodes_per_sec, final_rewards,
