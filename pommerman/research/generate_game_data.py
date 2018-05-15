@@ -151,7 +151,9 @@ def generate(args, agents, action_space, acting_agent_ids):
                 info_ = info[num]
                 result = info_['result']
                 winners = info_.get('winners', [])
-                if result != pommerman.constants.Result.Win or not winners:
+                if any([result != pommerman.constants.Result.Win,
+                        not winners,
+                        info_['step_count'] < 80]):
                     delete_data(directory)
                 else:
                     save_endgame_info(directory, info_)

@@ -231,9 +231,9 @@ class Pomme(gym.Env):
             game_state_file = os.path.join(directory, '%d.json' % step)
             with open(game_state_file, 'r') as f:
                 # NOTE: The rank is set by envs.py. Remove if causing problems.
-                print("Env %d using game state %s (%d / %d) %.3f" % (
-                    self.rank, game_state_file, step, step_count, choice))
-                print(game_state_file)
+                # print("Env %d using game state %s (%d / %d) %.3f" % (
+                #     self.rank, game_state_file, step, step_count, choice))
+                # print(game_state_file)
                 self.set_json_info(json.loads(f.read()))
         elif self._init_game_state is not None:
             self.set_json_info()
