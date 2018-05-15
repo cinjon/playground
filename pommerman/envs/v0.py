@@ -203,37 +203,22 @@ class Pomme(gym.Env):
             if self._game_state_distribution == 'uniform':
                 # Pick a random game state to start from.
                 step = random.choice(range(step_count))
-            elif self._game_state_distribution == 'backloaded':
-                # Pick a game state with the distribution probabilities:
-                # step_count - 2: 20%
-                # step_count - 3: 20%
-                # step_count - 4: 20%
-                # step_count - 5: 10%
-                # step_count - 6: 10%
-                # step_count - 7: 10%
-                # step_count - 8: 5%
-                # step_count - 9: 2.5%
-                # [0, step_count - 10]: uniform out of 2.5%.
-
-                step = None
-                choice = random.random()
-                for num, value in enumerate(
-                        [.8, .6, .4, .3, .2, .15, .10, .05, .025]
-                ):
-                    if choice > value:
-                        step = step_count - 2 - num
-                        break
-
-                step = step or random.choice(range(step_count - 8))
+            elif self._game_state_distribution == 'uniform21':
+                # Pick a game state uniformly over the last 21.
+                # NOTE: This is an effort to reduce the effect of the credit
+                # assignment problem. If this works well, then we might be able
+                # to move a sliding window back across epochs.
+                step = random.choice(
+                    range(max(0, step_count - 22), step_count - 1)
+                )
             else:
                 raise
 
             game_state_file = os.path.join(directory, '%d.json' % step)
             with open(game_state_file, 'r') as f:
                 # NOTE: The rank is set by envs.py. Remove if causing problems.
-                # print("Env %d using game state %s (%d / %d) %.3f" % (
-                #     self.rank, game_state_file, step, step_count, choice))
-                # print(game_state_file)
+                # print("Env %d using game state %s (%d / %d) " % (
+                #     self.rank, game_state_file, step, step_count))
                 self.set_json_info(json.loads(f.read()))
         elif self._init_game_state is not None:
             self.set_json_info()
