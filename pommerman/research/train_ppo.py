@@ -90,7 +90,7 @@ def train():
         , state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution)
 
-    model_str = args.model_str.strip('PommeCNNPolicy')
+    model_str = args.model_str.replace('PommeCNNPolicy', '')
     config_str = config.strip('Pomme').replace('Short', 'Sh')
     suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ns{}.gam{}.seed{}".format(
         args.run_name, how_train, config_str, model_str, args.num_channels,
