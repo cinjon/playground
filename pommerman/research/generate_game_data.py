@@ -109,7 +109,7 @@ def generate(args, agents, action_space, acting_agent_ids):
         config, args.how_train, seed, agents, training_agent_ids,
         acting_agent_ids, args.num_stack, num_processes)
 
-    times = []
+    steps = []
     process_dirs = list(range(num_processes))
     st = time.time()
     obs = envs.reset()
@@ -117,10 +117,12 @@ def generate(args, agents, action_space, acting_agent_ids):
     while num_episodes > 0:
         if milestones and num_episodes < milestones[-1]:
             mt = time.time()
-            print("\nMilestone %d (%d). Total time %.3f / Avg time %.3f.\n" % (
+            print("\nMilestone %d (%d). Total time %.3f / Avg time %.3f." % (
                 50 - len(milestones), init_num_episodes - num_episodes,
                 mt - st, 1.0*(mt-st)/(init_num_episodes - num_episodes)
             ))
+            print("Mean / Median step count: %d / %d\n." % (
+                np.mean(steps), np.median(steps)))
             milestones = milestones[:-1]
         actions = [[None]*len(acting_agent_ids) for _ in range(num_processes)]
         for num_action, acting_agent_id in enumerate(acting_agent_ids):
@@ -153,6 +155,7 @@ def generate(args, agents, action_space, acting_agent_ids):
                     delete_data(directory)
                 else:
                     save_endgame_info(directory, info_)
+                    steps.append(info_['step_count'])
                     process_dirs[num] = max(process_dirs) + 1
                     num_episodes -= 1
             if num_episodes <= 0:
