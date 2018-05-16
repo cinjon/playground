@@ -97,12 +97,12 @@ def train():
     gradient_steps = 0
 
     # Collected Statistics
-    start = time.time()
+    running_total_steps = 0
     running_team_wins = 0
     running_team_ties = 0
     running_num_episodes = 0
-    running_mean_episode_length = 0
     action_histogram = [init_action_histogram() for _ in range(num_processes)]
+    episode_lens = []
     value_losses = []
     action_times = []
     step_times = []
@@ -129,15 +129,16 @@ def train():
         loss = MSELoss()(current_q_values, expected_q_values)
         loss.backward()
 
-        value_losses.append(loss.cpu().data[0])
+        return loss.cpu().data[0]
 
     def run_dqn():
-        if len(buffer) >= args.minibatch_size:
-            batch = buffer.sample(args.minibatch_size)
+        if len(buffer) >= args.batch_size:
+            batch = buffer.sample(args.batch_size)
             item_batch = list(zip(*batch))
             for i in range(len(item_batch)):
                 item_batch[i] = torch.cat(item_batch[i])
-            compute_q_loss(*item_batch)
+            q_loss = compute_q_loss(*item_batch)
+            value_losses.append(q_loss)
             training_agents[0].optimizer_step()
             return 1
         return 0
@@ -151,6 +152,7 @@ def train():
             agent.set_train()
 
         # Keep collecting episodes
+        rollout_start = time.time()
         for _ in range(num_steps):
             eps = args.eps_max + (args.eps_min - args.eps_max) / args.eps_max_steps * eps_steps
 
@@ -194,7 +196,7 @@ def train():
                     next_state_tensor[i],
                 ])
 
-                total_steps += 1
+                running_total_steps += 1
 
                 for j in range(num_agents):
                     action_histogram[i][j].append(training_agent_actions[i][j])
@@ -203,8 +205,9 @@ def train():
                     # Update stats
                     num_episodes += 1
                     running_num_episodes += 1
-                    running_mean_episode_length = running_mean_episode_length + \
-                                                  (len_history[i] - running_mean_episode_length) / running_num_episodes
+
+                    episode_lens.append(len_history[i])
+
                     if 'winners' in info[i] and info[i]['winners'] == training_ids[i]:
                         running_team_wins += 1
                     elif info[i]['result'] == pommerman.constants.Result.Tie:
@@ -220,48 +223,49 @@ def train():
                     len_history[i] = 0
                     action_histogram[i] = init_action_histogram()
 
-            train_start = time.time()
-            gradient_steps += run_dqn()
-            if gradient_steps % args.target_update_steps == 0:
-                training_agents[0].update_target()
-            train_times.append(time.time() - train_start)
-
             # Update for next step
             eps_steps = min(eps_steps + 1, args.eps_max_steps)
             current_obs = obs
             current_global_obs = global_obs
+        rollout_end = time.time()
+
+        train_start = time.time()
+        gradient_steps += run_dqn()
+        if gradient_steps % args.target_update_steps == 0:
+            training_agents[0].update_target()
+        train_times.append(time.time() - train_start)
 
         if running_num_episodes:
-            end = time.time()
-
-            steps_per_sec = 1.0 * total_steps / (end - start)
-
-            mean_value_loss = np.mean(value_losses).item()
-            std_value_loss = np.std(value_losses).item()
+            total_steps += running_total_steps
+            steps_per_sec = running_total_steps / (rollout_end - rollout_start)
 
             writer.add_scalar('num episodes', num_episodes, num_epoch)
             writer.add_scalar('running num episodes', running_num_episodes , num_epoch)
-            writer.add_scalar('mean episode length', running_mean_episode_length, num_epoch)
+            writer.add_scalar('mean episode length', np.mean(episode_lens).item(), num_epoch)
+            writer.add_scalar('std episode length', np.std(episode_lens).item(), num_epoch)
             writer.add_scalar('win rate', running_team_wins / running_num_episodes, num_epoch)
             writer.add_scalar('tie rate', running_team_ties / running_num_episodes, num_epoch)
-            writer.add_scalar('mean value loss', mean_value_loss, num_epoch)
-            writer.add_scalar('std value loss', std_value_loss, num_epoch)
+            writer.add_scalar('mean value loss', np.mean(value_losses).item(), num_epoch)
+            writer.add_scalar('std value loss', np.std(value_losses).item(), num_epoch)
             writer.add_scalar('steps/s', steps_per_sec, num_epoch)
 
             # Partial Stats
-            print('[{}] steps/s {} Episodes, Mean Action Time: {} +/- {} s, Mean Train Time: {} +/- {}s, '
-                  'Mean Step Time: {} +/- {}s, Win rate: {}'.format(
-                steps_per_sec, num_episodes,
+            print('[{} steps/s] {} Episodes, Mean Episode Length: {} +- {}, '
+                  'Action Time: {} +/- {} s, Train Time: {} +/- {}s, '
+                  'Step Time: {} +/- {}s, Win rate: {}'.format(
+                steps_per_sec, running_num_episodes,
+                np.mean(episode_lens).item(), np.std(episode_lens).item(),
                 np.mean(action_times).item(), np.std(action_times).item(),
                 np.mean(train_times).item(), np.std(train_times).item(),
                 np.mean(step_times).item(), np.std(step_times).item(),
                 running_team_wins / running_num_episodes
             ), flush=True)
 
+            running_total_steps = 0
             running_num_episodes = 0
-            running_mean_episode_length = 0
             running_team_wins = 0
             running_team_ties = 0
+            episode_lens = []
             value_losses = []
             action_times = []
             train_times = []
