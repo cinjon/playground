@@ -414,7 +414,6 @@ def train():
                                 actions[num_process])
 
                     non_training_obs = envs.get_non_training_obs()
-                    # So this is going to be [4, 2] then
                     non_training_actions = [
                         bad_guys[0].act(
                             non_training_obs[num_process], action_space)

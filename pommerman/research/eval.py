@@ -326,6 +326,7 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
     seed = args.seed
     # TODO: Why are we getting too many open file errors? They are closing...
     num_processes = args.num_processes // 2
+    assert(num_processes > 1)
 
     if seed is None:
         seed = random.randint(0, 1e6)
