@@ -244,25 +244,27 @@ def train():
 
             writer.add_scalar('num episodes', num_episodes, num_epoch)
             writer.add_scalar('running num episodes', running_num_episodes, num_epoch)
+            writer.add_scalar('buffer size', len(buffer), num_epoch)
+
+            writer.add_scalar('steps per second', steps_per_sec, num_epoch)
             writer.add_scalar('mean episode length', np.mean(episode_lens).item(), num_epoch)
             writer.add_scalar('std episode length', np.std(episode_lens).item(), num_epoch)
-            writer.add_scalar('win rate', running_team_wins / running_num_episodes, num_epoch)
-            writer.add_scalar('tie rate', running_team_ties / running_num_episodes, num_epoch)
+            writer.add_scalar('mean action time', np.mean(action_times).item(), num_epoch)
+            writer.add_scalar('std action time', np.std(action_times).item(), num_epoch)
+            writer.add_scalar('mean train time', np.mean(train_times).item(), num_epoch)
+            writer.add_scalar('std train time', np.std(train_times).item(), num_epoch)
+            writer.add_scalar('mean step time', np.mean(step_times).item(), num_epoch)
+            writer.add_scalar('std step time', np.std(step_times).item(), num_epoch)
             writer.add_scalar('mean value loss', np.mean(value_losses).item(), num_epoch)
             writer.add_scalar('std value loss', np.std(value_losses).item(), num_epoch)
-            writer.add_scalar('steps/s', steps_per_sec, num_epoch)
+
+            writer.add_scalar('win rate', running_team_wins / running_num_episodes, num_epoch)
+            writer.add_scalar('tie rate', running_team_ties / running_num_episodes, num_epoch)
 
             # Partial Stats
-            print('[{} steps/s] {} Episodes, Buffer Size: {}, Mean Episode Length: {} +- {}, '
-                  'Action Time: {} +/- {} s, Train Time: {} +/- {}s, '
-                  'Step Time: {} +/- {}s, Win rate: {}'.format(
+            print('[{} steps/s] {} Episodes, Buffer Size: {}, Mean Episode Length: {} +/- {}, '.format(
                     steps_per_sec, running_num_episodes, len(buffer),
-                    np.mean(episode_lens).item(), np.std(episode_lens).item(),
-                    np.mean(action_times).item(), np.std(action_times).item(),
-                    np.mean(train_times).item(), np.std(train_times).item(),
-                    np.mean(step_times).item(), np.std(step_times).item(),
-                    running_team_wins / running_num_episodes
-                  ), flush=True)
+                    np.mean(episode_lens).item(), np.std(episode_lens).item()), flush=True)
 
             running_total_steps = 0
             running_num_episodes = 0
