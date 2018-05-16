@@ -69,7 +69,6 @@ class Pomme(gym.Env):
         self._set_action_space()
         self._set_observation_space()
         self.expert = SimpleAgent()
-        self._init_step = 0
 
     def _set_action_space(self):
         self.action_space = spaces.Discrete(6)
@@ -254,6 +253,71 @@ class Pomme(gym.Env):
                         step = step_count - 2 - num
                         break
                 step = step or random.choice(range(step_count - 9))
+
+            elif self._game_state_distribution == 'overfit-no-uniform':
+                # Pick a game state with the distribution probabilities:
+                # step_count - 2: 20%
+                # step_count - 3: 20%
+                # step_count - 4: 20%
+                # step_count - 5: 10%
+                # step_count - 6: 10%
+                # step_count - 7: 10%
+                # step_count - 8: 5%
+                # step_count - 9: 2.5%
+                # [0, step_count - 10]: uniform out of 2.5%.
+                step = None
+                choice = random.random()
+                for num, value in enumerate(
+                        [.8, .6, .4, .3, .2, .1, .05, .025]
+                ):
+                    if choice > value:
+                        step = step_count - 2 - num
+                        break
+                step = step or step_count - 10
+            elif self._game_state_distribution == 'overfit-40max':
+                # Pick a game state with the distribution probabilities:
+                # step_count - 2: 20%
+                # step_count - 3: 20%
+                # step_count - 4: 20%
+                # step_count - 5: 10%
+                # step_count - 6: 10%
+                # step_count - 7: 10%
+                # step_count - 8: 5%
+                # step_count - 9: 2.5%
+                # [0, step_count - 10]: uniform out of 2.5%.
+                step = None
+                choice = random.random()
+                for num, value in enumerate(
+                        [.8, .6, .4, .3, .2, .1, .05, .025]
+                ):
+                    if choice > value:
+                        step = step_count - 2 - num
+                        break
+                step = step or random.choice(
+                    range(max(0, step_count - 40), step_count - 9)
+                )
+            elif self._game_state_distribution == 'overfit-2040max':
+                # Pick a game state with the distribution probabilities:
+                # step_count - 2: 20%
+                # step_count - 3: 20%
+                # step_count - 4: 20%
+                # step_count - 5: 10%
+                # step_count - 6: 10%
+                # step_count - 7: 10%
+                # step_count - 8: 5%
+                # step_count - 9: 2.5%
+                # [0, step_count - 10]: uniform out of 2.5%.
+                step = None
+                choice = random.random()
+                for num, value in enumerate(
+                        [.8, .6, .4, .3, .2, .1, .05, .025]
+                ):
+                    if choice > value:
+                        step = step_count - 2 - num
+                        break
+                step = step or random.choice(
+                    range(max(0, step_count - 40), step_count - 20)
+                )
             else:
                 raise
 
@@ -279,7 +343,6 @@ class Pomme(gym.Env):
                 agent.set_start_position((row, col))
                 agent.reset()
 
-        self._init_step = step
         return self.get_observations()
 
     def seed(self, seed=None):
