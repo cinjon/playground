@@ -198,12 +198,12 @@ def get_train_vars(args, num_training_per_episode):
 
 
 def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
-                    epochs_per_sec, final_rewards, mean_dist_entropy,
-                    mean_value_loss, mean_action_loss,
-                    cumulative_reward, terminal_reward, success_rate,
-                    success_rate_alive, running_num_episodes, mean_total_loss,
-                    mean_kl_loss=None, mean_pg_loss = None, distill_factor=0,
-                    reinforce_only=False, start_step_ratios=None):
+                   epochs_per_sec, final_rewards, mean_dist_entropy,
+                   mean_value_loss, mean_action_loss,
+                   cumulative_reward, terminal_reward, success_rate,
+                   success_rate_alive, running_num_episodes, mean_total_loss,
+                   mean_kl_loss=None, mean_pg_loss = None, distill_factor=0,
+                   reinforce_only=False, start_step_ratios=None):
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "
@@ -262,7 +262,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        running_num_episodes, mean_total_loss,
                        mean_kl_loss=None, mean_pg_loss=None, lr=None,
                        distill_factor=0, reinforce_only=False,
-                       start_step_ratios=None):
+                       start_step_ratios=None, action_choices=None,
+                       action_probs=None):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -332,6 +333,13 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
             1.0 * len(array_stats['dead']) / running_num_episodes,
             total_steps)
 
+    writer.add_histogram('action_choices_epoch', action_choices, num_epoch)
+    writer.add_histogram('action_choices_steps', action_choices, total_steps)
+    for num in range(len(action_probs)):
+        writer.add_histogram('action_probs_epoch/%d' % num, action_probs[num],
+                             num_epoch)
+        writer.add_histogram('action_probs_steps/%d' % num, action_probs[num],
+                             total_steps)
 
     # x-axis: # episodes
     if reinforce_only:

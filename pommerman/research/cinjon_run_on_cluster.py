@@ -41,6 +41,7 @@ abbr = {
     'half-lr-epochs': 'hlre',
     'use-gae': 'gae',
     'init-kl-factor': 'ikl',
+    'state-directory-distribution': 'sdd'
 }
 
 def train_ppo_job(flags, jobname=None, is_fb=False):
@@ -894,6 +895,9 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 
 ### FB Cluster Runs: These distill simple agent into PPO on the 1000 FFA dataset. Can we overfit?
+# It appears that at least two of these did pretty darn well. The signatures for those:
+# Both use gae, both use .99, and both have an LR of less than 1e-3
+# 
 # train_ppo_job({
 #     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
 #     "log-interval": 1000, "num-steps": 200,

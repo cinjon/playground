@@ -183,9 +183,8 @@ def train():
         action_agents.append(action)
         action_log_prob_agents.append(action_log_prob)
         states_agents.append(states)
-        # probs_distr.append(probs)
         action_log_prob_distr.append(log_probs)
-        return action.data.squeeze(1).cpu().numpy()
+        return action.data.squeeze(1).cpu().numpy(), probs.data.squeeze().cpu().numpy()
 
     def update_stats(info):
         # NOTE: This func has a side effect where it sets variable values.
@@ -302,6 +301,10 @@ def train():
             args.num_battles_eval, win_rate, tie_rate, loss_rate))
 
     start = time.time()
+    # NOTE: assumes just one agent.
+    action_choices = []
+    action_probs = [[] for _ in range(6)]
+
     for num_epoch in range(start_epoch, num_epochs):
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval) \
            and how_train == 'simple':
@@ -333,7 +336,6 @@ def train():
             states_agents = []
             episode_reward = []
             action_log_prob_distr = []
-            # probs_distr = []
             dagger_prob_distr = []
 
             if how_train == 'simple':
@@ -355,7 +357,11 @@ def train():
                             DaggerAgent or SimpleAgent \n")
 
                 result = training_agent.actor_critic_act(step, 0)
-                cpu_actions_agents = update_actor_critic_results(result)
+                # [num_processor,] ..., [num_processor, 6]
+                cpu_actions_agents, cpu_probs = update_actor_critic_results(result)
+                action_choices.extend(cpu_actions_agents)
+                for num in range(6):
+                    action_probs[num].extend([p[num] for p in cpu_probs])
             elif how_train == 'homogenous':
                 # Reshape to do computation once rather than four times.
                 with utility.Timer() as t:
@@ -405,13 +411,20 @@ def train():
                     ]
                     # cpu_training_actions: num_process x 2 list of actions
                     training_actions = [[] for _ in range(num_processes)]
+                    training_probs = [[] for _ in range(num_processes)]
                     for num_agent in range(2):
                         agent_results = [datum[:, num_agent]
                                          for datum in training_acts]
-                        actions = update_actor_critic_results(agent_results)
+                        actions, probs = update_actor_critic_results(agent_results)
                         for num_process in range(num_processes):
                             training_actions[num_process].append(
                                 actions[num_process])
+                            training_probs[num_process].append(
+                                probs[num_process])
+
+                        action_choices.extend(actions)
+                        for num in range(6):
+                            action_probs[num].extend([p[num] for p in probs])
 
                     non_training_obs = envs.get_non_training_obs()
                     non_training_actions = [
@@ -640,7 +653,6 @@ def train():
                 agent.after_epoch()
                 if args.half_lr_epochs > 0 and num_epoch > 0 and num_epoch % args.half_lr_epochs == 0:
                     agent.halve_lr()
-
         else:
             for num_agent, agent in enumerate(training_agents):
                 agent.set_train()
@@ -767,7 +779,8 @@ def train():
                                      running_num_episodes, mean_total_loss,
                                      mean_kl_loss, mean_pg_loss, lr,
                                      distill_factor, args.reinforce_only,
-                                     start_step_ratios)
+                                     start_step_ratios, action_choices,
+                                     action_probs)
 
             # Reset stats so that plots are per the last log_interval.
             if args.reinforce_only:
@@ -791,6 +804,8 @@ def train():
             success_rate = 0
             success_rate_alive = 0
             prev_epoch = num_epoch
+            action_choices = []
+            action_probs = [[] for _ in range(6)]
 
     writer.close()
 
