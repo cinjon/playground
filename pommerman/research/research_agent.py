@@ -36,6 +36,9 @@ class ResearchAgent(BaseAgent):
             obs = obs.unsqueeze(0)
         return obs.float()
 
+    def clear_obs_stack(self):
+        self._obs_stack.clear()
+        
     def act(self, obs, action_space):
         obs = self._featurize_obs(obs)
         self._obs_stack.append(obs)

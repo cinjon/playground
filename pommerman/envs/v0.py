@@ -158,6 +158,11 @@ class Pomme(gym.Env):
     def make_items(self):
         self._items = utility.make_items(self._board, self._num_items, self._use_skull)
 
+    def clear_agent_obs(self):
+        for agent in self._agents:
+            if type(agent) != SimpleAgent:
+                agent.clear_obs_stack()
+
     def act(self, obs, acting_agent_ids=[], ex_agent_ids=None):
         if ex_agent_ids is not None:
             agents = [agent for agent in self._agents \

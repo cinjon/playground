@@ -184,6 +184,9 @@ class WrapPommeEval(gym.ObservationWrapper):
                 all_actions.insert(id, action)
 
         observation, reward, done, info = self.env.step(all_actions)
+        if done.all():
+            self.env.clear_agents_obs()
+
         obs = self.observation(observation)
         rew = reward
         done = done
