@@ -504,7 +504,7 @@ def train():
                 success_rate += sum([int(s) for s in \
                                     ((game_ended == True) &
                                     (win == True))])
-                for e, w, ss in zip(game_ended, win, game_state_start_step):
+                for e, w, ss in zip(game_ended, win, game_state_start_steps):
                     if not e or ss is None:
                         continue
                     if w:
