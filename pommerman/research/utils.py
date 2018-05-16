@@ -57,6 +57,26 @@ def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
     return training_agents
 
 
+def load_inference_agent(path, agent_type, network_type, action_space,
+                         obs_shape, args):
+    print("Loading inference agent %s from path %s." % (agent_type, path))
+    if network_type == 'qmix':
+        net = lambda state: networks.get_q_network(args.model_str)(
+            state, obs_shape[0], action_space, obs_shape[1],
+            args.num_channels, args.num_agents)
+    else:
+        net = lambda state: networks.get_actor_critic(args.model_str)(
+            state, obs_shape[0], action_space, args.board_size,
+            args.num_channels)
+            
+    loaded_model = torch_load(path, args.cuda, args.cuda_device)
+    model_state_dict = loaded_model['state_dict']
+    model = net(model_state_dict)
+    agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda)
+    if args.cuda:
+        agent.cuda()
+    return agent
+
 def load_distill_agent(obs_shape, action_space, args):
     model_type, path = args.distill_target.split('::')
     if model_type == 'dagger':
@@ -176,19 +196,20 @@ def get_train_vars(args, num_training_per_episode):
     return how_train, config, num_agents, num_stack, num_steps, \
         num_processes, num_epochs, reward_sharing, batch_size, num_mini_batch
 
+
 def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                     epochs_per_sec, final_rewards, mean_dist_entropy,
                     mean_value_loss, mean_action_loss,
                     cumulative_reward, terminal_reward, success_rate,
                     success_rate_alive, running_num_episodes, mean_total_loss,
                     mean_kl_loss=None, mean_pg_loss = None, distill_factor=0,
-                    reinforce_only=False):
+                    reinforce_only=False, start_step_ratios=None):
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "
           "mean success rate learning agent alive at the end {:.3f} "
           "mean final reward {:.3f}, min/max finals reward {:.3f}/{:.3f} "
-          "mean total loss {:.3f} "
+          "mean total loss {:.3f}"
           .format(num_epoch, num_episodes, total_steps, steps_per_sec,
                   epochs_per_sec, 1.0*cumulative_reward/running_num_episodes,
                   1.0*terminal_reward/running_num_episodes,
@@ -206,10 +227,14 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
     if distill_factor > 0:
         print(" mean kl loss {} ".format(mean_kl_loss))
 
+    if start_step_ratios:
+        print(", ".join(["%d: %.3f" % (k, v)
+                         for k, v in sorted(start_step_ratios)]))
+
 
 def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
-                                total_reward, success_rate, final_reward,
-                                value_loss):
+                              total_reward, success_rate, final_reward,
+                              value_loss):
 
     writer.add_scalar('final_reward_epoch', final_reward, num_epoch)
     writer.add_scalar('final_reward_steps', final_reward, total_steps)
@@ -235,7 +260,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        terminal_reward, success_rate, success_rate_alive,
                        running_num_episodes, mean_total_loss,
                        mean_kl_loss=None, mean_pg_loss=None, lr=None,
-                       distill_factor=0, reinforce_only=False):
+                       distill_factor=0, reinforce_only=False,
+                       start_step_ratios=None):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -328,6 +354,11 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                     1.0 * success_rate_alive / running_num_episodes,
                     num_episodes)
 
+    for start_step, ratio in start_step_ratios.items():
+        writer.add_scalar("win_startstep_epoch/%d" % start_step, ratio,
+                          num_epochs)
+        writer.add_scalar("win_startstep_step/%d" % start_step, ratio,
+                          total_steps)
 
     for title, count in count_stats.items():
         if title.startswith('bomb:'):
@@ -418,9 +449,11 @@ def validate_how_train(args):
         assert(nagents == 1), "Dagger training should have one agent."
         return 1
     elif how_train == 'homogenous':
-        # Homogenous trains a single agent against itself (self-play).
+        # Homogenous trains a single agent alongside itself (self-play), with
+        # the other two agents being prior versions. The initial opponents are
+        # the initialized versions.
         assert(nagents == 1), "Homogenous training should have one agent."
-        return 4
+        return 2
     elif how_train == 'qmix':
         assert nagents == 2
         return 2

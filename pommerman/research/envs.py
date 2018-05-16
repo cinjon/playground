@@ -51,12 +51,11 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
             agents.insert(training_agent_ids[0], training_agents[0])
         elif how_train == 'homogenous':
-            # NOTE: We can't use just one agent character here because it needs
-            # to track its own state. We do that by instantiating three more
-            # copies. There is probably a better way.
-            training_agent_ids = list(range(4))
+            # NOTE: Here we have two training agents on a team together. They
+            # are against two other agents that are prior versions of itself.
+            training_agent_ids = [[0, 2], [1, 3]][rank % 2]
             agents = [training_agents[0].copy_ex_model()
-                      for agent_id in training_agent_ids]
+                      for _ in range(4)]
         elif how_train == 'qmix':
             # randomly pick team [0,2] or [1,3]
             training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)]
@@ -247,8 +246,12 @@ class WrapPomme(gym.ObservationWrapper):
 
     def get_global_obs(self):
         observation = self.env.get_observations()
-        filtered = np.array([observation[i] for i in range(len(observation))])
-        return np.array([networks.featurize3D(obs) for obs in filtered])
+        return np.array([networks.featurize3D(obs) for obs in observation])
+
+    def get_non_training_obs(self):
+        observation = self.env.get_observations()
+        return [obs for num, obs in enumerate(observation) \
+                if num not in self._acting_agent_ids]
 
     def get_training_ids(self):
         return self.env.training_agents

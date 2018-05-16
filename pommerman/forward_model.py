@@ -420,7 +420,6 @@ class ForwardModel(object):
             bomb_blast_strengths, bomb_life = make_bomb_maps(agent.position)
             agent_obs['bomb_blast_strength'] = bomb_blast_strengths
             agent_obs['bomb_life'] = bomb_life
-
             if step_count is not None:
                 agent_obs['step'] = 1.0 * step_count / max_steps
 
@@ -428,6 +427,7 @@ class ForwardModel(object):
                 assert hasattr(agent, attr)
                 agent_obs[attr] = getattr(agent, attr)
             observations.append(agent_obs)
+
         return observations
 
     @staticmethod

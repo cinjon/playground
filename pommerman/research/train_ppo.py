@@ -74,26 +74,11 @@ def train():
             obs_shape, action_space, num_training_per_episode, num_steps,
             args, ppo_agent.PPOAgent)
 
-    if how_train == 'homogenous':
-        bad_guys = [SimpleAgent(), SimpleAgent()]
-        model = training_agents[0].model
-        good_guys = []
-        for _ in range(2):
-            guy = ppo_agent.PPOAgent(model, num_stack=args.num_stack, cuda=args.cuda)
-            if args.cuda:
-                guy.cuda()
-            good_guys.append(guy)
-        eval_round = 0
-    envs = env_helpers.make_train_envs(
-        config, how_train, args.seed, args.game_state_file, training_agents,
-        num_stack, num_processes, state_directory=args.state_directory,
-        state_directory_distribution=args.state_directory_distribution)
-
     model_str = args.model_str.replace('PommeCNNPolicy', '')
     config_str = config.strip('Pomme').replace('Short', 'Sh')
     suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ns{}.gam{}.seed{}".format(
         args.run_name, how_train, config_str, model_str, args.num_channels,
-        args.lr, args.batch_size, args.num_steps, args.gamma, args.seed)
+        args.lr, args.batch_size, num_steps, args.gamma, args.seed)
     if args.use_gae:
         suffix += ".gae"
     if args.half_lr_epochs:
@@ -102,6 +87,11 @@ def train():
         suffix += ".ulrs"
     if args.state_directory_distribution:
         suffix += ".%s" % args.state_directory_distribution
+
+    envs = env_helpers.make_train_envs(
+        config, how_train, args.seed, args.game_state_file, training_agents,
+        num_stack, num_processes, state_directory=args.state_directory,
+        state_directory_distribution=args.state_directory_distribution)
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
@@ -134,13 +124,6 @@ def train():
             else:
                 suffix += ".dstl{}.dstlep{}.ikl{}".format(
                     args.distill_expert, distill_epochs, init_kl_factor)
-
-            # TODO: Should we not run this against the distill_agent as the first
-            # opponent? The problem is that the distill_agent will just stall.
-            if how_train == 'homogenous':
-                distill_agent2 = utils.load_distill_agent(obs_shape, action_space, args)
-                distill_agent2.set_eval()
-                bad_guys = [distill_agent, distill_agent2]
         elif distill_expert == 'SimpleAgent':
             if set_distill_kl >= 0:
                 suffix += ".dstl{}.dstlkl{}.ikl{}".format(
@@ -171,6 +154,9 @@ def train():
     total_steps = training_agents[0].total_steps
     num_episodes = training_agents[0].num_episodes
 
+    start_step_wins = defaultdict(int)
+    start_step_all = defaultdict(int)
+
     running_num_episodes = 0
     cumulative_reward = 0
     terminal_reward = 0
@@ -192,11 +178,12 @@ def train():
         return torch.from_numpy(obs).float().transpose(0,1)
 
     def update_actor_critic_results(result):
-        value, action, action_log_prob, states, _, log_probs = result
+        value, action, action_log_prob, states, probs, log_probs = result
         value_agents.append(value)
         action_agents.append(action)
         action_log_prob_agents.append(action_log_prob)
         states_agents.append(states)
+        # probs_distr.append(probs)
         action_log_prob_distr.append(log_probs)
         return action.data.squeeze(1).cpu().numpy()
 
@@ -215,14 +202,34 @@ def train():
                             count_stats['bomb'] += 1
 
     if how_train == 'simple':
-        expert_actions_onehot = torch.FloatTensor(num_processes, action_space.n)
+        expert_actions_onehot = torch.FloatTensor(
+            num_processes, action_space.n)
     elif how_train == 'homogenous':
-        expert_actions_onehot = torch.FloatTensor(num_processes, 4, action_space.n)
+        expert_actions_onehot = torch.FloatTensor(
+            num_processes, num_training_per_episode, action_space.n)
     else:
         raise ValueError("Only Simple and Homogenous training regimes have been \
             implemented.")
     onehot_dim = len(expert_actions_onehot.shape) - 1
 
+    if how_train == 'homogenous':
+        good_guys = [
+            ppo_agent.PPOAgent(training_agents[0].model,
+                               num_stack=args.num_stack, cuda=args.cuda)
+            for _ in range(2)
+        ]
+        if args.cuda:
+            for guy in good_guys:
+                guy.cuda()
+        saved_paths = utils.save_agents(
+            "ppo-", 0, training_agents, total_steps,
+            num_episodes, args, suffix)
+        bad_guys = [
+            utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
+                                       "ppo", action_space, obs_shape, args)
+            for _ in range(2)
+        ]
+        eval_round = 0
 
     # NOTE: only works for how_train simple because we assume training_ids
     # has a single element
@@ -287,8 +294,6 @@ def train():
             agent.cuda()
         if do_distill and distill_expert == 'DaggerAgent':
             distill_agent.cuda()
-            if how_train == 'homogenous':
-                distill_agent2.cuda()
 
     if how_train == 'homogenous':
         win_rate, tie_rate, loss_rate = evaluate_homogenous(
@@ -328,6 +333,7 @@ def train():
             states_agents = []
             episode_reward = []
             action_log_prob_distr = []
+            # probs_distr = []
             dagger_prob_distr = []
 
             if how_train == 'simple':
@@ -355,40 +361,80 @@ def train():
                 with utility.Timer() as t:
                     cpu_actions_agents = [[] for _ in range(num_processes)]
                     data = training_agents[0].get_rollout_data(
-                        step=step, num_agent=0, num_agent_end=4)
+                        step=step,
+                        num_agent=0,
+                        num_agent_end=num_training_per_episode)
                     observations, states, masks = data
-                    observations = observations.view([num_processes * 4,
-                                                      *observations.shape[2:]])
-                    states = states.view([num_processes * 4, *states.shape[2:]])
-                    masks = masks.view([num_processes * 4, *masks.shape[2:]])
+                    observations = observations.view([
+                        num_processes * num_training_per_episode,
+                        *observations.shape[2:]])
+                    states = states.view([
+                        num_processes * num_training_per_episode,
+                        *states.shape[2:]])
+                    masks = masks.view([
+                        num_processes * num_training_per_episode,
+                        *masks.shape[2:]])
                     if do_distill:
                         if distill_expert == 'DaggerAgent':
                             _, _, _, _, probs, _ = distill_agent.act_on_data(
-                                observations, states, masks, deterministic=True)   #32x6
-                            probs = probs.view([num_processes, 4, *probs.shape[1:]]) # 8x4x6
-                            for num_agent in range(4):
-                                dagger_prob_distr.append(probs[:, num_agent]) # 4 vars of tensors of 8x6
+                                observations, states, masks,
+                                deterministic=True)
+                            probs = probs.view([
+                                num_processes, num_training_per_episode,
+                                *probs.shape[1:]])
+                            for num_agent in range(num_training_per_episode):
+                                dagger_prob_distr.append(probs[:, num_agent])
                         elif distill_expert == 'SimpleAgent':
                             # TODO: change this so that you get actions for all the agents
                             expert_obs = envs.get_expert_obs()
                             expert_actions = envs.get_expert_actions(expert_obs)  #8x4
                             make_onehot(expert_actions)
-                            for num_agent in range(4):
+                            for num_agent in range(num_training_per_episode):
                                 dagger_prob_distr.append(expert_actions_onehot[:, num_agent])
                         else:
                             raise ValueError("We only support distilling from \
                                 DaggerAgent or SimpleAgent \n")
 
-                    result = training_agents[0].act_on_data(
+                    training_acts = training_agents[0].act_on_data(
                         observations, states, masks, deterministic=False)
-                    result = [datum.view([num_processes, 4, *datum.shape[1:]])
-                              for datum in result]
-                    for num_agent in range(4):
-                        agent_result = [datum[:, num_agent] for datum in result]
-                        cpu_actions = update_actor_critic_results(agent_result)
+                    training_acts = [
+                        datum.view([
+                            num_processes, num_training_per_episode,
+                            *datum.shape[1:]])
+                        for datum in training_acts
+                    ]
+                    # cpu_training_actions: num_process x 2 list of actions
+                    training_actions = [[] for _ in range(num_processes)]
+                    for num_agent in range(2):
+                        agent_results = [datum[:, num_agent]
+                                         for datum in training_acts]
+                        actions = update_actor_critic_results(agent_results)
                         for num_process in range(num_processes):
-                            cpu_actions_agents[num_process].append(
-                                cpu_actions[num_process])
+                            training_actions[num_process].append(
+                                actions[num_process])
+
+                    non_training_obs = envs.get_non_training_obs()
+                    # So this is going to be [4, 2] then
+                    non_training_actions = [
+                        bad_guys[0].act(
+                            non_training_obs[num_process], action_space)
+                        for num_process in range(num_processes)
+                    ]
+
+                    for num_agent in range(num_training_per_episode):
+                        for num_process in range(num_processes):
+                            is_training_agent = any([
+                                num_process % 2 == 0 and num_agent in [0, 2],
+                                num_process % 2 == 1 and num_agent in [1, 3]
+                            ])
+                            if is_training_agent:
+                                actions = training_actions[num_process]
+                                action = actions[num_agent // 2]
+                                cpu_actions_agents[num_process].append(action)
+                            else:
+                                actions = non_training_actions[num_process]
+                                action = actions[num_agent // 2]
+                                cpu_actions_agents[num_process].append(action)
 
             with utility.Timer() as t:
                 obs, reward, done, info = envs.step(cpu_actions_agents)
@@ -396,6 +442,8 @@ def train():
             update_stats(info)
             game_ended = np.array([done_.all() for done_ in done])
             win, alive_win = get_win_alive(info, envs)
+            game_state_start_steps = np.array([
+                info_.get('game_state_step_start') for info_ in info])
 
             if args.render:
                 envs.render()
@@ -457,6 +505,12 @@ def train():
                 success_rate += sum([int(s) for s in \
                                     ((game_ended == True) &
                                     (win == True))])
+                for e, w, ss in zip(game_ended, win, game_state_start_step):
+                    if not e or ss is None:
+                        continue
+                    if w:
+                        start_step_wins[ss] += 1
+                    start_step_all[ss] += 1
 
             elif how_train == 'homogenous':
                 running_num_episodes += sum([int(done_.all())
@@ -473,20 +527,22 @@ def train():
                 # for the agent's position if it's not alive.
                 # TODO: Consider additionally changing the agent's action and
                 # associated log probs to be the Stop action.
-                masks = torch.FloatTensor([[0.0]*4 if done_.all() else [1.0]*4
+                masks = torch.FloatTensor([[0.0]*2 if done_.all() else [1.0]*2
                                            for done_ in done]) \
                              .transpose(0, 1).unsqueeze(2).unsqueeze(2)
-                masks_kl = [[0.0]*4 for _ in range(num_processes)]
+                masks_kl = [[0.0]*2 for _ in range(num_processes)]
                 for num_process in range(num_processes):
-                    for id_ in range(4):
-                        tid = (id_ + 2) % 4
+                    temp_rewards = []
+                    for id_ in range(2):
+                        tid = (id_ + 1) % 2
                         self_reward = reward[num_process][id_]
                         teammate_reward = reward[num_process][tid]
                         my_reward = (1 - reward_sharing) * self_reward + \
                                     reward_sharing * teammate_reward
-                        reward[num_process][id_] = my_reward
+                        temp_rewards.append(my_reward)
                         if not done[num_process][id_]:
                             masks_kl[num_process][id_] = 1.0
+                    reward[num_process] = temp_rewards
 
                 # NOTE: masks_kl is 0 if the agent died.
                 masks_kl = torch.FloatTensor(masks_kl).transpose(0, 1) \
@@ -524,6 +580,8 @@ def train():
             action_all = utils.torch_numpy_stack(action_agents)
             action_log_prob_all = utils.torch_numpy_stack(
                 action_log_prob_agents)
+            # probs_distr = utils.torch_numpy_stack(probs_distr)
+            # print("PROBS DIST: ", probs_distr.shape, action_log_prob_all.shape)
             if do_distill:
                 if distill_expert == 'DaggerAgent':
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
@@ -669,13 +727,12 @@ def train():
                         "ppo-", num_epoch, training_agents, total_steps,
                         num_episodes, args, suffix)
                     eval_round += 1
-                    bad_guys = []
-                    for _ in range(2):
-                        guy = utils.torch_load(saved_paths[0], args.cuda,
-                                               args.cuda_device)
-                        if args.cuda:
-                            guy.cuda()
-                        bad_guys.append(guy)
+                    bad_guys = [
+                        utils.load_inference_agent(
+                            saved_paths[0], ppo_agent.PPOAgent, "ppo",
+                            action_space, obs_shape, args)
+                        for _ in range(2)
+                    ]
 
             if do_distill and len(final_kl_losses):
                 mean_kl_loss = np.mean([
@@ -685,6 +742,11 @@ def train():
             else:
                 mean_kl_loss = None
 
+            start_step_ratios = {k:1.0 * start_step_wins.get(k, 0) / v
+                                 for k, v in start_step_all.items()}
+            start_step_all = defaultdict(int)
+            start_step_wins = defaultdict(int)
+
             utils.log_to_console(num_epoch, num_episodes, total_steps,
                                  steps_per_sec, epochs_per_sec, final_rewards,
                                  mean_dist_entropy, mean_value_loss,
@@ -692,8 +754,8 @@ def train():
                                  terminal_reward, success_rate,
                                  success_rate_alive, running_num_episodes,
                                  mean_total_loss, mean_kl_loss, mean_pg_loss,
-                                 distill_factor, args.reinforce_only)
-                
+                                 distill_factor, args.reinforce_only,
+                                 start_step_ratios)
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
                                      episodes_per_sec, final_rewards,
@@ -705,7 +767,8 @@ def train():
                                      success_rate, success_rate_alive,
                                      running_num_episodes, mean_total_loss,
                                      mean_kl_loss, mean_pg_loss, lr,
-                                     distill_factor, args.reinforce_only)
+                                     distill_factor, args.reinforce_only,
+                                     start_step_ratios)
 
             # Reset stats so that plots are per the last log_interval.
             if args.reinforce_only:

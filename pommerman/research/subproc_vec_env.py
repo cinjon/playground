@@ -43,6 +43,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((action))
         elif cmd == 'get_global_obs':
             remote.send((env.get_global_obs()))
+        elif cmd == 'get_non_training_obs':
+            remote.send((env.get_non_training_obs()))
         elif cmd == 'get_game_type':
             remote.send((env.get_game_type()))
         elif cmd == 'record_json':
@@ -220,11 +222,6 @@ class SubprocVecEnv(_VecEnv):
         self.waiting = False
         return np.stack(actions)
 
-    # def get_expert_actions(self, observations):
-    #     for remote, obs in zip(self.remotes, observations):
-    #         remote.send(('get_expert_actions', obs))
-    #     return np.stack([remote.recv() for remote in self.remotes])
-
     def get_global_obs(self):
         for remote in self.remotes:
             remote.send(('get_global_obs', None))
@@ -242,4 +239,9 @@ class SubprocVecEnv(_VecEnv):
     def record_json(self, directories):
         for remote, directory in zip(self.remotes, directories):
             remote.send(('record_json', directory))
+        return [remote.recv() for remote in self.remotes]
+
+    def get_non_training_obs(self):
+        for remote in self.remotes:
+            remote.send(('get_non_training_obs', None))
         return [remote.recv() for remote in self.remotes]
