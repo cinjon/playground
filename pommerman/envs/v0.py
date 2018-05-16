@@ -329,7 +329,7 @@ class Pomme(gym.Env):
                 raise
 
             game_state_file = os.path.join(directory, '%d.json' % step)
-            self._game_state_step_start = step
+            self._game_state_step_start = step_count - step + 1
             with open(game_state_file, 'r') as f:
                 # NOTE: The rank is set by envs.py. Remove if causing problems.
                 # print("Env %d using game state %s (%d / %d) " % (
