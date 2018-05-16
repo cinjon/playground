@@ -54,7 +54,7 @@ class QMIXMetaAgent(ResearchAgent):
 
     def initialize(self, args, obs_shape, action_space,
                    num_training_per_episode, num_episodes, total_steps,
-                   num_epoch, optimizer_state_dict):
+                   num_epoch, optimizer_state_dict, num_steps):
         params = self.qmix_net.parameters()
         self._optimizer = optim.Adam(params, lr=args.lr, eps=args.eps)
         self._optimizer.zero_grad()
