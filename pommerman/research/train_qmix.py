@@ -148,7 +148,7 @@ def train():
                               num_episodes, args, suffix)
 
         for agent in training_agents:
-            agent.set_eval()
+            agent.set_train()
 
         # Keep collecting episodes
         for _ in range(num_steps):
@@ -250,11 +250,12 @@ def train():
 
             # Partial Stats
             print('[{}] steps/s {} Episodes, Mean Action Time: {} +/- {} s, Mean Train Time: {} +/- {}s, '
-                  'Mean Step Time: {} +/- {}s'.format(
+                  'Mean Step Time: {} +/- {}s, Win rate: {}'.format(
                 steps_per_sec, num_episodes,
                 np.mean(action_times).item(), np.std(action_times).item(),
                 np.mean(train_times).item(), np.std(train_times).item(),
                 np.mean(step_times).item(), np.std(step_times).item(),
+                running_team_wins / running_num_episodes
             ), flush=True)
 
             running_num_episodes = 0
@@ -264,6 +265,7 @@ def train():
             value_losses = []
             action_times = []
             train_times = []
+            step_times = []
 
     writer.close()
 
