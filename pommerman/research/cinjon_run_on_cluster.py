@@ -43,38 +43,44 @@ abbr = {
     'init-kl-factor': 'ikl',
 }
 
-def train_ppo_job(flags, jobname=None):
+def train_ppo_job(flags, jobname=None, is_fb=False):
     num_processes = flags["num-processes"]
     jobname = jobname or 'pman'
     jobnameattrs = '%s.%s' % (
         jobname, '.'.join(['%s%s' % (abbr[k], str(flags[k])) for k in sorted(flags.keys()) if k in abbr])
     )
-    jobcommand = "CUDA_VISIBLE_DEVICES=0 python train_ppo.py "
+    jobcommand = "python train_ppo.py "
     args = ["--%s %s" % (flag, str(flags[flag])) for flag in sorted(flags.keys())]
     jobcommand += " ".join(args)
     print(jobcommand)
-    
+
     slurmfile = os.path.join(slurm_scripts, jobnameattrs + '.slurm')
     with open(slurmfile, 'w') as f:
         f.write("#!/bin/bash\n")
         f.write("#SBATCH --job-name" + "=" + jobname + "\n")
         f.write("#SBATCH --output=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".out"))
         f.write("#SBATCH --error=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".err"))
-        f.write("#SBATCH --qos=batch" + "\n")
-        f.write("#SBATCH --mail-type=END,FAIL" + "\n")
+        if is_fb:
+            f.write("#SBATCH --partition=learnfair\n")
+        else:
+            f.write("#SBATCH --qos=batch\n")
+        f.write("#SBATCH --mail-type=END,FAIL\n")
         f.write("#SBATCH --mail-user=%s\n" % email)
-        f.write("module purge" + "\n")
+        f.write("module purge\n")
         local_config.write_extra_sbatch_commands(f)
         f.write(jobcommand + "\n")
 
-    s = "sbatch --qos batch --gres=gpu:1 --nodes=1 "
+    if is_fb:
+        s = "sbatch --gres=gpu:1 --nodes=1 "
+    else:
+        s = "sbatch --qos batch --gres=gpu:1 --nodes=1 "        
     s += "--cpus-per-task=%s " % num_processes
     s += "--mem=64000 --time=48:00:00 %s &" % os.path.join(
         slurm_scripts, jobnameattrs + ".slurm")
     os.system(s)
 
 
-def train_dagger_job(flags, jobname=None):
+def train_dagger_job(flags, jobname=None, is_fb=False):
     num_processes = flags["num-processes"]
     jobname = jobname or 'pmandag'
     jobnameattrs = '%s.%s' % (
@@ -91,14 +97,20 @@ def train_dagger_job(flags, jobname=None):
         f.write("#SBATCH --job-name" + "=" + jobname + "\n")
         f.write("#SBATCH --output=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".out"))
         f.write("#SBATCH --error=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".err"))
-        f.write("#SBATCH --qos=batch" + "\n")
+        if is_fb:
+            f.write("#SBATCH --partition=learnfair\n")
+        else:
+            f.write("#SBATCH --qos=batch\n")
         f.write("#SBATCH --mail-type=END,FAIL" + "\n")
         f.write("#SBATCH --mail-user=%s\n" % email)
         f.write("module purge" + "\n")
         local_config.write_extra_sbatch_commands(f)
         f.write(jobcommand + "\n")
 
-    s = "sbatch --qos batch --gres=gpu:1 --nodes=1 "
+    if is_fb:
+        s = "sbatch --gres=gpu:1 --nodes=1 "
+    else:
+        s = "sbatch --qos batch --gres=gpu:1 --nodes=1 "        
     s += "--cpus-per-task=%s " % num_processes
     s += "--mem=64000 --time=48:00:00 %s &" % os.path.join(
         slurm_scripts, jobnameattrs + ".slurm")
@@ -792,46 +804,46 @@ def train_dagger_job(flags, jobname=None):
 
 ### These are trying to do homogenous training on EasyEnv but distilling from SimpleAgent
 # These didn't work. They all went to random.
-train_ppo_job({ # Batch size of 400
-    "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
-    "log-interval": 150, "lr": 0.0003, "num-steps": 100,
-    "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
-    "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
-    "distill-epochs": 10000, "distill-expert": "SimpleAgent",
-    "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
-    "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmaller",
-    "half-lr-epochs": 5000, "use-gae": ""
-}, "pmanhomo")
-train_ppo_job({ # Batch size of 600
-    "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
-    "log-interval": 150, "lr": 0.0003, "num-steps": 150,
-    "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
-    "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
-    "distill-epochs": 10000, "distill-expert": "SimpleAgent",
-    "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
-    "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmaller",
-    "half-lr-epochs": 5000, "use-gae": ""
-}, "pmanhomo")
-train_ppo_job({ # Batch size of 400
-    "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
-    "log-interval": 150, "lr": 0.0003, "num-steps": 100,
-    "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
-    "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
-    "distill-epochs": 10000, "distill-expert": "SimpleAgent",
-    "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
-    "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmall",
-    "half-lr-epochs": 5000, "use-gae": ""
-}, "pmanhomo")
-train_ppo_job({ # Batch size of 600
-    "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
-    "log-interval": 150, "lr": 0.0003, "num-steps": 150,
-    "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
-    "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
-    "distill-epochs": 10000, "distill-expert": "SimpleAgent",
-    "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
-    "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmall",
-    "half-lr-epochs": 5000, "use-gae": ""
-}, "pmanhomo")
+# train_ppo_job({ # Batch size of 400
+#     "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
+#     "log-interval": 150, "lr": 0.0003, "num-steps": 100,
+#     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
+#     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
+#     "distill-epochs": 10000, "distill-expert": "SimpleAgent",
+#     "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
+#     "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmaller",
+#     "half-lr-epochs": 5000, "use-gae": ""
+# }, "pmanhomo")
+# train_ppo_job({ # Batch size of 600
+#     "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
+#     "log-interval": 150, "lr": 0.0003, "num-steps": 150,
+#     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
+#     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
+#     "distill-epochs": 10000, "distill-expert": "SimpleAgent",
+#     "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
+#     "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmaller",
+#     "half-lr-epochs": 5000, "use-gae": ""
+# }, "pmanhomo")
+# train_ppo_job({ # Batch size of 400
+#     "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
+#     "log-interval": 150, "lr": 0.0003, "num-steps": 100,
+#     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
+#     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
+#     "distill-epochs": 10000, "distill-expert": "SimpleAgent",
+#     "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
+#     "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmall",
+#     "half-lr-epochs": 5000, "use-gae": ""
+# }, "pmanhomo")
+# train_ppo_job({ # Batch size of 600
+#     "num-processes": 8, "run-name": "homoeasy", "how-train": "homogenous", 
+#     "log-interval": 150, "lr": 0.0003, "num-steps": 150,
+#     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/",
+#     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/",
+#     "distill-epochs": 10000, "distill-expert": "SimpleAgent",
+#     "config": "PommeTeamEasy-v0", "eval-mode": "homogenous", "gamma": ".995",
+#     "num-battles-eval": 50, "num-mini-batch": 2, "model-str": "PommeCNNPolicySmall",
+#     "half-lr-epochs": 5000, "use-gae": ""
+# }, "pmanhomo")
 
 
 ### Dagger agents on the easy env.
@@ -847,35 +859,171 @@ train_ppo_job({ # Batch size of 600
 # --eval-opponents simple::null,simple::null --num-battles-eval 100 --config PommeTeamEasy-v0
 # --cuda-device 0 --eval-mode team-simple --model-str PommeCNNPolicySmaller
 # had a 37% success rate in the TB but yielded 24 / 25 / 61. 
-train_dagger_job(
-    {"num-processes": 8, "run-name": "easyexuvl", "how-train": "dagger", "num-episodes-dagger": 20,
-     "log-interval": 50, "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, 
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
- }, "easyexuvl"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "easydag", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
-     "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
- }, "easydag"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "easyexuvl", "how-train": "dagger", "num-episodes-dagger": 20,
-     "log-interval": 50, "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, 
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
- }, "easyexuvl"
-)
-train_dagger_job(
-    {"num-processes": 8, "run-name": "easydag", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
-     "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, "use-value-loss": "",
-     "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
-     "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
-     "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
- }, "easydag"
-)
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "easyexuvl", "how-train": "dagger", "num-episodes-dagger": 20,
+#      "log-interval": 50, "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, 
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#  }, "easyexuvl"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "easydag", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+#      "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmaller",
+#  }, "easydag"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "easyexuvl", "how-train": "dagger", "num-episodes-dagger": 20,
+#      "log-interval": 50, "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, 
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#  }, "easyexuvl"
+# )
+# train_dagger_job(
+#     {"num-processes": 8, "run-name": "easydag", "how-train": "dagger", "num-episodes-dagger": 20, "log-interval": 50,
+#      "minibatch-size": 275, "save-interval": 50, "lr": 0.003, "num-steps-eval": 100, "use-value-loss": "",
+#      "log-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/logs/", 
+#      "save-dir": "/misc/kcgscratch1/ChoGroup/resnick/selfplayground/models/", 
+#      "config": "PommeTeamEasy-v0", "gamma": ".995", "expert-prob": 0.5, "model-str": "PommeCNNPolicySmall",
+#  }, "easydag"
+# )
+
+
+### FB Cluster Runs: These distill simple agent into PPO on the 1000 FFA dataset. Can we overfit?
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".99",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .0001,
+#     "use-gae": "", "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".99",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .0001,
+#     "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".99",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .001,
+#     "use-gae": "", "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".99",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .001,
+#     "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".99",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .0003,
+#     "use-gae": "", "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".99",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .0003,
+#     "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".95",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .0001,
+#     "use-gae": "", "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".95",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .0001,
+#     "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".95",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .001,
+#     "use-gae": "", "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".95",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .001,
+#     "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".95",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .0003,
+#     "use-gae": "", "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+# train_ppo_job({
+#     "num-processes": 25, "run-name": "dstuni21", "how-train": "simple", 
+#     "log-interval": 1000, "num-steps": 200,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "distill-epochs": 5000, "distill-expert": "SimpleAgent",
+#     "config": "PommeFFAEasy-v0", "gamma": ".95",
+#     "num-battles-eval": 100, "model-str": "PommeCNNPolicySmall", "lr": .0003,
+#     "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21"
+# }, "pmanuni21", is_fb=True)
+
