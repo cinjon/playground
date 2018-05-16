@@ -228,8 +228,9 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
         print(" mean kl loss {} ".format(mean_kl_loss))
 
     if start_step_ratios:
-        print(", ".join(["%d: %.3f" % (k, v)
-                         for k, v in sorted(start_step_ratios)]))
+        print("Start Step Win Ratios: %s" % ", ".join(
+            ["%d: %.3f" % (k, v) for k, v in sorted(start_step_ratios.items())])
+        )
 
 
 def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
@@ -356,9 +357,11 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
 
     for start_step, ratio in start_step_ratios.items():
         writer.add_scalar("win_startstep_epoch/%d" % start_step, ratio,
-                          num_epochs)
+                          num_epoch)
         writer.add_scalar("win_startstep_step/%d" % start_step, ratio,
                           total_steps)
+        writer.add_scalar("win_startstep_epi/%d" % start_step, ratio,
+                          num_episodes)
 
     for title, count in count_stats.items():
         if title.startswith('bomb:'):
