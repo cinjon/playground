@@ -129,10 +129,6 @@ def train():
         loss = MSELoss()(current_q_values, expected_q_values)
         loss.backward()
 
-        del global_state, state, next_global_state, next_state
-        if args.cuda:
-            torch.cuda.empty_cache()
-
         return loss.cpu().data[0]
 
     def run_dqn():
@@ -238,6 +234,9 @@ def train():
         if gradient_steps % args.target_update_steps == 0:
             training_agents[0].update_target()
         train_times.append(time.time() - train_start)
+
+        if args.cuda:
+            torch.cuda.empty_cache()
 
         if running_num_episodes:
             total_steps += running_total_steps
