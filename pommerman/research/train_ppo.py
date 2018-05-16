@@ -804,21 +804,17 @@ def train():
                                  mean_total_loss, mean_kl_loss, mean_pg_loss,
                                  distill_factor, args.reinforce_only,
                                  start_step_ratios)
-
-            utils.log_to_tensorboard(writer, num_epoch, num_episodes,
-                                     total_steps, steps_per_sec,
-                                     episodes_per_sec, final_rewards,
-                                     mean_dist_entropy, mean_value_loss,
-                                     mean_action_loss, std_dist_entropy,
-                                     std_value_loss, std_action_loss,
-                                     count_stats, array_stats,
-                                     cumulative_reward, terminal_reward,
-                                     success_rate, success_rate_alive,
+            utils.log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
+                                     steps_per_sec, episodes_per_sec, final_rewards,
+                                     mean_dist_entropy, mean_value_loss, mean_action_loss,
+                                     std_dist_entropy, std_value_loss, std_action_loss,
+                                     count_stats, array_stats, cumulative_reward,
+                                     terminal_reward, success_rate, success_rate_alive,
                                      running_num_episodes, mean_total_loss,
                                      mean_kl_loss, mean_pg_loss, lr,
                                      distill_factor, args.reinforce_only,
-                                     start_step_ratios, action_choices,
-                                     action_probs)
+                                     start_step_ratios, np.array(action_choices),
+                                     np.array(action_probs))
 
             # Reset stats so that plots are per the last log_interval.
             if args.reinforce_only:
