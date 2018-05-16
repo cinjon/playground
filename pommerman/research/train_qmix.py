@@ -14,7 +14,6 @@ python train_qmix.py --num-processes 8 --how-train qmix \
     --num-steps 1000
 """
 
-from collections import defaultdict
 import os
 import time
 
@@ -116,12 +115,13 @@ def train():
             next_global_state = next_global_state.cuda()
             next_state = next_state.cuda()
 
-        current_q_values, _ = training_agents[0].act(
-            Variable(global_state, requires_grad=True),
-            Variable(state, requires_grad=True))
-        max_next_q_values, _ = training_agents[0].target_act(
-            Variable(next_global_state, volatile=True),
-            Variable(next_state, volatile=True))
+        global_state = Variable(global_state, requires_grad=True)
+        state = Variable(state, requires_grad=True)
+        next_global_state = Variable(next_global_state, volatile=True)
+        next_state = Variable(next_state, volatile=True)
+
+        current_q_values, _ = training_agents[0].act(global_state, state)
+        max_next_q_values, _ = training_agents[0].target_act(next_global_state, next_state)
         max_next_q_values = max_next_q_values.max(1)[0]
         # sum the rewards for individual agents
         expected_q_values = Variable(reward.mean(dim=1)) + args.gamma * max_next_q_values
@@ -129,14 +129,18 @@ def train():
         loss = MSELoss()(current_q_values, expected_q_values)
         loss.backward()
 
+        del global_state, state, next_global_state, next_state
+        if args.cuda:
+            torch.cuda.empty_cache()
+
         return loss.cpu().data[0]
 
     def run_dqn():
         if len(buffer) >= args.batch_size:
             batch = buffer.sample(args.batch_size)
             item_batch = list(zip(*batch))
-            for i in range(len(item_batch)):
-                item_batch[i] = torch.cat(item_batch[i])
+            for item_i in range(len(item_batch)):
+                item_batch[item_i] = torch.cat(item_batch[item_i])
             q_loss = compute_q_loss(*item_batch)
             value_losses.append(q_loss)
             training_agents[0].optimizer_step()
@@ -240,7 +244,7 @@ def train():
             steps_per_sec = running_total_steps / (rollout_end - rollout_start)
 
             writer.add_scalar('num episodes', num_episodes, num_epoch)
-            writer.add_scalar('running num episodes', running_num_episodes , num_epoch)
+            writer.add_scalar('running num episodes', running_num_episodes, num_epoch)
             writer.add_scalar('mean episode length', np.mean(episode_lens).item(), num_epoch)
             writer.add_scalar('std episode length', np.std(episode_lens).item(), num_epoch)
             writer.add_scalar('win rate', running_team_wins / running_num_episodes, num_epoch)
@@ -250,16 +254,16 @@ def train():
             writer.add_scalar('steps/s', steps_per_sec, num_epoch)
 
             # Partial Stats
-            print('[{} steps/s] {} Episodes, Mean Episode Length: {} +- {}, '
+            print('[{} steps/s] {} Episodes, Buffer Size: {}, Mean Episode Length: {} +- {}, '
                   'Action Time: {} +/- {} s, Train Time: {} +/- {}s, '
                   'Step Time: {} +/- {}s, Win rate: {}'.format(
-                steps_per_sec, running_num_episodes,
-                np.mean(episode_lens).item(), np.std(episode_lens).item(),
-                np.mean(action_times).item(), np.std(action_times).item(),
-                np.mean(train_times).item(), np.std(train_times).item(),
-                np.mean(step_times).item(), np.std(step_times).item(),
-                running_team_wins / running_num_episodes
-            ), flush=True)
+                    steps_per_sec, running_num_episodes, len(buffer),
+                    np.mean(episode_lens).item(), np.std(episode_lens).item(),
+                    np.mean(action_times).item(), np.std(action_times).item(),
+                    np.mean(train_times).item(), np.std(train_times).item(),
+                    np.mean(step_times).item(), np.std(step_times).item(),
+                    running_team_wins / running_num_episodes
+                  ), flush=True)
 
             running_total_steps = 0
             running_num_episodes = 0
