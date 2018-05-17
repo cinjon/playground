@@ -1037,6 +1037,88 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 # {5000 distill, 2000 distill, no distill}, {LR of 7e-4, 3e-4}, and gamma of {.99, .995}
 # except that the 5000 distill does not use the do {5000, 3e-4, .99} because it's already
 # accounted for in the above.
+# job = {
+#     "num-processes": 25, "how-train": "simple", 
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall",
+#     "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21", "use-gae": ""
+# }
+# counter = 0
+# for learning_rate in [7e-4, 3e-4]:
+#     for gamma in [.99, .995]:
+#         for distill in [0, 2000, 5000]:
+#             if distill == 5000 and gamma == .99 and learning_rate == 3e-4:
+#                 continue
+            
+#             if distill:
+#                 run_name = "pmansmpdst"
+#                 job["distill-epochs"] = distill
+#                 job["distill-expert"] = "SimpleAgent"
+#             else:
+#                 run_name = "pmansmp"
+
+#             job["run-name"] = run_name + "-%d" % counter
+#             job["gamma"] = gamma
+#             job["lr"] = learning_rate
+#             train_ppo_job(job, "pmansmp-%d" % counter, is_fb=True)
+#             counter += 1
+
+
+### These are the distill 0s from above. I fucked up and ran them incorrectly, so redoing here.
+# job = {
+#     "num-processes": 40, "how-train": "simple", 
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall",
+#     "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform21", "use-gae": ""
+# }
+# counter = 0
+# for learning_rate in [7e-4, 3e-4]:
+#     for gamma in [.99, .995]:
+#         for distill in [0]:
+#             run_name = "pmansmp"
+#             j = {k:v for k,v in job.items()}
+#             j["run-name"] = run_name + "-%d" % counter
+#             j["gamma"] = gamma
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, "pmansmp-%d" % counter, is_fb=True)
+#             counter += 1
+
+
+### This is a further follow up to the experiments above using a bigger number of games (10000)
+# It's a cartesian product of {5000 distill, 2000 distill, no distill}, {LR of 7e-4, 3e-4, 1e-4}, and gamma of {.99, .995}
+# job = {
+#     "num-processes": 25, "how-train": "simple", 
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall",
+#     "state-directory": os.path.join(directory, "ffaeasy-10k-s100"),
+#     "state-directory-distribution": "uniform21", "use-gae": ""
+# }
+# counter = 0
+# for learning_rate in [7e-4, 3e-4, 1e-4]:
+#     for gamma in [.99, .995]:
+#         for distill in [0, 2000, 5000]:
+#             j = {k:v for k,v in job.items()}
+#             j["run-name"] = "pman10k-%d" % counter
+#             if distill:
+#                 j["distill-epochs"] = distill
+#                 j["distill-expert"] = "SimpleAgent"
+
+#             j["gamma"] = gamma
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
+#             counter += 1
+
+
+### This is a follow up to the experiments two above using a longer uniform of 33.
+# It's a cartesian product of {5000 distill, 2000 distill, no distill}, {LR of 7e-4, 3e-4, 1e-4}, and gamma of {.99, .995}
 job = {
     "num-processes": 25, "how-train": "simple", 
     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
@@ -1044,52 +1126,49 @@ job = {
     "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
     "model-str": "PommeCNNPolicySmall",
     "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
-    "state-directory-distribution": "uniform21", "use-gae": ""
+    "state-directory-distribution": "uniform33", "use-gae": ""
 }
 counter = 0
-for learning_rate in [7e-4, 3e-4]:
+for learning_rate in [7e-4, 3e-4, 1e-4]:
     for gamma in [.99, .995]:
         for distill in [0, 2000, 5000]:
-            if distill == 5000 and gamma == .99 and learning_rate == 3e-4:
-                continue
-            
+            j = {k:v for k,v in job.items()}
+            j["run-name"] = "pman1k33-%d" % counter
             if distill:
-                run_name = "pmansmpdst"
-                job["distill-epochs"] = distill
-                job["distill-expert"] = "SimpleAgent"
-            else:
-                run_name = "pmansmp"
+                j["distill-epochs"] = distill
+                j["distill-expert"] = "SimpleAgent"
 
-            job["run-name"] = run_name + "-%d" % counter
-            job["gamma"] = gamma
-            job["lr"] = learning_rate
-            train_ppo_job(job, "pmansmp-%d" % counter, is_fb=True)
+            j["gamma"] = gamma
+            j["lr"] = learning_rate
+            train_ppo_job(j, j["run-name"], is_fb=True)
             counter += 1
+
 
 ### These are homogenous jobs using the above uniform21 approach.
-job = {
-    "num-processes": 25, "how-train": "homogenous", "eval-mode": "homogenous",
-    "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
-    "save-dir": os.path.join(directory, "models"),
-    "config": "PommeTeamEasy-v0", "num-battles-eval": 100,
-    "model-str": "PommeCNNPolicySmall",
-    "state-directory": os.path.join(directory, "teameasyv0-seed1"),
-    "state-directory-distribution": "uniform21", "use-gae": ""
-}
-counter = 0
-for learning_rate in [7e-4, 3e-4]:
-    for gamma in [.99, .995]:
-        for distill in [0, 2000, 4000]:
-            if distill:
-                run_name = "pmanhomdst"
-                job["distill-epochs"] = distill
-                job["distill-expert"] = "SimpleAgent"
-            else:
-                run_name = "pmanhom"
+# THESE HAVE NOT BEEN RUN UYET
+# job = {
+#     "num-processes": 25, "how-train": "homogenous", "eval-mode": "homogenous",
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeTeamEasy-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall",
+#     "state-directory": os.path.join(directory, "teameasyv0-seed1"),
+#     "state-directory-distribution": "uniform21", "use-gae": ""
+# }
+# counter = 0
+# for learning_rate in [7e-4, 3e-4]:
+#     for gamma in [.99, .995]:
+#         for distill in [0, 2000, 4000]:
+#             if distill:
+#                 run_name = "pmanhomdst"
+#                 job["distill-epochs"] = distill
+#                 job["distill-expert"] = "SimpleAgent"
+#             else:
+#                 run_name = "pmanhom"
 
-            job["run-name"] = run_name + "-%d" % counter
-            job["gamma"] = gamma
-            job["lr"] = learning_rate
-            train_ppo_job(job, "pmanhom-%d" % counter, is_fb=True)
-            counter += 1
+#             job["run-name"] = run_name + "-%d" % counter
+#             job["gamma"] = gamma
+#             job["lr"] = learning_rate
+#             train_ppo_job(job, "pmanhom-%d" % counter, is_fb=True)
+#             counter += 1
             
