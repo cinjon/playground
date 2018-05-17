@@ -24,15 +24,13 @@ from .. import helpers
 from .. import make
 from .. import utility
 
-import pommerman
-
 
 time_avg = defaultdict(float)
 time_max = defaultdict(float)
 time_cnt = defaultdict(int)
 
 def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
-        acting_agent_ids=None, training_agents=None, curriculum=False):
+        acting_agent_ids=None):
     """Run the game a number of times.
 
     Args:
@@ -55,27 +53,18 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
 
     # TODO: After https://github.com/MultiAgentLearning/playground/pull/40
     #       this is still missing the docker_env_dict parsing for the agents.
-
-    if not curriculum:
-        agents = agents or [
-            helpers.make_agent_from_string(agent_string, agent_id+1000)
-            for agent_id, agent_string in enumerate(args.agents.split(','))
-        ]
-    else:
-        training_agent_ids = random.randint(0, 3)
-        print(training_agent_ids)
-        agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
-        agents.insert(training_agent_ids, training_agents)
+    agents = agents or [
+        helpers.make_agent_from_string(agent_string, agent_id+1000)
+        for agent_id, agent_string in enumerate(args.agents.split(','))
+    ]
 
     env = make(config, agents, game_state_file, render_mode=render_mode)
-    env.set_training_agents([training_agent_ids])
+    env.set_training_agents(training_agent_ids)
     if seed is None:
         seed = random.randint(0, 1e6)
     env.seed(seed)
     np.random.seed(seed)
     random.seed(seed)
-    env.set_state_directory(args.state_directory,
-                            args.state_directory_distribution)
 
     if record_pngs_dir:
         os.makedirs(record_pngs_dir)
@@ -146,19 +135,18 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
 
         for agent in agents:
             agent.episode_end(reward[agent.agent_id])
-
+        
         print("Final Result: ", info)
         if args.render:
             env.render(record_pngs_dir=args.record_pngs_dir,
-                       record_json_dir=args.record_json_dir,
+                       record_json_dir=args.record_json_dir, 
                        mode=args.render_mode)
             time.sleep(5)
             env.render(close=True)
-        return info, acting_agent_ids
+        return info
 
     infos = []
     times = []
-    acting_ids = []
     for i in range(num_times):
         start = time.time()
         if seed is None:
@@ -171,14 +159,13 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
         record_json_dir_ = record_json_dir + '/%d' % (i+1) \
                            if record_json_dir else None
         with utility.Timer() as t:
-            info, acting_id = _run(seed, acting_agent_ids, record_pngs_dir_, record_json_dir_)
+            info = _run(seed, acting_agent_ids, record_pngs_dir_, record_json_dir_)
         infos.append(info)
-        acting_ids.append(acting_id)
         times.append(t.interval)
         print("Game %d final result (%.4f): " % (i, times[-1]), infos[-1])
 
     atexit.register(env.close)
-    return infos, acting_ids
+    return infos
 
 
 def main():
