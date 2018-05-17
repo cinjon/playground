@@ -315,12 +315,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
         writer.add_scalar(title, 1.0 * count / running_num_episodes,
                           total_steps)
 
-    # writer.add_scalars('bomb_distances_step', {
-    #     key.split(':')[1]: 1.0 * count / running_num_episodes
-    #     for key, count in count_stats.items() \
-    #     if key.startswith('bomb:')
-    # }, total_steps)
-
+    writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
+    
     if array_stats.get('rank'):
         writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
                           total_steps)
@@ -333,13 +329,13 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
             1.0 * len(array_stats['dead']) / running_num_episodes,
             total_steps)
 
-    writer.add_histogram('action_choices_epoch', action_choices, num_epoch)
-    writer.add_histogram('action_choices_steps', action_choices, total_steps)
+    writer.add_histogram('action_choices_epoch', action_choices, num_epoch, bins='doane')
+    writer.add_histogram('action_choices_steps', action_choices, total_steps, bins='doane')
     for num in range(len(action_probs)):
         writer.add_histogram('action_probs_epoch/%d' % num, action_probs[num],
-                             num_epoch)
+                             num_epoch, bins='doane')
         writer.add_histogram('action_probs_steps/%d' % num, action_probs[num],
-                             total_steps)
+                             total_steps, bins='doane')
 
     # x-axis: # episodes
     if reinforce_only:
