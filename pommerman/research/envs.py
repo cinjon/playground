@@ -19,7 +19,6 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
                     state_directory=None, state_directory_distribution=None):
 
     """Makes an environment callable for multithreading purposes.
-
     Args:
       config: See the arguments module's config options.
       how_train: Str for the method for training. 'heterogenous' is not
@@ -38,7 +37,6 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         states in the game) and "backloaded" (20% chance of loading each of
         the last three states, 5% chance of loading the next six states,
         uniform chance of remainder).
-
     Returns a callable to instantiate an environment fit for our PPO training
       purposes.
     """
@@ -88,14 +86,14 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         return env
     return _thunk
 
-
+# NOTE: should we use a different seed + rank (maybe multiplied/increased
+# by some large number) so that the eval seeds are different from training seeds?
 def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
-                   acting_agent_ids, num_stack):
+                   acting_agent_ids, num_stack, state_directory=None,
+                   state_directory_distribution=None):
 
     """Makes an environment callable for multithreading purposes.
-
     Used in conjunction with eval.py
-
     Args:
       config: See the arguments module's config options.
       how_train: Str for the method for training. 'heterogenous' is not
@@ -105,14 +103,14 @@ def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
       agents: The list of agents to use.
       training_agent_ids: The list of training agents to use.
       num_stack: For stacking frames.
-
     Returns a callable to instantiate an environment.
     """
     def _thunk():
         env = pommerman.make(config, agents, None, render_mode='rgb_pixel')
-        env.set_training_agents(training_agent_ids)
-        env.seed(seed + rank)
+        env.seed(seed + rank + 1000)
         env.rank = rank
+        env.set_training_agents(training_agent_ids)
+        env.set_state_directory(state_directory, state_directory_distribution)
         env = WrapPommeEval(env, how_train, acting_agent_ids=acting_agent_ids)
         return env
     return _thunk
@@ -135,12 +133,15 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
 
 
 def make_eval_envs(config, how_train, seed, agents, training_agent_ids,
-                   acting_agent_ids, num_stack, num_processes):
+                   acting_agent_ids, num_stack, num_processes,
+                   state_directory=None, state_directory_distribution=None):
     envs = [
         _make_eval_env(
             config=config, how_train=how_train, seed=seed, rank=rank,
             agents=agents, training_agent_ids=training_agent_ids,
-            acting_agent_ids=acting_agent_ids, num_stack=num_stack)
+            acting_agent_ids=acting_agent_ids, num_stack=num_stack,
+            state_directory=state_directory,
+            state_directory_distribution=state_directory_distribution)
         for rank in range(num_processes)
     ]
     return SubprocVecEnv(envs)
