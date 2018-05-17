@@ -204,9 +204,7 @@ class Pomme(gym.Env):
     def reset(self):
         assert(self._agents is not None)
 
-        # TODO: Position the agent in the shoes of the winning agent...
-        if hasattr(self, '_applicable_games') and self._applicable_games:
-            directory, step_count = random.choice(self._applicable_games)
+        def get_game_state_file(directory, step_count):
             if self._game_state_distribution == 'uniform':
                 # Pick a random game state to start from.
                 step = random.choice(range(step_count))
@@ -217,6 +215,11 @@ class Pomme(gym.Env):
                 # to move a sliding window back across epochs.
                 step = random.choice(
                     range(max(0, step_count - 22), step_count - 1)
+                )
+            elif self._game_state_distribution == 'uniform33':
+                # Pick a game state uniformly over the last 33.
+                step = random.choice(
+                    range(max(0, step_count - 34), step_count - 1)
                 )
             elif self._game_state_distribution == 'overfit-20max':
                 # Pick a game state with the distribution probabilities:
@@ -260,7 +263,6 @@ class Pomme(gym.Env):
                         step = step_count - 2 - num
                         break
                 step = step or random.choice(range(step_count - 9))
-
             elif self._game_state_distribution == 'overfit-no-uniform':
                 # Pick a game state with the distribution probabilities:
                 # step_count - 2: 20%
@@ -327,8 +329,13 @@ class Pomme(gym.Env):
                 )
             else:
                 raise
+            return os.path.join(directory, '%d.json' % step), step
 
-            game_state_file = os.path.join(directory, '%d.json' % step)
+        if hasattr(self, '_applicable_games') and self._applicable_games:
+            directory, step_count = random.choice(self._applicable_games)
+            game_state_file, step = get_game_state_file(directory, step_count)
+            while not os.path.exists(game_state_file):
+                game_state_file, step = get_game_state_file(directory, step_count)
             self._game_state_step_start = step_count - step + 1
             with open(game_state_file, 'r') as f:
                 # NOTE: The rank is set by envs.py. Remove if causing problems.
