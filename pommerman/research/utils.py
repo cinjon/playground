@@ -262,8 +262,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        running_num_episodes, mean_total_loss,
                        mean_kl_loss=None, mean_pg_loss=None, lr=None,
                        distill_factor=0, reinforce_only=False,
-                       start_step_ratios=None, bomb_prob=None,
-                       action_choices=None, action_probs=None):
+                       start_step_ratios=None, bomb_penalty_lambda=None,
+                       action_choices=None, action_probs=None, uniform_v=None):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -316,7 +316,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                           total_steps)
 
     writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
-    writer.add_scalar('bomb_prob', bomb_prob, num_epoch)
+    writer.add_scalar('bomb_penalty_lambda', bomb_penalty_lambda, num_epoch)
     
     if array_stats.get('rank'):
         writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
@@ -337,6 +337,9 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                              num_epoch, bins='doane')
         writer.add_histogram('action_probs_steps/%d' % num, action_probs[num],
                              total_steps, bins='doane')
+
+    if uniform_v is not None:
+        writer.add_scalar('uniform_v_epoch', uniform_v, num_epoch)
 
     # x-axis: # episodes
     if reinforce_only:

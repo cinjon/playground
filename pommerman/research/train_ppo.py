@@ -1,24 +1,30 @@
 """Train script for ppo learning.
 TODO: Implement heterogenous training.
+
 The number of samples used for an epoch is:
 horizon * num_workers = num_steps * num_processes where num_steps is the number
 of steps in a rollout (horizon) and num_processes is the number of parallel
 processes/workers collecting data.
+
 Simple Example:
 python train_ppo.py --how-train simple --num-processes 10 --run-name test \
  --num-steps 50 --log-interval 5
+
 Distillation Example:
 python train_ppo.py --how-train simple --num-processes 10 --run-name distill \
  --num-steps 100 --log-interval 5 \
  --distill-epochs 100 --distill-target dagger::/path/to/model.pt
+
 Homogenous Example:
 python train_ppo.py --how-train homogenous --num-processes 10 \
  --run-name distill --num-steps 100 --log-interval 5 --distill-epochs 100 \
  --distill-target dagger::/path/to/model.pt --config PommeTeam-v0 \
  --eval-mode homogenous --num-battles-eval 100 --seed 100
+
 Lower Complexity example:
 python train_ppo.py --how-train simple --num-processes 10 --run-name test \
  --num-steps 50 --log-interval 5 --config PommeFFAEasy-v0 --board-size 11
+
 Reverse Curriculum with Eval:
 python train_ppo.py --run-name test --num-processes 12 --config PommeFFAEasy-v0 \
 --how-train simple --lr 1e-4 --save-interval 100 --log-interval 1 --gamma 0.95 \
@@ -27,6 +33,7 @@ python train_ppo.py --run-name test --num-processes 12 --config PommeFFAEasy-v0 
  --state-directory /home/roberta/pommerman_spring18/pomme_games/ffaeasyv0-seed1 \
 """
 from collections import defaultdict
+from collections import deque
 import os
 import time
 
@@ -94,6 +101,11 @@ def train():
         config, how_train, args.seed, args.game_state_file, training_agents,
         num_stack, num_processes, state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution)
+
+    if args.state_directory_distribution == 'uniformAdapt':
+        uniform_v = 33
+        running_success_rate_maxlen = 20
+        running_success_rate = deque([], maxlen=running_success_rate_maxlen)
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
@@ -325,13 +337,14 @@ def train():
     action_choices = []
     action_probs = [[] for _ in range(6)]
 
-    anneal_bomb_epochs = args.anneal_bomb_epochs
-    bomb_prob = 1.0
+    anneal_bomb_penalty_epochs = args.anneal_bomb_penalty_epochs
+    bomb_penalty_lambda = 1.0
 
     for num_epoch in range(start_epoch, num_epochs):
-        if anneal_bomb_epochs > 0:
-            bomb_prob = min(1.0, 1.0 * num_epoch / anneal_bomb_epochs)
-            envs.set_bomb_prob(bomb_prob)
+        if anneal_bomb_penalty_epochs > 0:
+            bomb_penalty_lambda = 1.0 * num_epoch / anneal_bomb_penalty_epochs
+            bomb_penalty_lambda = min(1.0, bomb_penalty_lambda)
+            envs.set_bomb_penalty_lambda(bomb_penalty_lambda)
 
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval) \
            and how_train == 'simple':
@@ -799,7 +812,6 @@ def train():
             start_step_wins = defaultdict(int)
 
             utils.log_to_console(num_epoch, num_episodes, total_steps,
-
                                  steps_per_sec, epochs_per_sec, final_rewards,
                                  mean_dist_entropy, mean_value_loss,
                                  mean_action_loss, cumulative_reward,
@@ -821,9 +833,19 @@ def train():
                                      running_num_episodes, mean_total_loss,
                                      mean_kl_loss, mean_pg_loss, lr,
                                      distill_factor, args.reinforce_only,
-                                     start_step_ratios, bomb_prob,
+                                     start_step_ratios, bomb_penalty_lambda,
                                      np.array(action_choices),
-                                     np.array(action_probs))
+                                     np.array(action_probs), uniform_v)
+
+            if args.state_directory_distribution == 'uniformAdapt':
+                rate_ = 1.0 * success_rate / num_running_episodes
+                running_success_rate.append(rate_)
+                if len(running_success_rate) == running_success_rate_maxlen \
+                   and np.mean(running_success_rate) > .8:
+                    uniform_v *= args.uniform_v_factor
+                    envs.set_uniform_v(uniform_v)
+                    running_success_rate = deque(
+                        [], maxlen=running_success_rate_maxlen)
 
             # Reset stats so that plots are per the last log_interval.
             if args.reinforce_only:

@@ -252,8 +252,11 @@ class WrapPomme(gym.ObservationWrapper):
         return [obs for num, obs in enumerate(observation) \
                 if num not in self._acting_agent_ids]
 
-    def set_bomb_prob(self, p):
-        self.env.set_bomb_prob(p)
+    def set_bomb_penalty_lambda(self, l):
+        self.env.set_bomb_penalty_lambda(l)
+
+    def set_uniform_v(self, v):
+        self.env.set_uniform_v(v)
 
     def get_training_ids(self):
         return self.env.training_agents

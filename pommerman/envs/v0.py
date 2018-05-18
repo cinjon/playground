@@ -53,7 +53,7 @@ class Pomme(gym.Env):
         self._is_partially_observable = is_partially_observable
         self._default_bomb_life = default_bomb_life
         self._use_skull = use_skull
-        self._bomb_prob = 1.0
+        self._bomb_penalty_lambda = 1.0
 
         self.training_agents = []
         self.model = forward_model.ForwardModel()
@@ -77,8 +77,8 @@ class Pomme(gym.Env):
     def set_render_mode(self, mode):
         self._mode = mode
 
-    def set_bomb_prob(self, prob):
-        self._bomb_prob = prob
+    def set_bomb_penalty_lambda(self, l):
+        self._bomb_penalty_lambda = l
 
     def _set_observation_space(self):
         """The Observation Space for each agent.
@@ -107,9 +107,15 @@ class Pomme(gym.Env):
     def set_training_agents(self, agent_ids):
         self.training_agents = agent_ids
 
-    def set_state_directory(self, directory, distribution):
+    def set_uniform_v(self, v):
+        self._uniform_v = v
+
+    def set_state_directory(self, directory, distribution, uniform_v=33):
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
+        if distribution == 'uniformAdapt':
+            # Defaults to 33.
+            self.set_uniform_v(uniform_v)
         self._applicable_games = []
         if self._init_game_state_directory:
             for directory in os.listdir(self._init_game_state_directory):
@@ -130,7 +136,6 @@ class Pomme(gym.Env):
                         continue
 
                     step_count = endgame['step_count']
-                    # print("%d: " % self.rank, self.training_agents, endgame)
                     self._applicable_games.append((path, step_count))
             # print("Environment has %d applicable games." % \
             #       len(self._applicable_games))
@@ -190,8 +195,15 @@ class Pomme(gym.Env):
         return self.observations
 
     def _get_rewards(self):
-        return self.model.get_rewards(self._agents, self._game_type,
-                                      self._step_count, self._max_steps)
+        """If an agent dies in the first 100 steps, then it died from a bomb.
+        In that case, multiply the -1 reward by the bomb_penalty_lambda.
+        """
+        rewards = self.model.get_rewards(self._agents, self._game_type,
+                                         self._step_count, self._max_steps)
+        if self._step_count < 100:
+            rewards = [r * self._bomb_penalty_lambda if r == -1 else r
+                       for r in rewards]
+        return rewards
 
     def _get_done(self):
         return self.model.get_done(self._agents, self._step_count,
@@ -224,6 +236,15 @@ class Pomme(gym.Env):
                 # Pick a game state uniformly over the last 33.
                 step = random.choice(
                     range(max(0, step_count - 34), step_count - 1)
+                )
+            elif self._game_state_distribution == 'uniform66':
+                # Pick a game state uniformly over the last 66.
+                step = random.choice(
+                    range(max(0, step_count - 67), step_count - 1)
+                )
+            elif self._game_state_distribution == 'uniformAdapt':
+                step = random.choice(
+                    range(max(0, step_count - self._uniform_v), step_count - 1)
                 )
             elif self._game_state_distribution == 'overfit-20max':
                 # Pick a game state with the distribution probabilities:
@@ -371,9 +392,7 @@ class Pomme(gym.Env):
 
     def step(self, actions):
         result = self.model.step(actions, self._board, self._agents,
-                                 self._bombs, self._items, self._flames,
-                                 bomb_prob=self._bomb_prob,
-                                 training_agent_ids=self.training_agents)
+                                 self._bombs, self._items, self._flames)
         self._board, self._agents, self._bombs = result[:3]
         self._items, self._flames = result[3:]
 

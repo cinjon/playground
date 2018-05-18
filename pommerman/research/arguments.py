@@ -86,11 +86,10 @@ def get_args():
                         help='add nonlinearity to value head')
     parser.add_argument('--batch-size', type=int, default=5120,
                         help='batch size used for training')
-    parser.add_argument('--anneal-bomb-epochs', type=int, default=0,
-                        help='number of epochs to anneal from 0 --> 1 prob '
-                        "that the training agents' bombs hurt them. disabled "
-                        "if set to 0.")
-
+    parser.add_argument('--anneal-bomb-penalty-epochs', type=int, default=0,
+                        help='number of epochs to anneal from 0 --> 1 the neg '
+                        'reward that the training agents receive from dying. '
+                        'disabled if set to 0.')
     # specific to Pommerman
     parser.add_argument('--agents',
                         default=','.join(['simple::null']*4),
