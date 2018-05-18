@@ -43,6 +43,7 @@ abbr = {
     'use-gae': 'gae',
     'init-kl-factor': 'ikl',
     'state-directory-distribution': 'sdd',
+    'anneal-bomb-penalty-epochs': 'abpe'
 }
 
 def train_ppo_job(flags, jobname=None, is_fb=False):
@@ -1146,29 +1147,82 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 
 ### These are testing out the 8x8 agent to see if maybe PPO can work on that,
-# possibly with a classification loss.
+# possibly with a classification loss. These worked Really well!!!
+# job = {
+#     "num-processes": 25, "how-train": "simple", 
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFA8x8-v0", "board-size": 8,
+#     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     # "eval-mode": "ffa-curriculum"
+# }
+# counter = 0
+# for learning_rate in [3e-4, 1e-4]:
+#     for gamma in [.99, .995]:
+#         for distill in [0, 2500]:
+#             j = {k:v for k,v in job.items()}
+#             j["run-name"] = "pman8x8-%d" % counter
+#             if distill:
+#                 j["distill-epochs"] = distill
+#                 j["distill-expert"] = "SimpleAgent"
+
+#             j["gamma"] = gamma
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
+#             counter += 1
+
+
+### More uniform experiments, this time uniform66 and uniformAdapt with 10k.
+# Cartesian product of {3000 distill, no distill}, {LR of 1e-4, 3e-5} and gamma of {.99, .995}
+# job = {
+#     "num-processes": 25, "how-train": "simple", 
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "state-directory": os.path.join(directory, "ffaeasy-10k-s100"),
+# }
+# counter = 0
+# for learning_rate in [1e-4, 3e-5]:
+#     for gamma in [.99, .995]:
+#         for distill in [0, 3000]:
+#             for (name, distro) in [("u66", "uniform66"), ("uAdpt", "uniformAdapt")]:
+#                 j = {k:v for k,v in job.items()}
+#                 j["run-name"] = "pman%s-%d" % (name, counter)
+#                 j["state-directory-distribution"] = distro
+#                 if distill:
+#                     j["distill-epochs"] = distill
+#                     j["distill-expert"] = "SimpleAgent"
+#                 j["gamma"] = gamma
+#                 j["lr"] = learning_rate
+#                 train_ppo_job(j, j["run-name"], is_fb=True)
+#                 counter += 1
+
+
+### These are anneal bomb reward models.
+# Cartesian product of {3000 distill, no distill}, {LR of 1e-4, 3e-5} and gamma of {.99, .995}
 job = {
     "num-processes": 25, "how-train": "simple", 
     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
     "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFA8x8-v0", "board-size": 8,
+    "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
     "model-str": "PommeCNNPolicySmall", "use-gae": "",
 }
 counter = 0
-for learning_rate in [3e-4, 1e-4]:
+for learning_rate in [3e-4, 1e-4, 3e-5]:
     for gamma in [.99, .995]:
-        for distill in [0, 2500]:
-            j = {k:v for k,v in job.items()}
-            j["run-name"] = "pman8x8-%d" % counter
-            if distill:
-                j["distill-epochs"] = distill
-                j["distill-expert"] = "SimpleAgent"
-
-            j["gamma"] = gamma
-            j["lr"] = learning_rate
-            train_ppo_job(j, j["run-name"], is_fb=True)
-            counter += 1
-
+        for distill in [0, 3000]:
+            for anneal_bomb_penalty_epochs in [100, 1000, 5000]:
+                j = {k:v for k,v in job.items()}
+                j["run-name"] = "pmanABPE-%d" % counter
+                if distill:
+                    j["distill-epochs"] = distill
+                    j["distill-expert"] = "SimpleAgent"
+                j["gamma"] = gamma
+                j["lr"] = learning_rate
+                j["anneal-bomb-penalty-epochs"] = anneal_bomb_penalty_epochs
+                train_ppo_job(j, j["run-name"], is_fb=True)
+                counter += 1
 
 ### These are homogenous jobs using the above uniform21 approach.
 # THESE HAVE NOT BEEN RUN UYET
