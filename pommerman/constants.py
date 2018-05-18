@@ -48,16 +48,25 @@ TILE_COLOR = (248, 221, 82, 255)
 TEXT_COLOR = (170, 170, 170, 255)
 
 
-# Constants for easier setting of the game
+# Constants for easier setting of the "Easy" game.
 BOARD_SIZE_EASY = 11
 NUM_RIGID_EASY = 36
 NUM_WOOD_EASY = 36
 DEFAULT_BOMB_LIFE_EASY = 10
 MAX_STEPS_EASY = 800
-# NOTE: Should we make the number of items higher?
 # NOTE: Should we get rid of can_kick? That's a hard one to use as well...
 NUM_ITEMS_EASY = int(NUM_WOOD_EASY/2) 
 DEFAULT_BLAST_STRENGTH_EASY = 2
+
+
+# Constants for easier setting of the "8x8" game.
+BOARD_SIZE_8 = 8
+NUM_RIGID_8 = 16
+NUM_WOOD_8 = 16
+DEFAULT_BOMB_LIFE_8 = 7
+MAX_STEPS_8 = 800
+NUM_ITEMS_8 = 10
+DEFAULT_BLAST_STRENGTH_8 = 2
 
 
 class Item(Enum):
