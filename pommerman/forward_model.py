@@ -363,7 +363,7 @@ class ForwardModel(object):
                     if random_prob > bomb_prob:
                         # NOTE: This isn't quite what we want. We actually only
                         # want it to not die if it was felled by a bomb of its
-                        # own creation.
+                        # own creation .. and really only in the beginning too.
                         continue
 
                 agent.die()
