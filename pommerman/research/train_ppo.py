@@ -84,10 +84,9 @@ def train():
 
     model_str = args.model_str.replace('PommeCNNPolicy', '')
     config_str = config.strip('Pomme').replace('Short', 'Sh')
-    suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ns{}.gam{}.{}.seed{}".format(
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ns{}.gam{}.seed{}".format(
         args.run_name, how_train, config_str, model_str, args.num_channels,
-        args.lr, args.batch_size, num_steps, args.gamma,
-        args.state_directory_distribution, args.seed)
+        args.lr, args.batch_size, num_steps, args.gamma, args.seed)
     if args.use_gae:
         suffix += ".gae"
     if args.half_lr_epochs:
@@ -96,15 +95,19 @@ def train():
         suffix += ".ulrs"
     if args.state_directory_distribution:
         suffix += ".%s" % args.state_directory_distribution
+    if args.anneal_bomb_penalty_epochs:
+        suffix += ".abpe%d" % args.anneal_bomb_penalty_epochs
 
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
         num_stack, num_processes, state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution)
 
+    uniform_v = None
+    running_success_rate = []
     if args.state_directory_distribution == 'uniformAdapt':
         uniform_v = 33
-        running_success_rate_maxlen = 20
+        running_success_rate_maxlen = 40
         running_success_rate = deque([], maxlen=running_success_rate_maxlen)
 
     set_distill_kl = args.set_distill_kl
@@ -326,11 +329,11 @@ def train():
             args, good_guys, bad_guys, 0, writer, 0)
         print("Homog test before: (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
             args.num_battles_eval, win_rate, tie_rate, loss_rate))
-    elif how_train == 'simple':
-        win_rate, tie_rate, loss_rate = evaluate_simple(
-            args, good_guys, bad_guys, 0, writer, 0)
-        print("Simple test before: (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
-            args.num_battles_eval, win_rate, tie_rate, loss_rate))
+    # elif how_train == 'simple':
+    #     win_rate, tie_rate, loss_rate = evaluate_simple(
+    #         args, good_guys, bad_guys, 0, writer, 0)
+    #     print("Simple test before: (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
+    #         args.num_battles_eval, win_rate, tie_rate, loss_rate))
 
     start = time.time()
     # NOTE: assumes just one agent.
@@ -785,18 +788,18 @@ def train():
                             action_space, obs_shape, args)
                         for _ in range(2)
                     ]
-            elif how_train == 'simple':
-                win_rate, tie_rate, loss_rate = evaluate_simple(
-                    args, good_guys, bad_guys, eval_round, writer, num_epoch)
-                print("Epoch %d (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
-                    num_epoch, args.num_battles_eval, win_rate, tie_rate,
-                    loss_rate))
-                if win_rate >= .90:
-                    suffix = suffix + ".wr%.3f.evlrnd%d" % (win_rate, eval_round)
-                    saved_paths = utils.save_agents(
-                        "ppo-", num_epoch, training_agents, total_steps,
-                        num_episodes, args, suffix)
-                    eval_round += 1
+            # elif how_train == 'simple':
+            #     win_rate, tie_rate, loss_rate = evaluate_simple(
+            #         args, good_guys, bad_guys, eval_round, writer, num_epoch)
+            #     print("Epoch %d (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
+            #         num_epoch, args.num_battles_eval, win_rate, tie_rate,
+            #         loss_rate))
+            #     if win_rate >= .90:
+            #         suffix = suffix + ".wr%.3f.evlrnd%d" % (win_rate, eval_round)
+            #         saved_paths = utils.save_agents(
+            #             "ppo-", num_epoch, training_agents, total_steps,
+            #             num_episodes, args, suffix)
+            #         eval_round += 1
 
             if do_distill and len(final_kl_losses):
                 mean_kl_loss = np.mean([
@@ -835,10 +838,11 @@ def train():
                                      distill_factor, args.reinforce_only,
                                      start_step_ratios, bomb_penalty_lambda,
                                      np.array(action_choices),
-                                     np.array(action_probs), uniform_v)
+                                     np.array(action_probs), uniform_v,
+                                     np.mean(running_success_rate))
 
             if args.state_directory_distribution == 'uniformAdapt':
-                rate_ = 1.0 * success_rate / num_running_episodes
+                rate_ = 1.0 * success_rate / running_num_episodes
                 running_success_rate.append(rate_)
                 if len(running_success_rate) == running_success_rate_maxlen \
                    and np.mean(running_success_rate) > .8:
