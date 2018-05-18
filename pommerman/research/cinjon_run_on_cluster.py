@@ -20,6 +20,7 @@ if not os.path.exists(slurm_scripts):
 
 abbr = {
     'lr': 'lr',
+    'board-size': 'bs',
     'how-train': 'ht-',
     'num-steps': 'ns',
     'distill-epochs': 'dstlepi',
@@ -1119,21 +1120,46 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 ### This is a follow up to the experiments two above using a longer uniform of 33.
 # It's a cartesian product of {5000 distill, 2000 distill, no distill}, {LR of 7e-4, 3e-4, 1e-4}, and gamma of {.99, .995}
+# job = {
+#     "num-processes": 25, "how-train": "simple", 
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall",
+#     "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
+#     "state-directory-distribution": "uniform33", "use-gae": ""
+# }
+# counter = 0
+# for learning_rate in [7e-4, 3e-4, 1e-4]:
+#     for gamma in [.99, .995]:
+#         for distill in [0, 2000, 5000]:
+#             j = {k:v for k,v in job.items()}
+#             j["run-name"] = "pman1k33-%d" % counter
+#             if distill:
+#                 j["distill-epochs"] = distill
+#                 j["distill-expert"] = "SimpleAgent"
+
+#             j["gamma"] = gamma
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
+#             counter += 1
+
+
+### These are testing out the 8x8 agent to see if maybe PPO can work on that,
+# possibly with a classification loss.
 job = {
     "num-processes": 25, "how-train": "simple", 
     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
     "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
-    "model-str": "PommeCNNPolicySmall",
-    "state-directory": os.path.join(directory, "ffaeasyv0-seed1"),
-    "state-directory-distribution": "uniform33", "use-gae": ""
+    "config": "PommeFFA8x8-v0", "board-size": 8,
+    "model-str": "PommeCNNPolicySmall", "use-gae": "",
 }
 counter = 0
-for learning_rate in [7e-4, 3e-4, 1e-4]:
+for learning_rate in [3e-4, 1e-4]:
     for gamma in [.99, .995]:
-        for distill in [0, 2000, 5000]:
+        for distill in [0, 2500]:
             j = {k:v for k,v in job.items()}
-            j["run-name"] = "pman1k33-%d" % counter
+            j["run-name"] = "pman8x8-%d" % counter
             if distill:
                 j["distill-epochs"] = distill
                 j["distill-expert"] = "SimpleAgent"
