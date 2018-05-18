@@ -1,4 +1,5 @@
 from collections import defaultdict
+import random
 
 import numpy as np
 
@@ -146,7 +147,11 @@ class ForwardModel(object):
         return actions
 
     def step(self, actions, curr_board, curr_agents, curr_bombs, curr_items,
-             curr_flames):
+             curr_flames, bomb_prob=None, training_agent_ids=None):
+        """
+        The bomb_prob is the probability that a training agent will actually
+        die if it runs into a bomb.
+        """
         # We track what the agents each do in this dict.
         self.step_info = defaultdict(list)
 
@@ -352,6 +357,15 @@ class ForwardModel(object):
         # Kill these agents.
         for agent in curr_agents:
             if agent.is_alive and agent.in_range(exploded_map):
+                # Skip if this agent is saved by the bomb_prob.
+                if agent.agent_id in training_agent_ids:
+                    random_prob = random.random()
+                    if random_prob > bomb_prob:
+                        # NOTE: This isn't quite what we want. We actually only
+                        # want it to not die if it was felled by a bomb of its
+                        # own creation.
+                        continue
+
                 agent.die()
                 self.step_info[agent.agent_id].append('dead')
         exploded_map = np.array(exploded_map)

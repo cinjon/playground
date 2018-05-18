@@ -121,21 +121,18 @@ def train():
             distill_agent.init_agent(0, envs.get_game_type())
             distill_type = distill_target.split('::')[0]
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}.ikl{}".format(
-                    distill_expert, set_distill_kl, init_kl_factor)
+                suffix += ".dstlDagKL{}".format(set_distill_kl)
             else:
-                suffix += ".dstl{}.dstlep{}.ikl{}".format(
-                    args.distill_expert, distill_epochs, init_kl_factor)
+                suffix += ".dstlDagEp{}".format(distill_epochs)
+            suffix += ".ikl{}".format(init_kl_factor)
         elif distill_expert == 'SimpleAgent':
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}.ikl{}".format(
-                    args.distill_expert, set_distill_kl, init_kl_factor)
+                suffix += ".dstlSimKL{}".format(set_distill_kl)
             else:
-                suffix += ".dstl{}.dstlep{}.ikl{}".format(
-                    args.distill_expert, distill_epochs, init_kl_factor)
+                suffix += ".dstlSimEp{}".format(distill_epochs)
+            suffix += ".ikl{}".format(init_kl_factor)
         else:
-            raise ValueError("We only support distilling from \
-                DaggerAgent or SimpleAgent \n")
+            raise ValueError("Only distill from Dagger or Simple.")
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
@@ -328,7 +325,14 @@ def train():
     action_choices = []
     action_probs = [[] for _ in range(6)]
 
+    anneal_bomb_epochs = args.anneal_bomb_epochs
+    bomb_prob = 1.0
+
     for num_epoch in range(start_epoch, num_epochs):
+        if anneal_bomb_epochs > 0:
+            bomb_prob = min(1.0, 1.0 * num_epoch / anneal_bomb_epochs)
+            envs.set_bomb_prob(bomb_prob)
+
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval) \
            and how_train == 'simple':
             # Only save at regular epochs if using "simple". The others save
@@ -817,7 +821,8 @@ def train():
                                      running_num_episodes, mean_total_loss,
                                      mean_kl_loss, mean_pg_loss, lr,
                                      distill_factor, args.reinforce_only,
-                                     start_step_ratios, np.array(action_choices),
+                                     start_step_ratios, bomb_prob,
+                                     np.array(action_choices),
                                      np.array(action_probs))
 
             # Reset stats so that plots are per the last log_interval.

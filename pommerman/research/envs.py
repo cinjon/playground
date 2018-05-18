@@ -17,7 +17,6 @@ from pommerman.constants import GameType
 def _make_train_env(config, how_train, seed, rank, game_state_file,
                     training_agents, num_stack, do_filter_team=True,
                     state_directory=None, state_directory_distribution=None):
-
     """Makes an environment callable for multithreading purposes.
     Args:
       config: See the arguments module's config options.
@@ -76,11 +75,9 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 
         if config == 'PommeFFAEasy-v0' or config == 'PommeFFAEasy-v3' or \
             config == 'PommeTeamEasy-v0' or config == 'PommeTeamEasy-v3':
-            env = WrapPomme(env, how_train, easy=True,
-                            do_filter_team=do_filter_team)
+            env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
         else:
-            env = WrapPomme(env, how_train, easy=False,
-                            do_filter_team=do_filter_team)
+            env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
 
         env = MultiAgentFrameStack(env, num_stack)
         return env
@@ -214,15 +211,13 @@ class WrapPommeEval(gym.ObservationWrapper):
 
 class WrapPomme(gym.ObservationWrapper):
     def __init__(self, env=None, how_train='simple', acting_agent_ids=None,
-                 easy=False, do_filter_team=True):
+                 do_filter_team=True):
         super(WrapPomme, self).__init__(env)
         self._how_train = how_train
         self._do_filter_team = do_filter_team
         self._acting_agent_ids = acting_agent_ids or self.env.training_agents
-        if easy:
-            obs_shape = (19, 11, 11)
-        else:
-            obs_shape = (19, 13, 13)
+        board_size = env.spec._kwargs['board_size']
+        obs_shape = (19, board_size, board_size)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]
         self.observation_space = spaces.Box(
@@ -256,6 +251,9 @@ class WrapPomme(gym.ObservationWrapper):
         observation = self.env.get_observations()
         return [obs for num, obs in enumerate(observation) \
                 if num not in self._acting_agent_ids]
+
+    def set_bomb_prob(self, p):
+        self.env.set_bomb_prob(p)
 
     def get_training_ids(self):
         return self.env.training_agents

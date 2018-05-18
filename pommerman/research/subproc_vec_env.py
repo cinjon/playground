@@ -49,6 +49,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.get_game_type()))
         elif cmd == 'record_json':
             remote.send((env.record_json(data)))
+        elif cmd == 'set_bomb_prob':
+            remote.send((env.set_bomb_prob(data)))
         else:
             raise NotImplementedError
 
@@ -244,4 +246,9 @@ class SubprocVecEnv(_VecEnv):
     def get_non_training_obs(self):
         for remote in self.remotes:
             remote.send(('get_non_training_obs', None))
+        return [remote.recv() for remote in self.remotes]
+
+    def set_bomb_prob(self, p):
+        for remote in self.remotes:
+            remote.send(('set_bomb_prob', p))
         return [remote.recv() for remote in self.remotes]

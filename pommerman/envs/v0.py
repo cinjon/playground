@@ -53,6 +53,7 @@ class Pomme(gym.Env):
         self._is_partially_observable = is_partially_observable
         self._default_bomb_life = default_bomb_life
         self._use_skull = use_skull
+        self._bomb_prob = 1.0
 
         self.training_agents = []
         self.model = forward_model.ForwardModel()
@@ -75,6 +76,9 @@ class Pomme(gym.Env):
 
     def set_render_mode(self, mode):
         self._mode = mode
+
+    def set_bomb_prob(self, prob):
+        self._bomb_prob = prob
 
     def _set_observation_space(self):
         """The Observation Space for each agent.
@@ -367,7 +371,9 @@ class Pomme(gym.Env):
 
     def step(self, actions):
         result = self.model.step(actions, self._board, self._agents,
-                                 self._bombs, self._items, self._flames)
+                                 self._bombs, self._items, self._flames,
+                                 bomb_prob=self._bomb_prob,
+                                 training_agent_ids=self.training_agents)
         self._board, self._agents, self._bombs = result[:3]
         self._items, self._flames = result[3:]
 
@@ -380,31 +386,6 @@ class Pomme(gym.Env):
         obs = self.get_observations()
         reward = self._get_rewards()
         info = self._get_info(done, reward)
-
-        # if all(done):
-        #     time_avg = defaultdict(float)
-        #     time_max = defaultdict(float)
-        #     time_cnt = defaultdict(int)
-        #     for agent in self._agents:
-        #         if type(agent) == SimpleAgent:
-        #             for k, v in agent._time_cnt.items():
-        #                 time_cnt[k] += v
-        #             for k, v in agent._time_avg.items():
-        #                 time_avg[k] += v
-        #             for k, v in agent._time_max.items():
-        #                 time_max[k] = max(time_max[k], v)
-        #             agent.reset_times()
-            # print("\nEpisode end times:")
-            # total = 0.0
-            # for key in sorted(time_avg.keys()):
-            #     avg = time_avg[key] / 3.0
-            #     cnt = time_cnt[key]
-            #     mx  = time_max[key]
-            #     print("\t%s: %.4f (%d) --> %.4f, %.4f" % (key, avg, cnt,
-            #                                               avg * cnt, mx))
-            #     total += avg * cnt
-            # print("\tTotal: %.4f" % total)
-
         return obs, reward, done, info
 
     def render(self, mode=None, close=False, record_pngs_dir=None,

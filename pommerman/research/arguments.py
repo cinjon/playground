@@ -86,13 +86,17 @@ def get_args():
                         help='add nonlinearity to value head')
     parser.add_argument('--batch-size', type=int, default=5120,
                         help='batch size used for training')
+    parser.add_argument('--anneal-bomb-epochs', type=int, default=0,
+                        help='number of epochs to anneal from 0 --> 1 prob '
+                        "that the training agents' bombs hurt them. disabled "
+                        "if set to 0.")
 
     # specific to Pommerman
     parser.add_argument('--agents',
                         default=','.join(['simple::null']*4),
                         help='Comma delineated list of agent types to run in '
                         'run_battle or generate_game_data.')
-    parser.add_argument('--board_size', type=int, default=11,
+    parser.add_argument('--board-size', type=int, default=11,
                         help='size of the board')
     parser.add_argument('--config', type=str, default='PommeFFA-v3',
                         help='Configuration to execute. See env_ids in '
