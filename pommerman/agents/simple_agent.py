@@ -36,6 +36,9 @@ class SimpleAgent(BaseAgent):
                 })
             return ret
 
+        if random.random() < .05:
+            return random.choice(range(6))
+
         my_position = tuple(obs['position'])
         board = np.array(obs['board'])
         bombs = convert_bombs(np.array(obs['bomb_blast_strength']))
