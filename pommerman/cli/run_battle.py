@@ -73,8 +73,14 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
     env.seed(seed)
     np.random.seed(seed)
     random.seed(seed)
-    env.set_state_directory(args.state_directory,
-                            args.state_directory_distribution)
+    if hasattr(args, 'state_directory'):
+        state_directory = args.state_directory
+        state_directory_distribution = args.state_directory_distribution
+    else:
+        state_directory = None
+        state_directory_distribution = None
+    env.set_state_directory(state_directory,
+                            state_directory_distribution)
 
     if record_pngs_dir:
         os.makedirs(record_pngs_dir)
