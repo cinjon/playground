@@ -88,7 +88,6 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
                    acting_agent_ids, num_stack, state_directory=None,
                    state_directory_distribution=None):
-
     """Makes an environment callable for multithreading purposes.
     Used in conjunction with eval.py
     Args:
@@ -131,14 +130,15 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
 
 def make_eval_envs(config, how_train, seed, agents, training_agent_ids,
                    acting_agent_ids, num_stack, num_processes,
-                   state_directory=None, state_directory_distribution=None):
+                   state_directory=None, state_directory_distribution=None):     
     envs = [
         _make_eval_env(
             config=config, how_train=how_train, seed=seed, rank=rank,
             agents=agents, training_agent_ids=training_agent_ids,
             acting_agent_ids=acting_agent_ids, num_stack=num_stack,
             state_directory=state_directory,
-            state_directory_distribution=state_directory_distribution)
+            state_directory_distribution=state_directory_distribution
+        )
         for rank in range(num_processes)
     ]
     return SubprocVecEnv(envs)
