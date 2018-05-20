@@ -112,7 +112,7 @@ def get_args():
     parser.add_argument('--state-directory', type=str, default='',
                         help='a game state directory from which to load.')
     parser.add_argument('--state-directory-distribution', type=str,
-                        default='uniform', help='a distribution to load the '
+                        default='', help='a distribution to load the '
                         'states in the directory. uniform will choose on'
                         'randomly. for the others, see envs.py.')
     parser.add_argument('--how-train', type=str, default='simple',
