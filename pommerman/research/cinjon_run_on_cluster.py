@@ -78,7 +78,7 @@ def train_ppo_job(flags, jobname=None, is_fb=False):
     else:
         s = "sbatch --qos batch --gres=gpu:1 --nodes=1 "        
     s += "--cpus-per-task=%s " % num_processes
-    s += "--mem=64000 --time=48:00:00 %s &" % os.path.join(
+    s += "--mem=64000 --time=60:00:00 %s &" % os.path.join(
         slurm_scripts, jobnameattrs + ".slurm")
     os.system(s)
 
@@ -1173,6 +1173,7 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 
 ### More uniform experiments, this time uniform66 and uniformAdapt with 10k.
+# 66 killed it! uniformAdapt I fucked upa nd am rerunning (see below)
 # Cartesian product of {3000 distill, no distill}, {LR of 1e-4, 3e-5} and gamma of {.99, .995}
 # job = {
 #     "num-processes": 25, "how-train": "simple", 
@@ -1186,7 +1187,7 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 # for learning_rate in [1e-4, 3e-5]:
 #     for gamma in [.99, .995]:
 #         for distill in [0, 3000]:
-#             for (name, distro) in [("u66", "uniform66"), ("uAdpt", "uniformAdapt")]:
+#             for (name, distro) in [("u66", "uniform66")]:
 #                 j = {k:v for k,v in job.items()}
 #                 j["run-name"] = "pman%s-%d" % (name, counter)
 #                 j["state-directory-distribution"] = distro
@@ -1200,29 +1201,86 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 
 ### These are anneal bomb reward models.
+# These didnt' work very well. They worked slightly better than the origianl, but still not
+# well enough.
 # Cartesian product of {3000 distill, no distill}, {LR of 1e-4, 3e-5} and gamma of {.99, .995}
+# job = {
+#     "num-processes": 25, "how-train": "simple", 
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+# }
+# counter = 0
+# for learning_rate in [3e-4, 1e-4, 3e-5]:
+#     for gamma in [.99, .995]:
+#         for distill in [0, 3000]:
+#             for anneal_bomb_penalty_epochs in [100, 1000, 5000]:
+#                 j = {k:v for k,v in job.items()}
+#                 j["run-name"] = "pmanABPE-%d" % counter
+#                 if distill:
+#                     j["distill-epochs"] = distill
+#                     j["distill-expert"] = "SimpleAgent"
+#                 j["gamma"] = gamma
+#                 j["lr"] = learning_rate
+#                 j["anneal-bomb-penalty-epochs"] = anneal_bomb_penalty_epochs
+#                 train_ppo_job(j, j["run-name"], is_fb=True)
+#                 counter += 1
+
+
+### More uniform experiments, this time uniformAdapt and uniformScheduleA with 10k.
+# Cartesian product of {3000 distill, no distill}, {LR of 1e-4, 6e-5} and gamma of {.99, .995}
 job = {
-    "num-processes": 25, "how-train": "simple", 
+    "how-train": "simple",  "log-interval": 1000,
+    "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+    "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
+    "model-str": "PommeCNNPolicySmall", "use-gae": "",
+    "state-directory": os.path.join(directory, "ffaeasy-10k-s100"),
+}
+counter = 0
+for learning_rate in [1e-4, 6e-5]:
+    for gamma in [.99, .995]:
+        for distill in [0, 3000]:
+            for (name, distro) in [("uSchA", "uniformScheduleA"), ("uAdpt", "uniformAdapt")]:
+                for num_processes in [25, 50]:
+                    j = {k:v for k,v in job.items()}
+                    j["run-name"] = "pman%s-%d" % (name, counter)
+                    j["num-processes"] = num_processes
+                    j["state-directory-distribution"] = distro
+                    if distill:
+                        j["distill-epochs"] = distill
+                        j["distill-expert"] = "SimpleAgent"
+                    j["gamma"] = gamma
+                    j["lr"] = learning_rate
+                    train_ppo_job(j, j["run-name"], is_fb=True)
+                    counter += 1
+
+
+### This is a uniform66 test to see if we can run higher processor numbers (corresponding lower numsteps)
+job = {
+    "num-processes": 50, "how-train": "simple", 
     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
     "save-dir": os.path.join(directory, "models"),
     "config": "PommeFFAEasy-v0", "num-battles-eval": 100,
     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+    "state-directory": os.path.join(directory, "ffaeasy-10k-s100"),
 }
 counter = 0
-for learning_rate in [3e-4, 1e-4, 3e-5]:
+for learning_rate in [1e-4]:
     for gamma in [.99, .995]:
         for distill in [0, 3000]:
-            for anneal_bomb_penalty_epochs in [100, 1000, 5000]:
+            for (name, distro) in [("u66", "uniform66")]:
                 j = {k:v for k,v in job.items()}
-                j["run-name"] = "pmanABPE-%d" % counter
+                j["run-name"] = "pman%s-%d-hnp" % (name, counter)
+                j["state-directory-distribution"] = distro
                 if distill:
                     j["distill-epochs"] = distill
                     j["distill-expert"] = "SimpleAgent"
                 j["gamma"] = gamma
                 j["lr"] = learning_rate
-                j["anneal-bomb-penalty-epochs"] = anneal_bomb_penalty_epochs
                 train_ppo_job(j, j["run-name"], is_fb=True)
                 counter += 1
+
 
 ### These are homogenous jobs using the above uniform21 approach.
 # THESE HAVE NOT BEEN RUN UYET
