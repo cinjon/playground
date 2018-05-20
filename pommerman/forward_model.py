@@ -160,9 +160,10 @@ class ForwardModel(object):
         alive_agents = [agent for agent in curr_agents if agent.is_alive]
         desired_agent_positions = [agent.position for agent in alive_agents]
 
-        for agent_num, agent in enumerate(alive_agents):
-
+        for num_agent, agent in enumerate(alive_agents):
             position = agent.position
+            # We change the curr_board here as a safeguard. We will later
+            # update the agent's new position.
             curr_board[position] = constants.Item.Passage.value
             action = actions[agent.agent_id]
 
@@ -175,26 +176,20 @@ class ForwardModel(object):
                     if bomb:
                         curr_bombs.append(bomb)
             elif utility.is_valid_direction(curr_board, position, action):
-                desired_agent_positions[agent_num] = agent.get_next_position(
+                desired_agent_positions[num_agent] = agent.get_next_position(
                     action)
 
         # Figure out desired next position for bombs that move (fresh kicks are handled later)
         desired_bomb_positions = [bomb.position for bomb in curr_bombs]
-        items_and_walls = [
-            item.value for item in [
-                constants.Item.Rigid, constants.Item.Wood, constants.Item.
-                ExtraBomb, constants.Item.IncrRange, constants.Item.Kick
-            ]
-        ]
 
         for bomb_num, bomb in enumerate(curr_bombs):
             curr_board[bomb.position] = constants.Item.Passage.value
             if bomb.is_moving():
                 desired_position = utility.get_next_position(
                     bomb.position, bomb.moving_direction)
-                if utility.position_on_board(
-                        curr_board, desired_position) and not (
-                            curr_board[desired_position] in items_and_walls):
+                if utility.position_on_board(curr_board, desired_position) \
+                   and not utility.position_is_powerup(curr_board, desired_position) \
+                   and not utility.position_is_wall(curr_board, desired_position):
                     desired_bomb_positions[bomb_num] = desired_position
 
         # Deal with position switches:
@@ -203,7 +198,6 @@ class ForwardModel(object):
         # Agent <-> Bomb => revert Bomb only to previous position (for nice kicks)
 
         crossings = dict()
-
         def crossing(current, desired):
             current_x, current_y = current
             desired_x, desired_y = desired
@@ -213,40 +207,42 @@ class ForwardModel(object):
             assert current_x == desired_x
             return ('Y', current_x, min(current_y, desired_y))
 
-        for agent_num, agent in enumerate(alive_agents):
-            if desired_agent_positions[agent_num] != agent.position:
-                border = crossing(agent.position,
-                                  desired_agent_positions[agent_num])
+        for num_agent, agent in enumerate(alive_agents):
+            if desired_agent_positions[num_agent] != agent.position:
+                desired_position = desired_agent_positions[num_agent]
+                border = crossing(agent.position, desired_position)
                 if border in crossings:
-                    desired_agent_positions[agent_num] = agent.position
-                    num, isAgent = crossings[border]
-                    assert isAgent
-                    desired_agent_positions[num] = alive_agents[num].position
+                    # Crossed another agent - revert both to prior positions.
+                    desired_agent_positions[num_agent] = agent.position
+                    num_agent2, _ = crossings[border]
+                    desired_agent_positions[num_agent2] = alive_agents[num_agent2].position
                 else:
-                    crossings[border] = (agent_num, True)
+                    crossings[border] = (num_agent, True)
 
         for bomb_num, bomb in enumerate(curr_bombs):
             if desired_bomb_positions[bomb_num] != bomb.position:
-                border = crossing(bomb.position,
-                                  desired_bomb_positions[bomb_num])
+                desired_position = desired_bomb_positions[bomb_num]
+                border = crossing(bomb.position, desired_position)
                 if border in crossings:
+                    # Crossed - revert to prior position.
                     desired_bomb_positions[bomb_num] = bomb.position
                     num, isAgent = crossings[border]
                     if not isAgent:
+                        # Crossed bomb - revert that to prior position as well.
                         desired_bomb_positions[num] = curr_bombs[num].position
                 else:
                     crossings[border] = (bomb_num, False)
 
         # Deal with multiple agents or multible bomb collisions on desired next position
         # by resetting desired position to current position for everyone involved in the collision
-        agent_occupancy = np.zeros_like(curr_board)
-        bomb_occupancy = np.zeros_like(curr_board)
+        agent_occupancy = defaultdict(int)
+        bomb_occupancy = defaultdict(int)
 
         for desired_position in desired_agent_positions:
             agent_occupancy[desired_position] += 1
 
         for desired_position in desired_bomb_positions:
-            bomb_occupancy[position] += 1
+            bomb_occupancy[desired_position] += 1
 
         # Resolve two or more agents or two or more bombs trying
         # to occupy the same space.
@@ -254,12 +250,15 @@ class ForwardModel(object):
         change = True
         while change:
             change = False
-            for agent_num, agent in enumerate(alive_agents):
-                desired_position = desired_agent_positions[agent_num]
+            for num_agent, agent in enumerate(alive_agents):
+                desired_position = desired_agent_positions[num_agent]
                 curr_position = agent.position
+                # Either another agent is going to this position or more than
+                # one bomb is going to this position. In both scenarios, revert
+                # to the original position.
                 if desired_position != curr_position and \
                       (agent_occupancy[desired_position] > 1 or bomb_occupancy[desired_position] > 1):
-                    desired_agent_positions[agent_num] = curr_position
+                    desired_agent_positions[num_agent] = curr_position
                     agent_occupancy[curr_position] += 1
                     change = True
 
@@ -286,33 +285,34 @@ class ForwardModel(object):
                 # There was never an agent around to kick us or to collide with us
                 continue
 
-            agent_list = [(agent_num, agent) for (agent_num, agent) in enumerate(alive_agents) \
-                         if desired_position == desired_agent_positions[agent_num]]
+            agent_list = [(num_agent, agent) for (num_agent, agent) in enumerate(alive_agents) \
+                         if desired_position == desired_agent_positions[num_agent]]
             if not agent_list:
                 # Agents moved from collision
                 continue
 
-            # Should contain a single element
-            assert len(agent_list) == 1
-
-            agent_num, agent = agent_list[0]
+            # The agent_list should contain a single element at this point.
+            assert(len(agent_list) == 1)
+            num_agent, agent = agent_list[0]
 
             if desired_position == agent.position:
                 # Agent did not move
-                if desired_position == bomb.position:
-                    # Nobody moved - nothing to do
-                    continue
-                else:
-                    # Bomb moved - but agent did not -> bounce back bomb
+                if desired_position != bomb.position:
+                    # Bomb moved, but agent did not. The bomb should revert
+                    # and stop.
                     delayed_bomb_updates.append((bomb_num, bomb.position))
-                    continue
-
-            if not agent.can_kick:
-                # We really can't move the agent here or we risk having two agentss on a square
-                # in future iterations of the loop => push change for next stage instead
-                delayed_bomb_updates.append((bomb_num, bomb.position))
-                delayed_agent_updates.append((agent_num, agent.position))
                 continue
+
+            # NOTE: At this point, we have that the agent in question tried to
+            # move into this position.
+            if not agent.can_kick:
+                # If we move the agent at this point, then we risk having two
+                # agents on a square in future iterations of the loop. So we
+                # push this change to the next stage instead.
+                delayed_bomb_updates.append((bomb_num, bomb.position))
+                delayed_agent_updates.append((num_agent, agent.position))
+                continue
+
             # Agent moved and can kick - see if the target for the kick never had anyhing on it
             direction = constants.Action(actions[agent.agent_id])
             target_position = utility.get_next_position(desired_position,
@@ -320,33 +320,34 @@ class ForwardModel(object):
             if utility.position_on_board(curr_board, target_position) and \
                        agent_occupancy[target_position] == 0 and \
                        bomb_occupancy[target_position] == 0 and \
-                       curr_board[target_position] not in items_and_walls:
+                       not utility.position_is_powerup(curr_board, target_position) and \
+                       not utility.position_is_wall(curr_board, target_position):
                 # Ok to update bomb desired location as we won't iterate over it again here
                 # but we can not update bomb_occupancy on target position and need to check it again
                 delayed_bomb_updates.append((bomb_num, target_position))
-                bombs_kicked_by[bomb_num] = agent_num
+                bombs_kicked_by[bomb_num] = num_agent
                 bomb.moving_direction = direction
                 # Bombs may still collide and we then need to reverse bomb and agent ..
             else:
                 delayed_bomb_updates.append((bomb_num, bomb.position))
-                delayed_agent_updates.append((agent_num, agent.position))
+                delayed_agent_updates.append((num_agent, agent.position))
 
         for (bomb_num, bomb_position) in delayed_bomb_updates:
             desired_bomb_positions[bomb_num] = bomb_position
-            change = 1
+            change = True
 
-        for (agent_num, agent_position) in delayed_agent_updates:
-            desired_agent_positions[agent_num] = agent_position
-            change = 1
+        for (num_agent, agent_position) in delayed_agent_updates:
+            desired_agent_positions[num_agent] = agent_position
+            change = True
 
         while change:
             change = False
-            for agent_num, agent in enumerate(alive_agents):
-                desired_position = desired_agent_positions[agent_num]
+            for num_agent, agent in enumerate(alive_agents):
+                desired_position = desired_agent_positions[num_agent]
                 curr_position = agent.position
                 if desired_position != curr_position and \
                       (agent_occupancy[desired_position] > 1 or bomb_occupancy[desired_position] != 0):
-                    desired_agent_positions[agent_num] = curr_position
+                    desired_agent_positions[num_agent] = curr_position
                     agent_occupancy[curr_position] += 1
                     change = True
 
@@ -361,47 +362,51 @@ class ForwardModel(object):
                     desired_bomb_positions[bomb_num] = curr_position
                     bomb_occupancy[curr_position] += 1
                     if bomb_num in bombs_kicked_by:
-                        agent_num = agent_kicked_by[bomb_num]
-                        agent = live_agents[agent_num]
-                        desired_agent_positions[agent_num] = agent.position
+                        num_agent = agent_kicked_by[bomb_num]
+                        agent = live_agents[num_agent]
+                        desired_agent_positions[num_agent] = agent.position
                         agent_occupancy[curr_position] += 1
                         del agent_kicked[bomb_num]
                     change = True
 
         for bomb_num, bomb in enumerate(curr_bombs):
             if desired_bomb_positions[bomb_num] == bomb.position and \
-                  not bomb_num  in bombs_kicked_by:
-                bomb.moving_direction = None
+               not bomb_num in bombs_kicked_by:
+                # Bomb was not kicked this turn and its desired position is its
+                # current location. Stop it just in case it was moving before.
+                bomb.stop()
             else:
+                # Move bomb to the new position.
+                # NOTE: We already set the moving direction up above.
                 bomb.position = desired_bomb_positions[bomb_num]
 
-        for agent_num, agent in enumerate(alive_agents):
-            if desired_agent_positions[agent_num] != agent.position:
+        for num_agent, agent in enumerate(alive_agents):
+            if desired_agent_positions[num_agent] != agent.position:
                 agent.move(actions[agent.agent_id])
                 if utility.position_is_powerup(curr_board, agent.position):
                     agent.pick_up(
                         constants.Item(curr_board[agent.position]),
                         max_blast_strength=max_blast_strength)
-                    curr_board[agent.position] = constants.Item.Passage.value
+                    # TODO: I think that the below setting the Passage is redundant.
+                    # curr_board[agent.position] = constants.Item.Passage.value
 
         # Explode bombs.
-
         exploded_map = np.zeros_like(curr_board)
-        new_explosions = False
+        has_new_explosions = False
 
         for bomb in curr_bombs:
             bomb.tick()
             if bomb.exploded():
-                new_explosions = True
+                has_new_explosions = True
             elif curr_board[bomb.position] == constants.Item.Flames.value:
-                board.Fire()
-                new_explosions = True
+                bomb.fire()
+                has_new_explosions = True
 
-        while new_explosions:
+        # Chain the explosions.
+        while has_new_explosions:
             next_bombs = []
-            new_explosions = False
+            has_new_explosions = False
             for bomb in curr_bombs:
-
                 if not bomb.exploded():
                     next_bombs.append(bomb)
                     continue
@@ -419,23 +424,23 @@ class ForwardModel(object):
                             break
 
             curr_bombs = next_bombs
-
             for bomb in curr_bombs:
                 if bomb.in_range(exploded_map):
                     bomb.fire()
-                    new_explosions = True
+                    has_new_explosions = True
 
-        # Update the board
+        # Update the board's bombs.
         for bomb in curr_bombs:
             curr_board[bomb.position] = constants.Item.Bomb.value
 
+        # Update the board's flames.
         flame_positions = np.where(exploded_map == 1)
         for row, col in zip(flame_positions[0], flame_positions[1]):
             curr_flames.append(characters.Flame((row, col)))
         for flame in curr_flames:
             curr_board[flame.position] = constants.Item.Flames.value
 
-        # Kill agents if positioned on flames
+        # Kill agents on flames. Otherwise, update position on curr_board.
         for agent in alive_agents:
             if curr_board[agent.position] == constants.Item.Flames.value:
                 agent.die()
@@ -520,16 +525,19 @@ class ForwardModel(object):
     def get_info(done, rewards, game_type, agents):
         if game_type == constants.GameType.FFA:
             alive = [agent for agent in agents if agent.is_alive]
-            if done and len(alive) > 1:
-                return {
-                    'result': constants.Result.Tie,
-                }
-            elif done:
-                return {
-                    'result': constants.Result.Win,
-                    'winners': [num for num, reward in enumerate(rewards) \
-                                if reward == 1]
-                }
+            if done:
+                if len(alive) != 1:
+                    # Either we have more than 1 alive (reached max steps) or
+                    # we have 0 alive (last agents died at the same time).
+                    return {
+                        'result': constants.Result.Tie,
+                    }
+                else:
+                    return {
+                        'result': constants.Result.Win,
+                        'winners': [num for num, reward in enumerate(rewards) \
+                                    if reward == 1]
+                    }
             else:
                 return {
                     'result': constants.Result.Incomplete,

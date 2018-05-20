@@ -232,12 +232,21 @@ def position_is_powerup(board, position):
     return board[position] in item_values
 
 
+def position_is_wall(board, position):
+    return position_is_rigid(board, position) or \
+        position_is_wood(board, position)
+
+
 def position_is_passage(board, position):
     return _position_is_item(board, position, constants.Item.Passage)
 
 
 def position_is_rigid(board, position):
     return _position_is_item(board, position, constants.Item.Rigid)
+
+
+def position_is_wood(board, position):
+    return _position_is_item(board, position, constants.Item.Wood)
 
 
 def position_is_agent(board, position):
