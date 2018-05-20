@@ -52,7 +52,7 @@ def worker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'set_bomb_penalty_lambda':
             remote.send((env.set_bomb_penalty_lambda(data)))
         elif cmd == 'set_uniform_v':
-            remote.send((env.set_uniform_v, data))
+            remote.send((env.set_uniform_v(data)))
         else:
             raise NotImplementedError
 

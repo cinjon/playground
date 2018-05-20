@@ -113,9 +113,6 @@ class Pomme(gym.Env):
     def set_state_directory(self, directory, distribution, uniform_v=33):
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
-        if distribution == 'uniformAdapt':
-            # Defaults to 33.
-            self.set_uniform_v(uniform_v)
         self._applicable_games = []
         if self._init_game_state_directory:
             for directory in os.listdir(self._init_game_state_directory):
@@ -243,6 +240,10 @@ class Pomme(gym.Env):
                     range(max(0, step_count - 67), step_count - 1)
                 )
             elif self._game_state_distribution == 'uniformAdapt':
+                step = random.choice(
+                    range(max(0, step_count - self._uniform_v), step_count - 1)
+                )
+            elif self._game_state_distribution.startswith('uniformSchedule'):
                 step = random.choice(
                     range(max(0, step_count - self._uniform_v), step_count - 1)
                 )

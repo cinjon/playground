@@ -109,6 +109,8 @@ def get_args():
                         help='comma separated paths to the saved models.')
     parser.add_argument('--game-state-file', type=str, default='',
                         help='a game state file from which to load.')
+    parser.add_argument('--uniform-v-factor', type=float, default=1.5,
+                        help='a factor for which to multiple the uniform_v')
     parser.add_argument('--state-directory', type=str, default='',
                         help='a game state directory from which to load.')
     parser.add_argument('--state-directory-distribution', type=str,

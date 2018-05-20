@@ -107,8 +107,16 @@ def train():
     running_success_rate = []
     if args.state_directory_distribution == 'uniformAdapt':
         uniform_v = 33
+        uniform_v_factor = args.uniform_v_factor
         running_success_rate_maxlen = 40
         running_success_rate = deque([], maxlen=running_success_rate_maxlen)
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformScheduleA':
+        uniform_v = 33
+        uniform_v_factor = 2
+        uniform_v_incr = 3000
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)        
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
@@ -636,8 +644,6 @@ def train():
             action_all = utils.torch_numpy_stack(action_agents)
             action_log_prob_all = utils.torch_numpy_stack(
                 action_log_prob_agents)
-            # probs_distr = utils.torch_numpy_stack(probs_distr)
-            # print("PROBS DIST: ", probs_distr.shape, action_log_prob_all.shape)
             if do_distill:
                 if distill_expert == 'DaggerAgent':
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
@@ -846,7 +852,8 @@ def train():
                 running_success_rate.append(rate_)
                 if len(running_success_rate) == running_success_rate_maxlen \
                    and np.mean(running_success_rate) > .8:
-                    uniform_v *= args.uniform_v_factor
+                    print("Updating Mean Success Rate: ", uniform_v, running_success_rate)
+                    uniform_v = int(uniform_v * uniform_v_factor)
                     envs.set_uniform_v(uniform_v)
                     running_success_rate = deque(
                         [], maxlen=running_success_rate_maxlen)
@@ -876,6 +883,12 @@ def train():
             action_choices = []
             action_probs = [[] for _ in range(6)]
 
+        if args.state_directory_distribution.startswith('uniformSchedule') and \
+           num_epoch - uniform_v_incr >= uniform_v_prior:
+            uniform_v_prior = num_epoch
+            uniform_v = int(uniform_v * uniform_v_factor)
+            envs.set_uniform_v(uniform_v)
+            
     writer.close()
 
 
