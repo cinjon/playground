@@ -317,19 +317,19 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                           total_steps)
 
     writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
-    writer.add_scalar('bomb_penalty_lambda', bomb_penalty_lambda, num_epoch)
+    # writer.add_scalar('bomb_penalty_lambda', bomb_penalty_lambda, num_epoch)
     
-    if array_stats.get('rank'):
-        writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
-                          total_steps)
+    # if array_stats.get('rank'):
+    #     writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
+    #                       total_steps)
 
-    if array_stats.get('dead'):
-        writer.add_scalar('mean_dying_step_step', np.mean(array_stats['dead']),
-                          total_steps)
-        writer.add_scalar(
-            'percent_dying_per_episode_step',
-            1.0 * len(array_stats['dead']) / running_num_episodes,
-            total_steps)
+    # if array_stats.get('dead'):
+    #     writer.add_scalar('mean_dying_step_step', np.mean(array_stats['dead']),
+    #                       total_steps)
+    #     writer.add_scalar(
+    #         'percent_dying_per_episode_step',
+    #         1.0 * len(array_stats['dead']) / running_num_episodes,
+    #         total_steps)
 
     writer.add_histogram('action_choices_epoch', action_choices, num_epoch, bins='doane')
     writer.add_histogram('action_choices_steps', action_choices, total_steps, bins='doane')
