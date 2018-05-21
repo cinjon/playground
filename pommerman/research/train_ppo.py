@@ -895,8 +895,10 @@ def train():
             action_choices = []
             action_probs = [[] for _ in range(6)]
 
-        if args.state_directory_distribution.startswith('uniformSchedule') and \
-           num_epoch - uniform_v_incr >= uniform_v_prior:
+        if any([
+                args.state_directory_distribution.startswith('uniformSchedul'),
+                args.state_directory_distribution.startswith('uniformBounds'),
+                ]) and num_epoch - uniform_v_incr >= uniform_v_prior:
             uniform_v_prior = num_epoch
             uniform_v = int(uniform_v * uniform_v_factor)
             envs.set_uniform_v(uniform_v)
