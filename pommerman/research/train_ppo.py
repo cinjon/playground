@@ -108,7 +108,7 @@ def train():
     if args.state_directory_distribution == 'uniformAdapt':
         uniform_v = 33
         uniform_v_factor = args.uniform_v_factor
-        running_success_rate_maxlen = 40
+        running_success_rate_maxlen = 10 # corresponds to roughly 200 epochs of FFA.
         running_success_rate = deque([], maxlen=running_success_rate_maxlen)
         envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'uniformScheduleA':
