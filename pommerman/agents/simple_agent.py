@@ -52,10 +52,6 @@ class SimpleAgent(BaseAgent):
                 })
             return ret
 
-        if obs['can_kick'] and random.random() < .10:
-            print("RADDN")
-            return random.choice(range(6))
-
         my_position = tuple(obs['position'])
         board = np.array(obs['board'])
         with utility.Timer() as t:
