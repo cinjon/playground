@@ -509,10 +509,12 @@ class ForwardModel(object):
             'position', 'blast_strength', 'can_kick', 'teammate', 'ammo',
             'enemies', 'is_alive'
         ]
+        alive_agents = [utility.agent_value(agent.agent_id)
+                        for agent in agents if agent.is_alive]
 
         observations = []
         for agent in agents:
-            agent_obs = {}
+            agent_obs = {'alive': alive_agents}
             board = curr_board
             if is_partially_observable:
                 board = board.copy()
