@@ -117,6 +117,18 @@ def train():
         uniform_v_incr = 3000
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)        
+    elif args.state_directory_distribution == 'uniformBoundsA':
+        uniform_v = 33
+        uniform_v_factor = 2
+        uniform_v_incr = 3500
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsB':
+        uniform_v = 33
+        uniform_v_factor = 2
+        uniform_v_incr = 4500
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target

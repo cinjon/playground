@@ -247,6 +247,16 @@ class Pomme(gym.Env):
                 step = random.choice(
                     range(max(0, step_count - self._uniform_v), step_count - 1)
                 )
+            elif self._game_state_distribution.startswith('uniformBounds'):
+                # (0, 32), (24, 64), (56, 128), (120, 256), ...
+                lb = self._uniform_v
+                if self._uniform_v < 40:
+                    ub = 1
+                else:
+                    ub = int(lb / 2) - 8
+                step = random.choice(
+                    range(max(0, step_count - lb), step_count - ub)
+                )
             elif self._game_state_distribution == 'overfit-20max':
                 # Pick a game state with the distribution probabilities:
                 # step_count - 2: 20%
