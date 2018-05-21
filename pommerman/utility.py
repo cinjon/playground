@@ -132,7 +132,7 @@ def make_board(size, num_rigid=0, num_wood=0):
     return board
 
 
-def make_items(board, num_items, use_skull=True):
+def make_items(board, num_items):
     item_positions = {}
     while num_items > 0:
         row = random.randint(0, len(board) - 1)
@@ -210,11 +210,8 @@ def _position_is_item(board, position, item):
     return board[position] == item.value
 
 
-def position_is_powerup(board, position, use_skull=True):
-    if use_skull:
-        powerups = [constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick, constants.Item.Skull]
-    else:
-        powerups = [constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick]
+def position_is_powerup(board, position):
+    powerups = [constants.Item.ExtraBomb, constants.Item.IncrRange, constants.Item.Kick]
 
 
 def position_is_flames(board, position):

@@ -69,7 +69,6 @@ def ffa_v0_easy_env():
         'num_items': constants.NUM_ITEMS_EASY,
         'max_steps': constants.MAX_STEPS_EASY,
         'render_fps': constants.RENDER_FPS,
-        'use_skull': False,
     }
     agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
                             blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
@@ -90,7 +89,6 @@ def ffa_v0_easy_fast_env():
         'num_items': constants.NUM_ITEMS_EASY,
         'max_steps': constants.MAX_STEPS_EASY,
         'render_fps': 2000,
-        'use_skull': False,
     }
     agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
                               blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
@@ -130,7 +128,6 @@ def ffa_v3_easy_env():
         'num_items': constants.NUM_ITEMS_EASY,
         'max_steps': constants.MAX_STEPS_EASY,
         'render_fps': constants.RENDER_FPS,
-        'use_skull': False,
     }
     agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
                             blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
@@ -250,7 +247,6 @@ def ffa_v0_8x8_env():
         'num_items': constants.NUM_ITEMS_8,
         'max_steps': constants.MAX_STEPS_8,
         'render_fps': constants.RENDER_FPS,
-        'use_skull': False,
     }
     agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_8,
                               blast_strength=constants.DEFAULT_BLAST_STRENGTH_8)
@@ -290,7 +286,6 @@ def team_v0_easy_env():
         'num_items': constants.NUM_ITEMS_EASY,
         'max_steps': constants.MAX_STEPS_EASY,
         'render_fps': constants.RENDER_FPS,
-        'use_skull': False,
     }
     agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
                             blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
@@ -386,7 +381,6 @@ def team_v3_easy_env():
         'num_items': constants.NUM_ITEMS_EASY,
         'max_steps': constants.MAX_STEPS_EASY,
         'render_fps': constants.RENDER_FPS,
-        'use_skull': False,
     }
     agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
                             blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)

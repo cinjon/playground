@@ -380,7 +380,6 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
     np.random.seed(seed)
     random.seed(seed)
 
-
     envs = env_helpers.make_eval_envs(
         config, args.how_train, seed, agents, training_agent_ids,
         acting_agent_ids, args.num_stack, num_processes,

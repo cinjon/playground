@@ -51,7 +51,6 @@ class Pomme(gym.Env):
         self._viewer = None
         self._is_partially_observable = is_partially_observable
         self._default_bomb_life = default_bomb_life
-        self._use_skull = use_skull
         self._bomb_penalty_lambda = 1.0
 
         self.training_agents = []
@@ -163,7 +162,7 @@ class Pomme(gym.Env):
                                          self._num_wood)
 
     def make_items(self):
-        self._items = utility.make_items(self._board, self._num_items, self._use_skull)
+        self._items = utility.make_items(self._board, self._num_items)
 
     def clear_agent_obs(self):
         for agent in self._agents:
