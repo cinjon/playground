@@ -52,7 +52,8 @@ class SimpleAgent(BaseAgent):
                 })
             return ret
 
-        if random.random() < .05:
+        if obs['can_kick'] and random.random() < .10:
+            print("RADDN")
             return random.choice(range(6))
 
         my_position = tuple(obs['position'])
