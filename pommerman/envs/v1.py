@@ -1,31 +1,37 @@
 """The Pommerman v1 Environment, which implements a collapsing board.
 
-This environment is the same as v0.py, except that the board will collapse according to a uniform schedule
-beginning at the kwarg first_collapse.
+This environment is the same as v0.py, except that the board will collapse
+according to a uniform schedule beginning at the kwarg first_collapse.
 
 The collapsing works in the following manner:
-1. Set the collapsing schedule. This is uniform starting at step first_collapse and ending at step max_steps.
-2. Number the rings on the board from 0 to board_size-1 s.t. the outermost ring is 0 and the innermost ring is board_size-1.
-   The cells in the former are [[0, i], [i, 0], [board_size-1, i], [i, board_size-1] for i in [0, board_size-1]] and the latter is, assuming an odd board_size, [[(board_size-1)/2, (board_size-1)/2]].
-3. When we are at a step in the collapsing schedule, we take the matching ring and turn it into rigid walls.
-   This has the effect of destroying any items, bombs (which don't go off), and agents in those squares.
+1. Set the collapsing schedule. This is uniform starting at step first_collapse
+   and ending at step max_steps.
+2. Number the rings on the board from 0 to board_size-1 s.t. the outermost ring
+   is 0 and the innermost ring is board_size-1. The cells in the former are
+   [[0, i], [i, 0], [board_size-1, i], [i, board_size-1] for i in
+   [0, board_size-1]] and the latter is, assuming an odd board_size,
+   [[(board_size-1)/2, (board_size-1)/2]].
+3. When we are at a step in the collapsing schedule, we take the matching ring
+   and turn it into rigid walls. This has the effect of destroying any items,
+   bombs (which don't go off), and agents in those squares.
 """
 from .. import constants
 from .. import utility
 from . import v0
 
+
 class Pomme(v0.Pomme):
     metadata = {
         'render.modes': ['human', 'rgb_array', 'rgb_pixel'],
-        'video.frames_per_second' : constants.RENDER_FPS
+        'video.frames_per_second': constants.RENDER_FPS
     }
 
     def __init__(self, *args, **kwargs):
         super(*args, **kwargs)
         first_collapse = kwargs.get('first_collapse')
-        self.collapses = list(range(
-            first_collapse, self._max_steps, int((self._max_steps - first_collapse)/self._board_size)
-        ))
+        self.collapses = list(
+            range(first_collapse, self._max_steps,
+                  int((self._max_steps - first_collapse) / self._board_size)))
 
     def _collapse_board(self, ring):
         """Collapses the board at a certain ring radius.

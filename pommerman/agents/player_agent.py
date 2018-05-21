@@ -33,11 +33,12 @@ from time import time
 from . import BaseAgent
 from .. import characters
 
-
 REPEAT_DELAY = 0.2  # seconds
 REPEAT_INTERVAL = 0.1
 
+
 class Keystate:
+
     def __init__(self):
         self.keydown_time = time()
         self.last_repeat_time = None
@@ -92,7 +93,8 @@ class PlayerAgent(BaseAgent):
             }
         }
 
-        assert agent_control in CONTROLS, "Unknown control: {}".format(agent_control)
+        assert agent_control in CONTROLS, "Unknown control: {}".format(
+            agent_control)
         self._key2act = CONTROLS[agent_control]
 
         self._action_q = []

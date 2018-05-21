@@ -31,10 +31,11 @@
     * Increase Range Power-Up = 7: increases the blast_strength
     * Can Kick Power-Up = 8: can kick bombs by touching them.
     * Skull Power-Up = 9: randomly either reduces ammo, (capped at 1), reduces blast_strength (capped at 2), or increases blast_strength by 2.
-    * Agent0 = 10
-    * Agent1 = 11
-    * Agent2 = 12
-    * Agent3 = 13
+    * AgentDummy = 10
+    * Agent0 = 11
+    * Agent1 = 12
+    * Agent2 = 13
+    * Agent3 = 14
   * Position: A tuple of Ints of (X position, Y position)
   * Ammo: An Int representing the amount of ammo this agent has. 
   * Blast Strength: An Int representing the blast strength of this agent's bombs.

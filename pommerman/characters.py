@@ -26,13 +26,19 @@ class Bomber(object):
         self.agent_id = agent_id
         if self._game_type == constants.GameType.FFA:
             self.teammate = constants.Item.AgentDummy
-            self.enemies = [getattr(constants.Item, 'Agent%d' % id_)
-                            for id_ in range(4) if id_ != agent_id]
+            self.enemies = [
+                getattr(constants.Item, 'Agent%d' % id_)
+                for id_ in range(4)
+                if id_ != agent_id
+            ]
         else:
             teammate_id = (agent_id + 2) % 4
             self.teammate = getattr(constants.Item, 'Agent%d' % teammate_id)
-            self.enemies = [getattr(constants.Item, 'Agent%d' % id_)
-                            for id_ in range(4) if id_ != agent_id and id_ != teammate_id]
+            self.enemies = [
+                getattr(constants.Item, 'Agent%d' % id_)
+                for id_ in range(4)
+                if id_ != agent_id and id_ != teammate_id
+            ]
             self.enemies.append(constants.Item.AgentDummy)
 
     def maybe_lay_bomb(self):
@@ -71,22 +77,14 @@ class Bomber(object):
         self.blast_strength = blast_strength or self.init_blast_strength
         self.can_kick = can_kick
 
-    def pick_up(self, item):
+    def pick_up(self, item, max_blast_strength):
         if item == constants.Item.ExtraBomb:
             self.ammo = min(self.ammo + 1, 10)
         elif item == constants.Item.IncrRange:
-            self.blast_strength = min(self.blast_strength + 1, 10)
+            self.blast_strength = min(self.blast_strength + 1,
+                                      max_blast_strength)
         elif item == constants.Item.Kick:
             self.can_kick = True
-        elif item == constants.Item.Skull:
-            rand = random.random()
-            if rand < .33:
-                self.blast_strength = max(2, self.blast_strength - 1)
-            elif rand < .66:
-                self.ammo = max(1, self.ammo - 1)
-            else:
-                self.blast_strength += 2
-                self.blast_strength = min(self.blast_strength, 10)
 
     def to_json(self):
         return {
@@ -103,7 +101,12 @@ class Bomber(object):
 class Bomb(object):
     """Container for the Bomb object."""
 
-    def __init__(self, bomber, position, life, blast_strength, moving_direction=None):
+    def __init__(self,
+                 bomber,
+                 position,
+                 life,
+                 blast_strength,
+                 moving_direction=None):
         self.bomber = bomber
         self.position = position
         self.life = life
@@ -119,7 +122,8 @@ class Bomb(object):
 
     def move(self):
         if self.is_moving():
-            self.position = utility.get_next_position(self.position, self.moving_direction)
+            self.position = utility.get_next_position(self.position,
+                                                      self.moving_direction)
 
     def stop(self):
         self.moving_direction = None

@@ -15,21 +15,41 @@ from . import envs
 from . import characters
 
 
-def ffa_v0_env():
-    """Start up a FFA config with the default settings."""
+def ffa_competition_env():
+    """Start up a FFA config with the competition settings."""
     env = envs.v0.Pomme
     game_type = constants.GameType.FFA
     env_entry_point = 'pommerman.envs.v0:Pomme'
-    env_id = 'PommeFFA-v0'
+    env_id = 'PommeFFACompetition-v0'
     env_kwargs = {
         'game_type': game_type,
         'board_size': constants.BOARD_SIZE,
-        'agent_view_size': constants.AGENT_VIEW_SIZE,
         'num_rigid': constants.NUM_RIGID,
         'num_wood': constants.NUM_WOOD,
         'num_items': constants.NUM_ITEMS,
         'max_steps': constants.MAX_STEPS,
         'render_fps': constants.RENDER_FPS,
+    }
+    agent = characters.Bomber
+    return locals()
+
+
+def team_competition_env():
+    """Start up a Team config with the competition settings."""
+    env = envs.v0.Pomme
+    game_type = constants.GameType.Team
+    env_entry_point = 'pommerman.envs.v0:Pomme'
+    env_id = 'PommeTeamCompetition-v0'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.BOARD_SIZE,
+        'num_rigid': constants.NUM_RIGID,
+        'num_wood': constants.NUM_WOOD,
+        'num_items': constants.NUM_ITEMS,
+        'max_steps': constants.MAX_STEPS,
+        'render_fps': constants.RENDER_FPS,
+        'agent_view_size': constants.AGENT_VIEW_SIZE,
+        'is_partially_observable': True,
     }
     agent = characters.Bomber
     return locals()
@@ -166,7 +186,6 @@ def ffa_v0_fast_env():
     env_kwargs = {
         'game_type': game_type,
         'board_size': constants.BOARD_SIZE,
-        'agent_view_size': constants.AGENT_VIEW_SIZE,
         'num_rigid': constants.NUM_RIGID,
         'num_wood': constants.NUM_WOOD,
         'num_items': constants.NUM_ITEMS,
@@ -205,7 +224,6 @@ def ffa_v1_env():
     env_kwargs = {
         'game_type': game_type,
         'board_size': constants.BOARD_SIZE,
-        'agent_view_size': constants.AGENT_VIEW_SIZE,
         'num_rigid': constants.NUM_RIGID,
         'num_wood': constants.NUM_WOOD,
         'num_items': constants.NUM_ITEMS,
@@ -248,7 +266,6 @@ def team_v0_env():
     env_kwargs = {
         'game_type': game_type,
         'board_size': constants.BOARD_SIZE,
-        'agent_view_size': constants.AGENT_VIEW_SIZE,
         'num_rigid': constants.NUM_RIGID,
         'num_wood': constants.NUM_WOOD,
         'num_items': constants.NUM_ITEMS,
@@ -288,7 +305,6 @@ def team_v0_fast_env():
     env_kwargs = {
         'game_type': game_type,
         'board_size': constants.BOARD_SIZE,
-        'agent_view_size': constants.AGENT_VIEW_SIZE,
         'num_rigid': constants.NUM_RIGID,
         'num_wood': constants.NUM_WOOD,
         'num_items': constants.NUM_ITEMS,

@@ -12,6 +12,7 @@ from .. import characters
 
 class DockerAgent(BaseAgent):
     """The Docker Agent that Connects to a Docker container where the character runs."""
+
     def __init__(self,
                  docker_image,
                  port,
@@ -28,7 +29,8 @@ class DockerAgent(BaseAgent):
         self._container = None
         self._env_vars = env_vars or {}
 
-        container_thread = threading.Thread(target=self._run_container, daemon=True)
+        container_thread = threading.Thread(
+            target=self._run_container, daemon=True)
         container_thread.start()
         self._wait_for_docker(self._server, self._port, 32)
 
@@ -44,8 +46,11 @@ class DockerAgent(BaseAgent):
             env_vars[env_key] = value
 
         self._container = self._docker_client.containers.run(
-            self._docker_image, detach=True, auto_remove=True,
-            ports={10080: self._port}, environment=env_vars)
+            self._docker_image,
+            detach=True,
+            auto_remove=True,
+            ports={10080: self._port},
+            environment=env_vars)
 
     @staticmethod
     def _wait_for_docker(server, port, timeout=None):
@@ -68,16 +73,17 @@ class DockerAgent(BaseAgent):
                 if timeout and end < now:
                     return False
 
-                request_url = '%s:%s/ping' % (server, port) # 'http://localhost', 83
+                request_url = '%s:%s/ping' % (server, port
+                                             )  # 'http://localhost', 83
                 req = requests.get(request_url)
                 return True
             except requests.exceptions.ConnectionError as e:
                 print("ConnectionError: ", e)
-                backoff = min(max_backoff, backoff*2)
+                backoff = min(max_backoff, backoff * 2)
                 time.sleep(backoff)
             except requests.exceptions.HTTPError as e:
                 print("HTTPError: ", e)
-                backoff = min(max_backoff, backoff*2)
+                backoff = min(max_backoff, backoff * 2)
                 time.sleep(backoff)
             except docker.errors.APIError as e:
                 print("This is a Docker error. Please fix: ", e)
@@ -87,15 +93,20 @@ class DockerAgent(BaseAgent):
         obs_serialized = json.dumps(obs, cls=utility.PommermanJSONEncoder)
         request_url = "http://localhost:{}/action".format(self._port)
         try:
-            req = requests.post(request_url, timeout=0.25, json={
-                "obs": obs_serialized,
-                "action_space": json.dumps(action_space, cls=utility.PommermanJSONEncoder)
-            })
+            req = requests.post(
+                request_url,
+                timeout=0.25,
+                json={
+                    "obs":
+                    obs_serialized,
+                    "action_space":
+                    json.dumps(action_space, cls=utility.PommermanJSONEncoder)
+                })
             action = req.json()['action']
         except requests.exceptions.Timeout as e:
             print('Timeout!')
             # TODO: Fix this. It's ugly.
-            action = [0]*len(action_space.shape)
+            action = [0] * len(action_space.shape)
             if len(action) == 1:
                 action = action[0]
         return action
