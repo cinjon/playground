@@ -27,10 +27,6 @@ from .. import utility
 import pommerman
 
 
-time_avg = defaultdict(float)
-time_max = defaultdict(float)
-time_cnt = defaultdict(int)
-
 def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
         acting_agent_ids=None, training_agents=None, curriculum=False):
     """Run the game a number of times.
@@ -52,7 +48,6 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
     game_state_file = args.game_state_file
     num_times = num_times or int(args.num_times)
     render_mode = args.render_mode
-
     # TODO: After https://github.com/MultiAgentLearning/playground/pull/40
     #       this is still missing the docker_env_dict parsing for the agents.
 
@@ -70,6 +65,7 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
     env.set_training_agents(training_agent_ids)
     if seed is None:
         seed = random.randint(0, 1e6)
+    seed = random.randint(0, 1e6)
     env.seed(seed)
     np.random.seed(seed)
     random.seed(seed)
@@ -87,19 +83,7 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
     if record_json_dir:
         os.makedirs(record_json_dir)
 
-    def _update_times(t, key):
-        avg = time_avg[key]
-        cnt = time_cnt[key]
-        new_avg = (float(avg)*float(cnt) + float(t))
-        new_avg /= float(cnt + 1)
-        time_cnt[key] = cnt + 1
-        time_avg[key] = new_avg
-        time_max[key] = max(time_max[key], float(t))
-
     def _run(seed, acting_agent_ids, record_pngs_dir=None, record_json_dir=None):
-        global time_avg
-        global time_max
-        global time_cnt
         obs = env.reset()
         steps = 0
         done = False
@@ -111,40 +95,15 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
                            record_json_dir=record_json_dir,
                            mode=render_mode)
             actions = env.act(obs, acting_agent_ids=acting_agent_ids)
+                    
             for agent_id in acting_agent_ids:
-                with utility.Timer() as t:
-                    agent_obs = obs[agent_id]
-                    action = agents[agent_id].act(agent_obs, env.action_space)
-                _update_times(t.interval,
-                              '%s-%d' % (str(type(agents[agent_id])), agent_id))
+                agent_obs = obs[agent_id]
+                action = agents[agent_id].act(agent_obs, env.action_space)
                 actions.insert(agent_id, action)
-
+                
             obs, reward, done, info = env.step(actions)
             if type(done) == list:
                 done = all(done)
-
-            if done:
-                print("Agent Run Times:")
-                total = 0.0
-                for k, v in env.model._time_avg.items():
-                    time_avg[k] += v
-                for k, v in env.model._time_cnt.items():
-                    time_cnt[k] += v
-                for k, v in env.model._time_max.items():
-                    time_max[k] = max(time_max[k], v)
-
-                for key in sorted(time_avg.keys()):
-                    avg = time_avg[key]
-                    cnt = time_cnt[key]
-                    mx  = time_max[key]
-                    print("\t%s: %.4f (%d) --> %.4f, %.4f" % (key, avg, cnt,
-                                                              avg * cnt, mx))
-                    total += avg * cnt
-                print("\tTotal: %.4f" % total)
-                env.model.reset_times()
-                time_avg = defaultdict(float)
-                time_max = defaultdict(float)
-                time_cnt = defaultdict(int)
 
         for agent in agents:
             agent.episode_end(reward[agent.agent_id])
@@ -165,11 +124,6 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
     times = []
     for i in range(num_times):
         start = time.time()
-        if seed is None:
-            seed = random.randint(0, 1e6)
-        np.random.seed(seed)
-        random.seed(seed)
-
         record_pngs_dir_ = record_pngs_dir + '/%d' % (i+1) \
                            if record_pngs_dir else None
         record_json_dir_ = record_json_dir + '/%d' % (i+1) \
