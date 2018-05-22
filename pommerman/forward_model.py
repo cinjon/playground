@@ -176,7 +176,7 @@ class ForwardModel(object):
 
         # Step the living agents and moving bombs.
         # If two agents try to go to the same spot, they should bounce back to
-        # their previous spots. This is a little complicated because what if
+        # their previous spots. This is complicated with one example being when
         # there are three agents all in a row. If the one in the middle tries
         # to go to the left and bounces with the one on the left, and then the
         # one on the right tried to go to the middle one's position, she should
@@ -207,7 +207,7 @@ class ForwardModel(object):
                 desired_agent_positions[num_agent] = agent.get_next_position(
                     action)
 
-        # Figure out desired next position for bombs that move (fresh kicks are handled later)
+        # Gather desired next positions for moving bombs. Handle kicks later.
         desired_bomb_positions = [bomb.position for bomb in curr_bombs]
 
         for bomb_num, bomb in enumerate(curr_bombs):
@@ -220,11 +220,10 @@ class ForwardModel(object):
                    and not utility.position_is_wall(curr_board, desired_position):
                     desired_bomb_positions[bomb_num] = desired_position
 
-        # Deal with position switches:
-        # Agent <-> Agent => revert to previous position
-        # Bomb <-> Bomb => revert to previous position
-        # Agent <-> Bomb => revert Bomb only to previous position (for nice kicks)
-
+        # Position switches:
+        # Agent <-> Agent => revert both to previous position.
+        # Bomb <-> Bomb => revert both to previous position.
+        # Agent <-> Bomb => revert Bomb to previous position.
         crossings = dict()
         def crossing(current, desired):
             current_x, current_y = current
@@ -243,7 +242,8 @@ class ForwardModel(object):
                     # Crossed another agent - revert both to prior positions.
                     desired_agent_positions[num_agent] = agent.position
                     num_agent2, _ = crossings[border]
-                    desired_agent_positions[num_agent2] = alive_agents[num_agent2].position
+                    desired_agent_positions[num_agent2] = alive_agents[
+                        num_agent2].position
                 else:
                     crossings[border] = (num_agent, True)
 
@@ -261,20 +261,17 @@ class ForwardModel(object):
                 else:
                     crossings[border] = (bomb_num, False)
 
-        # Deal with multiple agents or multible bomb collisions on desired next position
-        # by resetting desired position to current position for everyone involved in the collision
+        # Deal with multiple agents or multiple bomb collisions on desired next
+        # position by resetting desired position to current position for
+        # everyone involved in the collision.
         agent_occupancy = defaultdict(int)
         bomb_occupancy = defaultdict(int)
-
         for desired_position in desired_agent_positions:
             agent_occupancy[desired_position] += 1
-
         for desired_position in desired_bomb_positions:
             bomb_occupancy[desired_position] += 1
 
-        # Resolve two or more agents or two or more bombs trying
-        # to occupy the same space.
-        # We will deal with an agent and a bomb trying to share space later
+        # Resolve >=2 agents or >=2 bombs trying to occupy the same space.
         change = True
         while change:
             change = False
@@ -299,28 +296,29 @@ class ForwardModel(object):
                     bomb_occupancy[curr_position] += 1
                     change = True
 
-        # Deal with kicks
-
+        # Handle kicks.
         bombs_kicked_by = dict()
         delayed_bomb_updates = []
         delayed_agent_updates = []
 
-        # Loop through all bombs to see if they need a good kicking or cause collisions with an agent
+        # Loop through all bombs to see if they need a good kicking or cause
+        # collisions with an agent.
         for bomb_num, bomb in enumerate(curr_bombs):
             desired_position = desired_bomb_positions[bomb_num]
 
             if agent_occupancy[desired_position] == 0:
-                # There was never an agent around to kick us or to collide with us
+                # There was never an agent around to kick or collide.
                 continue
 
-            agent_list = [(num_agent, agent) for (num_agent, agent) in enumerate(alive_agents) \
-                         if desired_position == desired_agent_positions[num_agent]]
+            agent_list = [
+                (num_agent, agent) for (num_agent, agent) in enumerate(alive_agents) \
+                if desired_position == desired_agent_positions[num_agent]]
             if not agent_list:
-                # Agents moved from collision
+                # Agents moved from collision.
                 continue
 
             # The agent_list should contain a single element at this point.
-            assert(len(agent_list) == 1)
+            assert (len(agent_list) == 1)
             num_agent, agent = agent_list[0]
 
             if desired_position == agent.position:
@@ -382,9 +380,10 @@ class ForwardModel(object):
             for bomb_num, bomb in enumerate(curr_bombs):
                 desired_position = desired_bomb_positions[bomb_num]
                 curr_position = bomb.position
-                # bomb may be a boomerang - kicked back to the original location
-                # it moved - and if it is blocked now it can't be kicked and the
-                # agent needs to move back to stay consistent with other movements
+                # This bomb may be a boomerang, i.e. it was kicked back to the
+                # original location it moved from. If it is blocked now, it
+                # can't be kicked and the agent needs to move back to stay
+                # consistent with other movements.
                 if  (desired_position != curr_position or (bomb_num in bombs_kicked_by )) and \
                       (bomb_occupancy[desired_position] > 1 or agent_occupancy[desired_position] > 1):
                     desired_bomb_positions[bomb_num] = curr_position
@@ -393,7 +392,7 @@ class ForwardModel(object):
                         num_agent = agent_kicked_by[bomb_num]
                         agent = live_agents[num_agent]
                         desired_agent_positions[num_agent] = agent.position
-                        agent_occupancy[curr_position] += 1
+                        agent_occupancy[agent.position] += 1
                         del agent_kicked[bomb_num]
                     change = True
 
@@ -415,8 +414,6 @@ class ForwardModel(object):
                     agent.pick_up(
                         constants.Item(curr_board[agent.position]),
                         max_blast_strength=max_blast_strength)
-                    # TODO: I think that the below setting the Passage is redundant.
-                    # curr_board[agent.position] = constants.Item.Passage.value
 
         # Explode bombs.
         exploded_map = np.zeros_like(curr_board)

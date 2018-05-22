@@ -41,7 +41,6 @@ class SimpleAgent(BaseAgent):
         self._time_max[key] = max(self._time_max[key], float(t))
 
     def act(self, obs, action_space):
-
         def convert_bombs(bomb_map):
             ret = []
             locations = np.where(bomb_map > 0)
