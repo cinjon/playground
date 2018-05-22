@@ -560,8 +560,8 @@ def train():
                     # this counts as success only the times when the
                     # training agent wins the game and is alive at the end
                     success_rate_alive += sum([int(s) for s in \
-                                            ((alive_win == True) &
-                                            (game_ended == True))])
+                                               ((alive_win == True) &
+                                                (game_ended == True))])
 
                 # NOTE: masks_kl is 0 if the agent die (game may still be going)
                 # this must be executed after adjusting done to contain only
@@ -578,8 +578,8 @@ def train():
                                             for ended_ in game_ended])
                 terminal_reward += reward[game_ended == True].sum()
                 success_rate += sum([int(s) for s in \
-                                    ((game_ended == True) &
-                                    (win == True))])
+                                     ((game_ended == True) &
+                                      (win == True))])
 
                 for e, w, ss in zip(game_ended, win, game_state_start_steps):
                     if not e or ss is None:
