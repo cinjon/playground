@@ -1311,28 +1311,50 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 #                 counter += 1
 
 
+# job = {
+#     "how-train": "simple",  "log-interval": 1000,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "state-directory": os.path.join(directory, "ffaeasy-10k-s100"),
+# }
+# counter = 0
+# for learning_rate in [1e-4, 6e-5]:
+#     for gamma in [.99, .995]:
+#         for distill in [0]:
+#             for (name, distro) in [("uBndsA", "uniformBoundsA"), ("uBndsB", "uniformBoundsB")]:
+#                 for num_processes in [25, 50]:
+#                     j = {k:v for k,v in job.items()}
+#                     j["run-name"] = "pman%s-%d" % (name, counter)
+#                     j["num-processes"] = num_processes
+#                     j["state-directory-distribution"] = distro
+#                     j["gamma"] = gamma
+#                     j["lr"] = learning_rate
+#                     train_ppo_job(j, j["run-name"], is_fb=True)
+#                     counter += 1
+
+
+# These are testing out the 8x8 agent to see if maybe PPO can work on that,
+# possibly with a classification loss. These are on the no sjull set up though.
 job = {
-    "how-train": "simple",  "log-interval": 1000,
-    "log-dir": os.path.join(directory, "logs"),
+    "num-processes": 25, "how-train": "simple", 
+    "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
     "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFACompetition-v0", "num-battles-eval": 100,
+    "config": "PommeFFA8x8-v0", "board-size": 8,
     "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "state-directory": os.path.join(directory, "ffaeasy-10k-s100"),
+    # "eval-mode": "ffa-curriculum"
 }
 counter = 0
 for learning_rate in [1e-4, 6e-5]:
     for gamma in [.99, .995]:
         for distill in [0]:
-            for (name, distro) in [("uBndsA", "uniformBoundsA"), ("uBndsB", "uniformBoundsB")]:
-                for num_processes in [25, 50]:
-                    j = {k:v for k,v in job.items()}
-                    j["run-name"] = "pman%s-%d" % (name, counter)
-                    j["num-processes"] = num_processes
-                    j["state-directory-distribution"] = distro
-                    j["gamma"] = gamma
-                    j["lr"] = learning_rate
-                    train_ppo_job(j, j["run-name"], is_fb=True)
-                    counter += 1
+            j = {k:v for k,v in job.items()}
+            j["run-name"] = "pman8x8nsk-%d" % counter
+            j["gamma"] = gamma
+            j["lr"] = learning_rate
+            train_ppo_job(j, j["run-name"], is_fb=True)
+            counter += 1
 
 
 ### These are homogenous jobs using the above uniform21 approach.
@@ -1363,3 +1385,4 @@ for learning_rate in [1e-4, 6e-5]:
 #             train_ppo_job(job, "pmanhom-%d" % counter, is_fb=True)
 #             counter += 1
             
+
