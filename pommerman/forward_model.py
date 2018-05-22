@@ -11,22 +11,6 @@ from .agents import SimpleAgent
 
 class ForwardModel(object):
     """Class for helping with the [forward] modeling of the game state."""
-    def __init__(self):
-        self.reset_times()
-
-    def reset_times(self):
-        self._time_avg = defaultdict(float)
-        self._time_max = defaultdict(float)
-        self._time_cnt = defaultdict(int)
-
-    def _update_times(self, t, key):
-        avg = self._time_avg[key]
-        cnt = self._time_cnt[key]
-        new_avg = (float(avg)*float(cnt) + float(t))
-        new_avg /= float(cnt + 1)
-        self._time_cnt[key] = cnt + 1
-        self._time_avg[key] = new_avg
-        self._time_max[key] = max(self._time_max[key], float(t))
 
     def run(self,
             num_times,
@@ -135,8 +119,6 @@ class ForwardModel(object):
                     ret.append(act_with_communication(agent))
                 else:
                     ret.append(act_ex_communication(agent))
-            self._update_times(
-                t.interval, "%s-%d" % (str(type(agent)), agent.agent_id))
 
         return ret
 
