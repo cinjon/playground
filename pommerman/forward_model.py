@@ -577,19 +577,33 @@ class ForwardModel(object):
                     return False
 
     @staticmethod
-    def get_info(done, rewards, game_type, agents):
+    def get_info(done, rewards, game_type, agents, training_agents=None):
         if type(done) == list:
             done = all(done)
+
         alive = [agent for agent in agents if agent.is_alive]
         if game_type == constants.GameType.FFA:
             alive = [agent for agent in agents if agent.is_alive]
             if done:
-                if len(alive) != 1:
-                    # Either we have more than 1 alive (reached max steps) or
-                    # we have 0 alive (last agents died at the same time).
+                if len(alive) == 0:
                     return {
                         'result': constants.Result.Tie,
+                        'alive': [agent.agent_id for agent in alive]
                     }
+                elif len(alive) > 1:
+                    if training_agents is not None and not any([
+                        agent.agent_id in training_agents
+                        for agent in alive
+                    ]):
+                        return {
+                            'result': constants.Result.Loss,
+                            'alive': [agent.agent_id for agent in alive]
+                        }
+                    else:
+                        return {
+                            'result': constants.Result.Tie,
+                            'alive': [agent.agent_id for agent in alive]
+                        }
                 else:
                     return {
                         'result': constants.Result.Win,

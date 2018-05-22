@@ -208,7 +208,8 @@ class Pomme(gym.Env):
                                    self.training_agents, all_agents=True)
 
     def _get_info(self, done, rewards):
-        ret = self.model.get_info(done, rewards, self._game_type, self._agents)
+        ret = self.model.get_info(done, rewards, self._game_type, self._agents,
+                                  self.training_agents)
         ret['step_count'] = self._step_count
         if hasattr(self, '_game_state_step_start'):
             ret['game_state_step_start'] = self._game_state_step_start
@@ -374,9 +375,6 @@ class Pomme(gym.Env):
                 game_state_file, step = get_game_state_file(directory, step_count)
             self._game_state_step_start = step_count - step + 1
             with open(game_state_file, 'r') as f:
-                # NOTE: The rank is set by envs.py. Remove if causing problems.
-                # print("Env %d using game state %s (%d / %d) " % (
-                #     self.rank, game_state_file, step, step_count))
                 self.set_json_info(json.loads(f.read()))
         elif self._init_game_state is not None:
             self.set_json_info()
