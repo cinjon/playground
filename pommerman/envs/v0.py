@@ -255,9 +255,10 @@ class Pomme(gym.Env):
                     ub = 1
                 else:
                     ub = int(lb / 2) - 8
-                step = random.choice(
-                    range(max(0, step_count - lb), step_count - ub)
-                )
+
+                minrange = max(0, step_count - lb)
+                maxrange = max(minrange + 1, step_count - ub)
+                step = random.choice(range(minrange, maxrange))
             elif self._game_state_distribution == 'overfit-20max':
                 # Pick a game state with the distribution probabilities:
                 # step_count - 2: 20%
@@ -529,6 +530,13 @@ class Pomme(gym.Env):
         """
         game_state = game_state or self._init_game_state
 
+        self._items = {}
+        item_array = json.loads(game_state['items'])
+        for position, item_num in item_array:
+            if item_num == 9:
+                continue
+            self._items[tuple(position)] = item_num
+
         board_size = int(game_state['board_size'])
         self._board_size = board_size
         self._step_count = int(game_state['step_count'])
@@ -539,11 +547,6 @@ class Pomme(gym.Env):
         for x in range(self._board_size):
             for y in range(self._board_size):
                 self._board[x, y] = board_array[x][y]
-
-        self._items = {}
-        item_array = json.loads(game_state['items'])
-        for i in item_array:
-            self._items[tuple(i[0])] = i[1]
 
         agent_array = json.loads(game_state['agents'])
         for a in agent_array:
@@ -559,9 +562,12 @@ class Pomme(gym.Env):
         for b in bomb_array:
             bomber = next(x for x in self._agents \
                           if x.agent_id == b['bomber_id'])
+            moving_direction = b['moving_direction']
+            if moving_direction is not None:
+                moving_direction = constants.Action(moving_direction)
             self._bombs.append(characters.Bomb(
                 bomber, tuple(b['position']), int(b['life']),
-                int(b['blast_strength']), b['moving_direction'])
+                int(b['blast_strength']), moving_direction)
             )
 
         self._flames = []
