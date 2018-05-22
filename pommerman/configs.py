@@ -277,7 +277,7 @@ def team_v0_8x8_env():
     env = envs.v0.Pomme
     game_type = constants.GameType.Team
     env_entry_point = 'pommerman.envs.v0:Pomme'
-    env_id = 'PommeFFA8x8-v0'
+    env_id = 'PommeTeam8x8-v0'
     env_kwargs = {
         'game_type': game_type,
         'board_size': constants.BOARD_SIZE_8,
