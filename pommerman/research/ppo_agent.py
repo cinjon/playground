@@ -201,7 +201,7 @@ class PPOAgent(ResearchAgent):
 
     def copy_ex_model(self):
         """Creates a copy without the model. This is for operating with homogenous training."""
-        return PPOAgent(None, self._character)
+        return PPOAgent(None, self._character, num_processes=self._num_processes)
 
     def after_epoch(self):
         self._rollout.after_epoch()

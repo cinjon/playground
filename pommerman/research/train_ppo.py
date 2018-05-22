@@ -249,7 +249,8 @@ def train():
     if how_train == 'homogenous':
         good_guys = [
             ppo_agent.PPOAgent(training_agents[0].model,
-                               num_stack=args.num_stack, cuda=args.cuda)
+                               num_stack=args.num_stack, cuda=args.cuda,
+                               num_processes=args.num_processes // 2)
             for _ in range(2)
         ]
         if args.cuda:
@@ -258,9 +259,16 @@ def train():
         saved_paths = utils.save_agents(
             "ppo-", 0, training_agents, total_steps,
             num_episodes, args, suffix)
-        bad_guys = [
+        bad_guys_eval = [
             utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
-                                       "ppo", action_space, obs_shape, args)
+                                       "ppo", action_space, obs_shape,
+                                       args.num_processes // 2, args)
+            for _ in range(2)
+        ]
+        bad_guys_train = [
+            utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
+                                       "ppo", action_space, obs_shape,
+                                       args.num_processes, args)
             for _ in range(2)
         ]
         eval_round = 0
@@ -268,7 +276,8 @@ def train():
     elif how_train == 'simple':
         good_guys = [
             ppo_agent.PPOAgent(training_agents[0].model,
-                               num_stack=args.num_stack, cuda=args.cuda)
+                               num_stack=args.num_stack, cuda=args.cuda,
+                               num_processes=args.num_processes)
         ]
         if args.cuda:
             for guy in good_guys:
@@ -347,9 +356,11 @@ def train():
 
     if how_train == 'homogenous':
         win_rate, tie_rate, loss_rate = evaluate_homogenous(
-            args, good_guys, bad_guys, 0, writer, 0)
+            args, good_guys, bad_guys_eval, 0, writer, 0)
         print("Homog test before: (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
             args.num_battles_eval, win_rate, tie_rate, loss_rate))
+        for agent in good_guys + bad_guys_eval:
+            agent.clear_obs_stack()
     # elif how_train == 'simple':
     #     win_rate, tie_rate, loss_rate = evaluate_simple(
     #         args, good_guys, bad_guys, 0, writer, 0)
@@ -491,13 +502,10 @@ def train():
                             action_probs[num].extend([p[num] for p in probs])
 
                     non_training_obs = envs.get_non_training_obs()
-                    non_training_actions = [
-                        bad_guys[0].act(
-                            non_training_obs[num_process], action_space)
-                        for num_process in range(num_processes)
-                    ]
-
-                    for num_agent in range(num_training_per_episode):
+                    non_training_actions = bad_guys_train[0].act(non_training_obs, action_space)
+                    non_training_actions = non_training_actions.reshape((num_processes, 2))
+                    
+                    for num_agent in range(4):
                         for num_process in range(num_processes):
                             is_training_agent = any([
                                 num_process % 2 == 0 and num_agent in [0, 2],
@@ -511,9 +519,9 @@ def train():
                                 actions = non_training_actions[num_process]
                                 action = actions[num_agent // 2]
                                 cpu_actions_agents[num_process].append(action)
-
             with utility.Timer() as t:
                 obs, reward, done, info = envs.step(cpu_actions_agents)
+                
             reward = reward.astype(np.float)
             update_stats(info)
             game_ended = np.array([done_.all() for done_ in done])
@@ -590,6 +598,11 @@ def train():
                     start_step_all[ss] += 1
 
             elif how_train == 'homogenous':
+                # We have to clear any observations from done so that the stacks are pure.
+                for num, done_ in enumerate(done):
+                    if done_.all():
+                        bad_guys_train[0].clear_obs_stack(num)
+                        
                 running_num_episodes += sum([int(done_.all())
                                              for done_ in done])
                 # NOTE: The masking for homogenous should be such that:
@@ -791,7 +804,9 @@ def train():
 
             if how_train == 'homogenous':
                 win_rate, tie_rate, loss_rate = evaluate_homogenous(
-                    args, good_guys, bad_guys, eval_round, writer, num_epoch)
+                    args, good_guys, bad_guys_eval, eval_round, writer, num_epoch)
+                for agent in good_guys + bad_guys_eval:
+                    agent.clear_obs_stack()
                 print("Epoch %d (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
                     num_epoch, args.num_battles_eval, win_rate, tie_rate,
                     loss_rate))
@@ -801,10 +816,16 @@ def train():
                         "ppo-", num_epoch, training_agents, total_steps,
                         num_episodes, args, suffix)
                     eval_round += 1
-                    bad_guys = [
+                    bad_guys_eval = [
                         utils.load_inference_agent(
                             saved_paths[0], ppo_agent.PPOAgent, "ppo",
-                            action_space, obs_shape, args)
+                            action_space, obs_shape, args.num_processes // 2, args)
+                        for _ in range(2)
+                    ]
+                    bad_guys_train = [
+                        utils.load_inference_agent(
+                            saved_paths[0], ppo_agent.PPOAgent, "ppo",
+                            action_space, obs_shape, args.num_processes, args)
                         for _ in range(2)
                     ]
             # elif how_train == 'simple':

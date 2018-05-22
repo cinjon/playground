@@ -16,7 +16,9 @@ class ResearchAgent(BaseAgent):
         super(ResearchAgent, self).__init__(character)
         # NOTE: This is assuming that our num_stack size is 2.
         self._num_stack = kwargs.get('num_stack', 2)
-        self._obs_stack = deque([], maxlen=self._num_stack)
+        self._num_processes = kwargs.get('num_processes', 1)
+        self._obs_stacks = [deque([], maxlen=self._num_stack)
+                            for _ in range(self._num_processes)]
         self._cuda = kwargs.get('cuda', False)
         if self._actor_critic is not None:
             # This caveat is so that it works with both train and eval.
@@ -27,27 +29,37 @@ class ResearchAgent(BaseAgent):
 
     @staticmethod
     def _featurize_obs(obs):
-        if type(obs) == list:
-            obs = np.stack([networks.featurize3D(o) for o in obs])
-            obs = torch.from_numpy(obs)
-        else:
-            obs = networks.featurize3D(obs)
-            obs = torch.from_numpy(obs)
-            obs = obs.unsqueeze(0)
+        if type(obs) != list:
+            obs = [obs]
+
+        obs = np.array([networks.featurize3D(o) for o in obs])
+        obs = torch.from_numpy(obs)
         return obs.float()
 
-    def clear_obs_stack(self):
-        self._obs_stack.clear()
+    def clear_obs_stack(self, num_stack=None):
+        if num_stack is None:
+            [obs_stack.clear() for obs_stack in self._obs_stacks]
+        else:
+            self._obs_stacks[num_stack].clear()
         
     def act(self, obs, action_space):
-        obs = self._featurize_obs(obs)
-        self._obs_stack.append(obs)
+        if type(obs) != list:
+            obs = [obs]
 
-        stacked_obs = list(self._obs_stack)
-        if len(stacked_obs) < self._num_stack:
-            prepend = [stacked_obs[0]]*(self._num_stack - len(stacked_obs))
-            stacked_obs = prepend + stacked_obs
-        stacked_obs = torch.cat(stacked_obs, 1)
+        # If this errors, did you set num_processes correctly?
+        for num, o in enumerate(obs):
+            self._obs_stacks[num].append(self._featurize_obs(o))
+
+        lst_stacked_obs = []
+        for num, obs_stack in enumerate(self._obs_stacks):
+            stacked_obs = list(obs_stack)
+            if len(stacked_obs) < self._num_stack:
+                prepend = [stacked_obs[0]]*(self._num_stack - len(stacked_obs))
+                stacked_obs = prepend + stacked_obs
+            stacked_obs = torch.cat(stacked_obs, 1)
+            lst_stacked_obs.append(stacked_obs)
+
+        stacked_obs = torch.cat(lst_stacked_obs, 0)
         if self._cuda:
             stacked_obs = stacked_obs.cuda()
             self._states = self._states.cuda()

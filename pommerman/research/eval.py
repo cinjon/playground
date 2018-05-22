@@ -86,7 +86,7 @@ def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
                              args_state_dict['board_size'],
                              args_state_dict['num_channels'])
         agent = agent_type(model, num_stack=args_state_dict['num_stack'],
-                           cuda=cuda)
+                           cuda=cuda, num_processes=args.num_processes)
         if cuda:
             agent.cuda()
         return agent

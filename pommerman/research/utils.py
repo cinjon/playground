@@ -48,7 +48,8 @@ def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
             optimizer_state_dict = None
             model = net(None)
 
-        agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda)
+        agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda,
+                           num_processes=args.num_processes)
         agent.initialize(args, obs_shape, action_space,
                          num_training_per_episode, num_episodes, total_steps,
                          num_epoch, optimizer_state_dict, num_steps)
@@ -58,7 +59,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
 
 
 def load_inference_agent(path, agent_type, network_type, action_space,
-                         obs_shape, args):
+                         obs_shape, num_processes, args):
     print("Loading inference agent %s from path %s." % (agent_type, path))
     if network_type == 'qmix':
         net = lambda state: networks.get_q_network(args.model_str)(
@@ -72,7 +73,7 @@ def load_inference_agent(path, agent_type, network_type, action_space,
     loaded_model = torch_load(path, args.cuda, args.cuda_device)
     model_state_dict = loaded_model['state_dict']
     model = net(model_state_dict)
-    agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda)
+    agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda, num_processes=num_processes)
     if args.cuda:
         agent.cuda()
     return agent
