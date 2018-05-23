@@ -108,9 +108,6 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
         for agent in agents:
             agent.episode_end(reward[agent.agent_id])
 
-        for agent in agents:
-            agent.episode_end(reward[agent.agent_id])
-
         print("Final Result: ", info)
         if args.render:
             env.render(record_pngs_dir=args.record_pngs_dir,
@@ -119,12 +116,6 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
             time.sleep(5)
             env.render(close=True)
         return info
-
-    if seed is None:
-        seed = random.randint(0, 1e6)
-    np.random.seed(seed)
-    random.seed(seed)
-    env.seed(seed)
 
     infos = []
     times = []
