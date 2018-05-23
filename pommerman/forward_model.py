@@ -1,5 +1,6 @@
 from collections import defaultdict
 import random
+import sys
 
 import numpy as np
 
@@ -138,6 +139,7 @@ class ForwardModel(object):
     def step(actions, curr_board, curr_agents, curr_bombs, curr_items,
              curr_flames, max_blast_strength=10):
         board_size = len(curr_board)
+        tmp_board = curr_board.copy()
 
         # Tick the flames. Replace any dead ones with passages. If there is an
         # item there, then reveal that item.
@@ -300,7 +302,19 @@ class ForwardModel(object):
                 continue
 
             # The agent_list should contain a single element at this point.
-            assert (len(agent_list) == 1)
+            try:
+                assert (len(agent_list) == 1)
+            except AssertionError as e:
+                sys.stdout.write(", ".join([str(b.position) for b in curr_bombs]))
+                sys.stdout.write(bomb_num)
+                sys.stdout.write(agent_list)
+                sys.stdout.write(desired_bomb_positions)
+                sys.stdout.write(agent_occupancy)
+                sys.stdout.write(bomb_occupancy)
+                sys.stdout.write(tmp_board)
+                sys.stdout.write(curr_board)
+                sys.stdout.write(", ".join([(a.position, actions[a.agent_id]) for a in alive_agents]))
+            assert (len(agent_list) == 1)    
             num_agent, agent = agent_list[0]
 
             if desired_position == agent.position:
