@@ -260,17 +260,23 @@ def train():
             "ppo-", 0, training_agents, total_steps,
             num_episodes, args, suffix)
         bad_guys_eval = [
-            utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
-                                       "ppo", action_space, obs_shape,
-                                       args.num_processes // 2, args)
-            for _ in range(2)
+            SimpleAgent() for _ in range(2)
         ]
         bad_guys_train = [
-            utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
-                                       "ppo", action_space, obs_shape,
-                                       args.num_processes, args)
-            for _ in range(2)
+            SimpleAgent() for _ in range(2)
         ]
+        # bad_guys_eval = [
+        #     utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
+        #                                "ppo", action_space, obs_shape,
+        #                                args.num_processes // 2, args)
+        #     for _ in range(2)
+        # ]
+        # bad_guys_train = [
+        #     utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
+        #                                "ppo", action_space, obs_shape,
+        #                                args.num_processes, args)
+        #     for _ in range(2)
+        # ]
         eval_round = 0
 
     elif how_train == 'simple':
@@ -502,8 +508,14 @@ def train():
                             action_probs[num].extend([p[num] for p in probs])
 
                     non_training_obs = envs.get_non_training_obs()
-                    non_training_actions = bad_guys_train[0].act(non_training_obs, action_space)
-                    non_training_actions = non_training_actions.reshape((num_processes, 2))
+                    if type(bad_guys_train[0]) == SimpleAgent:
+                        non_training_actions = envs.get_expert_actions(
+                            non_training_obs)
+                    else:
+                        non_training_actions = bad_guys_train[0].act(
+                            non_training_obs, action_space)
+                        non_training_actions = non_training_actions.reshape(
+                            (num_processes, 2))
                     
                     for num_agent in range(4):
                         for num_process in range(num_processes):

@@ -26,6 +26,9 @@ class SimpleAgent(BaseAgent):
         self._prev_direction = None
         self.reset_times()
 
+    def clear_obs_stack(self, num_stack=None):
+        pass
+    
     def reset_times(self):
         self._time_avg = defaultdict(float)
         self._time_max = defaultdict(float)
