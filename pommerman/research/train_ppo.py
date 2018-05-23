@@ -953,6 +953,7 @@ def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
     loss_rate = 1.0*loss_count/num_battles
     one_dead_per_battle = 1.0*one_dead_count/num_battles
     one_dead_per_win = 1.0*one_dead_count/win_count if win_count else 0
+    writer.add_scalar('eval_round', eval_round, epoch)    
     writer.add_scalar('%s/win_rate' % descriptor, win_rate, epoch)
     writer.add_scalar('%s/tie_rate' % descriptor, tie_rate, epoch)
     writer.add_scalar('%s/loss_rate' % descriptor, loss_rate, epoch)
