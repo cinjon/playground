@@ -37,7 +37,6 @@ class Pomme(gym.Env):
                  max_steps=1000,
                  is_partially_observable=False,
                  default_bomb_life=None,
-                 use_skull=True,
                  **kwargs
     ):
         self.render_fps = render_fps
@@ -52,7 +51,7 @@ class Pomme(gym.Env):
         self._viewer = None
         self._is_partially_observable = is_partially_observable
         self._default_bomb_life = default_bomb_life
-        self._use_skull = use_skull
+        self._bomb_penalty_lambda = 1.0
 
         self.training_agents = []
         self.model = forward_model.ForwardModel()
@@ -76,6 +75,9 @@ class Pomme(gym.Env):
     def set_render_mode(self, mode):
         self._mode = mode
 
+    def set_bomb_penalty_lambda(self, l):
+        self._bomb_penalty_lambda = l
+
     def _set_observation_space(self):
         """The Observation Space for each agent.
         There are a total of 3*board_size^2+12 observations:
@@ -90,12 +92,14 @@ class Pomme(gym.Env):
         - enemies (three of {AgentDummy.value, Agent3.value}).
         """
         bss = self._board_size**2
-        min_obs = [0]*3*bss + [0]*5 + [constants.Item.AgentDummy.value]*4
-        max_obs = [len(constants.Item)]*bss + [self._board_size]*bss + [25]*bss
-        max_obs += [self._board_size]*2 + [self._num_items]*2 + [1]
-        max_obs += [constants.Item.Agent3.value]*4
-        self.observation_space = spaces.Box(np.array(min_obs),
-                                            np.array(max_obs))
+        min_obs = [0] * 3 * bss + [0] * 5 + [constants.Item.AgentDummy.value
+                                            ] * 4
+        max_obs = [len(constants.Item)] * bss + [self._board_size
+                                                ] * bss + [25] * bss
+        max_obs += [self._board_size] * 2 + [self._num_items] * 2 + [1]
+        max_obs += [constants.Item.Agent3.value] * 4
+        self.observation_space = spaces.Box(
+            np.array(min_obs), np.array(max_obs))
 
     def set_agents(self, agents):
         self._agents = agents
@@ -103,7 +107,10 @@ class Pomme(gym.Env):
     def set_training_agents(self, agent_ids):
         self.training_agents = agent_ids
 
-    def set_state_directory(self, directory, distribution):
+    def set_uniform_v(self, v):
+        self._uniform_v = v
+
+    def set_state_directory(self, directory, distribution, uniform_v=33):
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
         self._applicable_games = []
@@ -126,7 +133,6 @@ class Pomme(gym.Env):
                         continue
 
                     step_count = endgame['step_count']
-                    # print("%d: " % self.rank, self.training_agents, endgame)
                     self._applicable_games.append((path, step_count))
             # print("Environment has %d applicable games." % \
             #       len(self._applicable_games))
@@ -156,7 +162,7 @@ class Pomme(gym.Env):
                                          self._num_wood)
 
     def make_items(self):
-        self._items = utility.make_items(self._board, self._num_items, self._use_skull)
+        self._items = utility.make_items(self._board, self._num_items)
 
     def clear_agent_obs(self):
         for agent in self._agents:
@@ -186,8 +192,15 @@ class Pomme(gym.Env):
         return self.observations
 
     def _get_rewards(self):
-        return self.model.get_rewards(self._agents, self._game_type,
-                                      self._step_count, self._max_steps)
+        """If an agent dies in the first 100 steps, then it died from a bomb.
+        In that case, multiply the -1 reward by the bomb_penalty_lambda.
+        """
+        rewards = self.model.get_rewards(self._agents, self._game_type,
+                                         self._step_count, self._max_steps)
+        if self._step_count < 100:
+            rewards = [r * self._bomb_penalty_lambda if r == -1 else r
+                       for r in rewards]
+        return rewards
 
     def _get_done(self):
         return self.model.get_done(self._agents, self._step_count,
@@ -195,18 +208,17 @@ class Pomme(gym.Env):
                                    self.training_agents, all_agents=True)
 
     def _get_info(self, done, rewards):
-        ret = self.model.get_info(done, rewards, self._game_type, self._agents)
+        ret = self.model.get_info(done, rewards, self._game_type, self._agents,
+                                  self.training_agents)
         ret['step_count'] = self._step_count
         if hasattr(self, '_game_state_step_start'):
             ret['game_state_step_start'] = self._game_state_step_start
         return ret
 
     def reset(self):
-        assert(self._agents is not None)
+        assert (self._agents is not None)
 
-        # TODO: Position the agent in the shoes of the winning agent...
-        if hasattr(self, '_applicable_games') and self._applicable_games:
-            directory, step_count = random.choice(self._applicable_games)
+        def get_game_state_file(directory, step_count):
             if self._game_state_distribution == 'uniform':
                 # Pick a random game state to start from.
                 step = random.choice(range(step_count))
@@ -218,6 +230,35 @@ class Pomme(gym.Env):
                 step = random.choice(
                     range(max(0, step_count - 22), step_count - 1)
                 )
+            elif self._game_state_distribution == 'uniform33':
+                # Pick a game state uniformly over the last 33.
+                step = random.choice(
+                    range(max(0, step_count - 34), step_count - 1)
+                )
+            elif self._game_state_distribution == 'uniform66':
+                # Pick a game state uniformly over the last 66.
+                step = random.choice(
+                    range(max(0, step_count - 67), step_count - 1)
+                )
+            elif self._game_state_distribution == 'uniformAdapt':
+                step = random.choice(
+                    range(max(0, step_count - self._uniform_v), step_count - 1)
+                )
+            elif self._game_state_distribution.startswith('uniformSchedule'):
+                step = random.choice(
+                    range(max(0, step_count - self._uniform_v), step_count - 1)
+                )
+            elif self._game_state_distribution.startswith('uniformBounds'):
+                # (0, 32), (24, 64), (56, 128), (120, 256), ...
+                lb = self._uniform_v
+                if self._uniform_v < 40:
+                    ub = 1
+                else:
+                    ub = int(lb / 2) - 8
+
+                minrange = max(0, step_count - lb)
+                maxrange = max(minrange + 1, step_count - ub)
+                step = random.choice(range(minrange, maxrange))
             elif self._game_state_distribution == 'overfit-20max':
                 # Pick a game state with the distribution probabilities:
                 # step_count - 2: 20%
@@ -260,7 +301,6 @@ class Pomme(gym.Env):
                         step = step_count - 2 - num
                         break
                 step = step or random.choice(range(step_count - 9))
-
             elif self._game_state_distribution == 'overfit-no-uniform':
                 # Pick a game state with the distribution probabilities:
                 # step_count - 2: 20%
@@ -327,13 +367,15 @@ class Pomme(gym.Env):
                 )
             else:
                 raise
+            return os.path.join(directory, '%d.json' % step), step
 
-            game_state_file = os.path.join(directory, '%d.json' % step)
-            self._game_state_step_start = step
+        if hasattr(self, '_applicable_games') and self._applicable_games:
+            directory, step_count = random.choice(self._applicable_games)
+            game_state_file, step = get_game_state_file(directory, step_count)
+            while not os.path.exists(game_state_file):
+                game_state_file, step = get_game_state_file(directory, step_count)
+            self._game_state_step_start = step_count - step + 1
             with open(game_state_file, 'r') as f:
-                # NOTE: The rank is set by envs.py. Remove if causing problems.
-                # print("Env %d using game state %s (%d / %d) " % (
-                #     self.rank, game_state_file, step, step_count))
                 self.set_json_info(json.loads(f.read()))
         elif self._init_game_state is not None:
             self.set_json_info()
@@ -359,8 +401,10 @@ class Pomme(gym.Env):
         return [seed]
 
     def step(self, actions):
+        max_blast_strength = self._agent_view_size or 10
         result = self.model.step(actions, self._board, self._agents,
-                                 self._bombs, self._items, self._flames)
+                                 self._bombs, self._items, self._flames,
+                                 max_blast_strength = max_blast_strength)
         self._board, self._agents, self._bombs = result[:3]
         self._items, self._flames = result[3:]
 
@@ -373,34 +417,12 @@ class Pomme(gym.Env):
         obs = self.get_observations()
         reward = self._get_rewards()
         info = self._get_info(done, reward)
-
-        # if all(done):
-        #     time_avg = defaultdict(float)
-        #     time_max = defaultdict(float)
-        #     time_cnt = defaultdict(int)
-        #     for agent in self._agents:
-        #         if type(agent) == SimpleAgent:
-        #             for k, v in agent._time_cnt.items():
-        #                 time_cnt[k] += v
-        #             for k, v in agent._time_avg.items():
-        #                 time_avg[k] += v
-        #             for k, v in agent._time_max.items():
-        #                 time_max[k] = max(time_max[k], v)
-        #             agent.reset_times()
-            # print("\nEpisode end times:")
-            # total = 0.0
-            # for key in sorted(time_avg.keys()):
-            #     avg = time_avg[key] / 3.0
-            #     cnt = time_cnt[key]
-            #     mx  = time_max[key]
-            #     print("\t%s: %.4f (%d) --> %.4f, %.4f" % (key, avg, cnt,
-            #                                               avg * cnt, mx))
-            #     total += avg * cnt
-            # print("\tTotal: %.4f" % total)
-
         return obs, reward, done, info
 
-    def render(self, mode=None, close=False, record_pngs_dir=None,
+    def render(self,
+               mode=None,
+               close=False,
+               record_pngs_dir=None,
                record_json_dir=None):
         if close:
             self.close()
@@ -411,7 +433,7 @@ class Pomme(gym.Env):
         if mode == 'rgb_array':
             rgb_array = graphics.PixelViewer.rgb_array(
                 self._board, self._board_size, self._agents,
-                self._is_partially_observable)
+                self._is_partially_observable, self._agent_view_size)
             return rgb_array[0]
 
         if self._viewer is None:
@@ -419,12 +441,14 @@ class Pomme(gym.Env):
                 self._viewer = graphics.PixelViewer(
                     board_size=self._board_size,
                     agents=self._agents,
+                    agent_view_size=self._agent_view_size,
                     partially_observable=self._is_partially_observable)
             else:
                 self._viewer = graphics.PommeViewer(
                     board_size=self._board_size,
                     agents=self._agents,
                     partially_observable=self._is_partially_observable,
+                    agent_view_size=self._agent_view_size,
                     game_type=self._game_type)
 
             self._viewer.set_board(self._board)
@@ -480,21 +504,21 @@ class Pomme(gym.Env):
 
         teammate = utility.make_np_float([obs["teammate"].value])
         enemies = utility.make_np_float([e.value for e in obs["enemies"]])
-        return np.concatenate((
-            board, bomb_blast_strength, bomb_life, position, ammo,
-            blast_strength, can_kick, teammate, enemies))
+        return np.concatenate(
+            (board, bomb_blast_strength, bomb_life, position, ammo,
+             blast_strength, can_kick, teammate, enemies))
 
     def get_json_info(self):
         """Returns a json snapshot of the current game state."""
         ret = {
-                'board_size': self._board_size,
-                'step_count': self._step_count,
-                'board': self._board,
-                'agents': self._agents,
-                'bombs': self._bombs,
-                'flames': self._flames,
-                'items': [[k, i] for k,i in self._items.items()]
-            }
+            'board_size': self._board_size,
+            'step_count': self._step_count,
+            'board': self._board,
+            'agents': self._agents,
+            'bombs': self._bombs,
+            'flames': self._flames,
+            'items': [[k, i] for k, i in self._items.items()]
+        }
         for key, value in ret.items():
             ret[key] = json.dumps(value, cls=utility.PommermanJSONEncoder)
         return ret
@@ -506,6 +530,13 @@ class Pomme(gym.Env):
         """
         game_state = game_state or self._init_game_state
 
+        self._items = {}
+        item_array = json.loads(game_state['items'])
+        for position, item_num in item_array:
+            if item_num == 9:
+                continue
+            self._items[tuple(position)] = item_num
+
         board_size = int(game_state['board_size'])
         self._board_size = board_size
         self._step_count = int(game_state['step_count'])
@@ -515,30 +546,29 @@ class Pomme(gym.Env):
         self._board *= constants.Item.Passage.value
         for x in range(self._board_size):
             for y in range(self._board_size):
-                self._board[x,y] = board_array[x][y]
-
-        self._items = {}
-        item_array = json.loads(game_state['items'])
-        for i in item_array:
-            self._items[tuple(i[0])] = i[1]
+                self._board[x, y] = board_array[x][y]
 
         agent_array = json.loads(game_state['agents'])
         for a in agent_array:
             agent = next(x for x in self._agents \
                          if x.agent_id == a['agent_id'])
             agent.set_start_position((a['position'][0], a['position'][1]))
-            agent.reset(int(a['ammo']), bool(a['is_alive']),
-                        int(a['blast_strength']), bool(a['can_kick']))
+            agent.reset(
+                int(a['ammo']), bool(a['is_alive']), int(a['blast_strength']),
+                bool(a['can_kick']))
 
         self._bombs = []
         bomb_array = json.loads(game_state['bombs'])
         for b in bomb_array:
             bomber = next(x for x in self._agents \
                           if x.agent_id == b['bomber_id'])
+            moving_direction = b['moving_direction']
+            if moving_direction is not None:
+                moving_direction = constants.Action(moving_direction)
             self._bombs.append(characters.Bomb(
                 bomber, tuple(b['position']), int(b['life']),
-                int(b['blast_strength']), b['moving_direction']))
-
+                int(b['blast_strength']), moving_direction)
+            )
 
         self._flames = []
         flameArray = json.loads(game_state['flames'])

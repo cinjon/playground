@@ -1,5 +1,4 @@
 """Train script for ppo learning.
-
 TODO: Implement heterogenous training.
 
 The number of samples used for an epoch is:
@@ -25,8 +24,16 @@ python train_ppo.py --how-train homogenous --num-processes 10 \
 Lower Complexity example:
 python train_ppo.py --how-train simple --num-processes 10 --run-name test \
  --num-steps 50 --log-interval 5 --config PommeFFAEasy-v0 --board-size 11
+
+Reverse Curriculum with Eval:
+python train_ppo.py --run-name test --num-processes 12 --config PommeFFAEasy-v0 \
+--how-train simple --lr 1e-4 --save-interval 100 --log-interval 1 --gamma 0.95 \
+ --model-str PommeCNNPolicySmall --board_size 11 --num-battles-eval 100 \
+ --eval-mode ffa-curriculum --state-directory-distribution uniform21 \
+ --state-directory /home/roberta/pommerman_spring18/pomme_games/ffaeasyv0-seed1 \
 """
 from collections import defaultdict
+from collections import deque
 import os
 import time
 
@@ -45,6 +52,7 @@ import utils
 from torch.autograd import Variable
 
 import pommerman.constants as constants
+from statistics import mean as mean
 
 def train():
     args = get_args()
@@ -87,11 +95,41 @@ def train():
         suffix += ".ulrs"
     if args.state_directory_distribution:
         suffix += ".%s" % args.state_directory_distribution
+    if args.anneal_bomb_penalty_epochs:
+        suffix += ".abpe%d" % args.anneal_bomb_penalty_epochs
 
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
         num_stack, num_processes, state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution)
+
+    uniform_v = None
+    running_success_rate = []
+    if args.state_directory_distribution == 'uniformAdapt':
+        uniform_v = 33
+        uniform_v_factor = args.uniform_v_factor
+        running_success_rate_maxlen = 10 # corresponds to roughly 200 epochs of FFA.
+        running_success_rate = deque([], maxlen=running_success_rate_maxlen)
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformScheduleA':
+        uniform_v = 33
+        uniform_v_factor = 2
+        uniform_v_incr = 3000
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)        
+    elif args.state_directory_distribution == 'uniformBoundsA':
+        # (0, 32), (24, 64), (56, 128), (120, 256), (248, 512), ...
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 2500
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsB':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 4000
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
@@ -119,21 +157,18 @@ def train():
             distill_agent.init_agent(0, envs.get_game_type())
             distill_type = distill_target.split('::')[0]
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}.ikl{}".format(
-                    distill_expert, set_distill_kl, init_kl_factor)
+                suffix += ".dstlDagKL{}".format(set_distill_kl)
             else:
-                suffix += ".dstl{}.dstlep{}.ikl{}".format(
-                    args.distill_expert, distill_epochs, init_kl_factor)
+                suffix += ".dstlDagEp{}".format(distill_epochs)
+            suffix += ".ikl{}".format(init_kl_factor)
         elif distill_expert == 'SimpleAgent':
             if set_distill_kl >= 0:
-                suffix += ".dstl{}.dstlkl{}.ikl{}".format(
-                    args.distill_expert, set_distill_kl, init_kl_factor)
+                suffix += ".dstlSimKL{}".format(set_distill_kl)
             else:
-                suffix += ".dstl{}.dstlep{}.ikl{}".format(
-                    args.distill_expert, distill_epochs, init_kl_factor)
+                suffix += ".dstlSimEp{}".format(distill_epochs)
+            suffix += ".ikl{}".format(init_kl_factor)
         else:
-            raise ValueError("We only support distilling from \
-                DaggerAgent or SimpleAgent \n")
+            raise ValueError("Only distill from Dagger or Simple.")
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
@@ -214,7 +249,8 @@ def train():
     if how_train == 'homogenous':
         good_guys = [
             ppo_agent.PPOAgent(training_agents[0].model,
-                               num_stack=args.num_stack, cuda=args.cuda)
+                               num_stack=args.num_stack, cuda=args.cuda,
+                               num_processes=args.num_processes // 2)
             for _ in range(2)
         ]
         if args.cuda:
@@ -223,10 +259,34 @@ def train():
         saved_paths = utils.save_agents(
             "ppo-", 0, training_agents, total_steps,
             num_episodes, args, suffix)
-        bad_guys = [
+        bad_guys_eval = [
             utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
-                                       "ppo", action_space, obs_shape, args)
+                                       "ppo", action_space, obs_shape,
+                                       args.num_processes // 2, args)
             for _ in range(2)
+        ]
+        bad_guys_train = [
+            utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
+                                       "ppo", action_space, obs_shape,
+                                       args.num_processes, args)
+            for _ in range(2)
+        ]
+        eval_round = 0
+
+    elif how_train == 'simple':
+        good_guys = [
+            ppo_agent.PPOAgent(training_agents[0].model,
+                               num_stack=args.num_stack, cuda=args.cuda,
+                               num_processes=args.num_processes)
+        ]
+        if args.cuda:
+            for guy in good_guys:
+                guy.cuda()
+        saved_paths = utils.save_agents(
+            "ppo-", 0, training_agents, total_steps,
+            num_episodes, args, suffix)
+        bad_guys = [
+            SimpleAgent() for _ in range(3)
         ]
         eval_round = 0
 
@@ -296,16 +356,31 @@ def train():
 
     if how_train == 'homogenous':
         win_rate, tie_rate, loss_rate = evaluate_homogenous(
-            args, good_guys, bad_guys, 0, writer, 0)
+            args, good_guys, bad_guys_eval, 0, writer, 0)
         print("Homog test before: (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
             args.num_battles_eval, win_rate, tie_rate, loss_rate))
+        for agent in good_guys + bad_guys_eval:
+            agent.clear_obs_stack()
+    # elif how_train == 'simple':
+    #     win_rate, tie_rate, loss_rate = evaluate_simple(
+    #         args, good_guys, bad_guys, 0, writer, 0)
+    #     print("Simple test before: (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
+    #         args.num_battles_eval, win_rate, tie_rate, loss_rate))
 
     start = time.time()
     # NOTE: assumes just one agent.
     action_choices = []
     action_probs = [[] for _ in range(6)]
 
+    anneal_bomb_penalty_epochs = args.anneal_bomb_penalty_epochs
+    bomb_penalty_lambda = 1.0
+
     for num_epoch in range(start_epoch, num_epochs):
+        if anneal_bomb_penalty_epochs > 0:
+            bomb_penalty_lambda = 1.0 * num_epoch / anneal_bomb_penalty_epochs
+            bomb_penalty_lambda = min(1.0, bomb_penalty_lambda)
+            envs.set_bomb_penalty_lambda(bomb_penalty_lambda)
+
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval) \
            and how_train == 'simple':
             # Only save at regular epochs if using "simple". The others save
@@ -427,13 +502,10 @@ def train():
                             action_probs[num].extend([p[num] for p in probs])
 
                     non_training_obs = envs.get_non_training_obs()
-                    non_training_actions = [
-                        bad_guys[0].act(
-                            non_training_obs[num_process], action_space)
-                        for num_process in range(num_processes)
-                    ]
-
-                    for num_agent in range(num_training_per_episode):
+                    non_training_actions = bad_guys_train[0].act(non_training_obs, action_space)
+                    non_training_actions = non_training_actions.reshape((num_processes, 2))
+                    
+                    for num_agent in range(4):
                         for num_process in range(num_processes):
                             is_training_agent = any([
                                 num_process % 2 == 0 and num_agent in [0, 2],
@@ -447,9 +519,9 @@ def train():
                                 actions = non_training_actions[num_process]
                                 action = actions[num_agent // 2]
                                 cpu_actions_agents[num_process].append(action)
-
             with utility.Timer() as t:
                 obs, reward, done, info = envs.step(cpu_actions_agents)
+                
             reward = reward.astype(np.float)
             update_stats(info)
             game_ended = np.array([done_.all() for done_ in done])
@@ -497,8 +569,8 @@ def train():
                     # this counts as success only the times when the
                     # training agent wins the game and is alive at the end
                     success_rate_alive += sum([int(s) for s in \
-                                            ((alive_win == True) &
-                                            (game_ended == True))])
+                                               ((alive_win == True) &
+                                                (game_ended == True))])
 
                 # NOTE: masks_kl is 0 if the agent die (game may still be going)
                 # this must be executed after adjusting done to contain only
@@ -515,8 +587,9 @@ def train():
                                             for ended_ in game_ended])
                 terminal_reward += reward[game_ended == True].sum()
                 success_rate += sum([int(s) for s in \
-                                    ((game_ended == True) &
-                                    (win == True))])
+                                     ((game_ended == True) &
+                                      (win == True))])
+
                 for e, w, ss in zip(game_ended, win, game_state_start_steps):
                     if not e or ss is None:
                         continue
@@ -525,6 +598,11 @@ def train():
                     start_step_all[ss] += 1
 
             elif how_train == 'homogenous':
+                # We have to clear any observations from done so that the stacks are pure.
+                for num, done_ in enumerate(done):
+                    if done_.all():
+                        bad_guys_train[0].clear_obs_stack(num)
+                        
                 running_num_episodes += sum([int(done_.all())
                                              for done_ in done])
                 # NOTE: The masking for homogenous should be such that:
@@ -592,8 +670,6 @@ def train():
             action_all = utils.torch_numpy_stack(action_agents)
             action_log_prob_all = utils.torch_numpy_stack(
                 action_log_prob_agents)
-            # probs_distr = utils.torch_numpy_stack(probs_distr)
-            # print("PROBS DIST: ", probs_distr.shape, action_log_prob_all.shape)
             if do_distill:
                 if distill_expert == 'DaggerAgent':
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
@@ -728,7 +804,9 @@ def train():
 
             if how_train == 'homogenous':
                 win_rate, tie_rate, loss_rate = evaluate_homogenous(
-                    args, good_guys, bad_guys, eval_round, writer, num_epoch)
+                    args, good_guys, bad_guys_eval, eval_round, writer, num_epoch)
+                for agent in good_guys + bad_guys_eval:
+                    agent.clear_obs_stack()
                 print("Epoch %d (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
                     num_epoch, args.num_battles_eval, win_rate, tie_rate,
                     loss_rate))
@@ -738,12 +816,30 @@ def train():
                         "ppo-", num_epoch, training_agents, total_steps,
                         num_episodes, args, suffix)
                     eval_round += 1
-                    bad_guys = [
+                    bad_guys_eval = [
                         utils.load_inference_agent(
                             saved_paths[0], ppo_agent.PPOAgent, "ppo",
-                            action_space, obs_shape, args)
+                            action_space, obs_shape, args.num_processes // 2, args)
                         for _ in range(2)
                     ]
+                    bad_guys_train = [
+                        utils.load_inference_agent(
+                            saved_paths[0], ppo_agent.PPOAgent, "ppo",
+                            action_space, obs_shape, args.num_processes, args)
+                        for _ in range(2)
+                    ]
+            # elif how_train == 'simple':
+            #     win_rate, tie_rate, loss_rate = evaluate_simple(
+            #         args, good_guys, bad_guys, eval_round, writer, num_epoch)
+            #     print("Epoch %d (%d)--> Win %.3f, Tie %.3f, Loss %.3f" % (
+            #         num_epoch, args.num_battles_eval, win_rate, tie_rate,
+            #         loss_rate))
+            #     if win_rate >= .90:
+            #         suffix = suffix + ".wr%.3f.evlrnd%d" % (win_rate, eval_round)
+            #         saved_paths = utils.save_agents(
+            #             "ppo-", num_epoch, training_agents, total_steps,
+            #             num_episodes, args, suffix)
+            #         eval_round += 1
 
             if do_distill and len(final_kl_losses):
                 mean_kl_loss = np.mean([
@@ -767,6 +863,7 @@ def train():
                                  mean_total_loss, mean_kl_loss, mean_pg_loss,
                                  distill_factor, args.reinforce_only,
                                  start_step_ratios)
+
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
                                      episodes_per_sec, final_rewards,
@@ -779,8 +876,21 @@ def train():
                                      running_num_episodes, mean_total_loss,
                                      mean_kl_loss, mean_pg_loss, lr,
                                      distill_factor, args.reinforce_only,
-                                     start_step_ratios, action_choices,
-                                     action_probs)
+                                     start_step_ratios, bomb_penalty_lambda,
+                                     np.array(action_choices),
+                                     np.array(action_probs), uniform_v,
+                                     np.mean(running_success_rate))
+
+            if args.state_directory_distribution == 'uniformAdapt':
+                rate_ = 1.0 * success_rate / running_num_episodes
+                running_success_rate.append(rate_)
+                if len(running_success_rate) == running_success_rate_maxlen \
+                   and np.mean(running_success_rate) > .8:
+                    print("Updating Mean Success Rate: ", uniform_v, running_success_rate)
+                    uniform_v = int(uniform_v * uniform_v_factor)
+                    envs.set_uniform_v(uniform_v)
+                    running_success_rate = deque(
+                        [], maxlen=running_success_rate_maxlen)
 
             # Reset stats so that plots are per the last log_interval.
             if args.reinforce_only:
@@ -807,6 +917,14 @@ def train():
             action_choices = []
             action_probs = [[] for _ in range(6)]
 
+        if any([
+                args.state_directory_distribution.startswith('uniformSchedul'),
+                args.state_directory_distribution.startswith('uniformBounds'),
+                ]) and num_epoch - uniform_v_incr >= uniform_v_prior:
+            uniform_v_prior = num_epoch
+            uniform_v = int(uniform_v * uniform_v_factor)
+            envs.set_uniform_v(uniform_v)
+            
     writer.close()
 
 
@@ -845,6 +963,52 @@ def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
     writer.add_scalar('%s/one_dead_per_battle' % descriptor,
                       one_dead_per_battle, epoch)
     writer.add_scalar('%s/one_dead_per_win' % descriptor, one_dead_per_win,
+                      epoch)
+    return win_rate, tie_rate, loss_rate
+
+def evaluate_simple(args, good_guys, bad_guys, eval_round, writer, epoch):
+    print("Starting simple eval at epoch %d..." % epoch)
+    descriptor = 'simple_eval_round%d' % eval_round
+    num_battles = args.num_battles_eval
+
+    win_count = 0; tie_count = 0; loss_count = 0; rank_count = 0;
+    mean_win_time = 0; mean_tie_time = 0; mean_loss_time = 0; mean_all_time = 0;
+    for i in range(num_battles):
+        with utility.Timer() as t:
+            wins, ties, losses, ranks = run_eval(
+                args=args, targets=good_guys, opponents=bad_guys, nbattle=i)
+        print("Eval took %.4fs." % t.interval)
+
+        win_count += len(wins)
+        tie_count += len(ties)
+        loss_count += len(losses)
+        rank_count  += len(ranks)
+
+        mean_win_time += np.mean(wins)
+        mean_tie_time += np.mean(ties)
+        mean_loss_time += np.mean(losses)
+        mean_all_time += np.mean(wins + ties + losses)
+
+    mean_win_time = 1.0 * mean_win_time / num_battles
+    mean_tie_time = 1.0 * mean_tie_time / num_battles
+    mean_loss_time = 1.0 * mean_loss_time / num_battles
+    mean_all_time = 1.0 * mean_all_time / num_battles
+
+    win_rate = 1.0*win_count/num_battles
+    tie_rate = 1.0*tie_count/num_battles
+    loss_rate = 1.0*loss_count/num_battles
+    rank_per_battle = 1.0*rank_count/num_battles
+    rank_per_win = 1.0*rank_count/win_count if win_count else 0
+    writer.add_scalar('%s/win_rate' % descriptor, win_rate, epoch)
+    writer.add_scalar('%s/tie_rate' % descriptor, tie_rate, epoch)
+    writer.add_scalar('%s/loss_rate' % descriptor, loss_rate, epoch)
+    writer.add_scalar('%s/mean_win_time' % descriptor, mean_win_time, epoch)
+    writer.add_scalar('%s/mean_tie_time' % descriptor, mean_tie_time, epoch)
+    writer.add_scalar('%s/mean_loss_time' % descriptor, mean_loss_time, epoch)
+    writer.add_scalar('%s/mean_all_time' % descriptor, mean_all_time, epoch)
+    writer.add_scalar('%s/rank_per_battle' % descriptor,
+                      rank_per_battle, epoch)
+    writer.add_scalar('%s/rank_per_win' % descriptor, rank_per_win,
                       epoch)
     return win_rate, tie_rate, loss_rate
 

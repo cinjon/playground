@@ -9,8 +9,8 @@ Playground hosts Pommerman, a clone of Bomberman built for AI research. People f
 There are three variants for which you can enter your agents to compete:
 
 * FFA: Free For All where four agents enter and one leaves. It tests planning, tactics, and cunning. The board is fully observable.
-* Team: 2v2 where two teams of agents enter and one team wins. It tests cooperation, planning, and tactics. The board is fully observable. The agents on each team were submitted by different creators and randomly paired.
-* Team Radio: Like team in that a it's a 2v2 game. Differences are that the agents on each team were both submitted by the same creator, they each have a radio that they can use to convey 2 words from a dictionary of size 8 each step, and the board is partially observed.
+* Team (The NIPS '18 Competition environment): 2v2 where two teams of agents enter and one team wins. It tests planning, and tactics, and cooperation. The board is partially observable.
+* Team Radio: Like team in that a it's a 2v2 game. Differences are that the agents each have a radio that they can use to convey 2 words from a dictionary of size 8 each step.
 
 #### Why should I participate?
 
@@ -30,7 +30,9 @@ The setup for submitting agents will be live shortly. It involves making a [Dock
 
 #### Who is running this?
 
-[Cinjon Resnick](http://twitter.com/cinjoncin), [Denny Britz](https://twitter.com/dennybritz), [David Ha](https://twitter.com/hardmaru), and [Jakob Foerster](https://www.linkedin.com/in/jakobfoerster/) are the folks behind this. We are generously supported by a host of other people, including [Kyunghyun Cho](https://twitter.com/kchonyc), [Joan Bruna](https://twitter.com/joanbruna), [Julian Togelius](http://julian.togelius.com/) and [Jason Weston](https://research.fb.com/people/weston-jason/). You can find us in the [Discord](https://discordapp.com/invite/wjVJEDc).
+[Cinjon Resnick](http://twitter.com/cinjoncin), [Denny Britz](https://twitter.com/dennybritz), [David Ha](https://twitter.com/hardmaru), [Jakob Foerster](https://www.linkedin.com/in/jakobfoerster/), and [Wes Eldridge](https://twitter.com/weseldridge) are the folks behind this. We are generously supported by a host of other people, including [Kyunghyun Cho](https://twitter.com/kchonyc), [Joan Bruna](https://twitter.com/joanbruna), [Julian Togelius](http://julian.togelius.com/) and [Jason Weston](https://research.fb.com/people/weston-jason/). You can find us in the [Discord](https://discordapp.com/invite/wjVJEDc).
+
+Pommerman is immensely appreciate of the generous assistance it has received from Jane Street Capital, NVidia, Facebook AI Research, and Google Cloud.
 
 #### How can I help?
 

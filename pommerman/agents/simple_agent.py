@@ -45,8 +45,10 @@ class SimpleAgent(BaseAgent):
             ret = []
             locations = np.where(bomb_map > 0)
             for r, c in zip(locations[0], locations[1]):
-                ret.append({'position': (r, c),
-                            'blast_strength': int(bomb_map[(r, c)])})
+                ret.append({
+                    'position': (r, c),
+                    'blast_strength': int(bomb_map[(r, c)])
+                })
             return ret
 
         my_position = tuple(obs['position'])
@@ -58,6 +60,7 @@ class SimpleAgent(BaseAgent):
         enemies = [constants.Item(e) for e in obs['enemies']]
         ammo = int(obs['ammo'])
         blast_strength = int(obs['blast_strength'])
+
         with utility.Timer() as t:
             items, dist, prev = self._djikstra(board, my_position, bombs,
                                                enemies, depth=10)
@@ -152,13 +155,13 @@ class SimpleAgent(BaseAgent):
         return random.choice(directions).value
 
     @staticmethod
-    def _djikstra(board, my_position, bombs, enemies, depth=None,
-                  exclude=None):
-        assert(depth is not None)
+    def _djikstra(board, my_position, bombs, enemies, depth=None, exclude=None):
+        assert (depth is not None)
 
         if exclude is None:
-            exclude = [constants.Item.Fog, constants.Item.Rigid,
-                       constants.Item.Skull, constants.Item.Flames]
+            exclude = [
+                constants.Item.Fog, constants.Item.Rigid, constants.Item.Flames
+            ]
 
         def out_of_range(p1, p2):
             x1, y1 = p1
@@ -229,10 +232,10 @@ class SimpleAgent(BaseAgent):
             if my_position == position:
                 # We are on a bomb. All directions are in range of bomb.
                 for direction in [
-                    constants.Action.Right,
-                    constants.Action.Left,
-                    constants.Action.Up,
-                    constants.Action.Down,
+                        constants.Action.Right,
+                        constants.Action.Left,
+                        constants.Action.Up,
+                        constants.Action.Down,
                 ]:
                     ret[direction] = max(ret[direction],
                                          bomb['blast_strength'])
@@ -302,8 +305,8 @@ class SimpleAgent(BaseAgent):
             next_board[my_position] = constants.Item.Bomb.value
 
             for direction, bomb_range in unsafe_directions.items():
-                next_position = utility.get_next_position(my_position,
-                                                          direction)
+                next_position = utility.get_next_position(
+                    my_position, direction)
                 nx, ny = next_position
                 if not utility.position_on_board(next_board, next_position) \
                    or not utility.position_is_passable(next_board,
@@ -320,7 +323,7 @@ class SimpleAgent(BaseAgent):
             return safe
 
         x, y = my_position
-        disallowed = [] # The directions that will go off the board.
+        disallowed = []  # The directions that will go off the board.
 
         for row, col in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             position = (x + row, y + col)
@@ -420,47 +423,29 @@ class SimpleAgent(BaseAgent):
 
         return utility.get_direction(my_position, next_position)
 
-    # @classmethod
-    # def _near_enemy(cls, my_position, items, dist, prev, enemies, radius):
-    def _near_enemy(self, my_position, items, dist, prev, enemies, radius):
-        with utility.Timer() as t:
-            nearest_enemy_position = self._nearest_position(dist, enemies,
-                                                            items, radius)
-        self._update_times(t.interval, 'nearest_position')
-        with utility.Timer() as t:
-            return self._get_direction_towards_position(
-                my_position, nearest_enemy_position, prev)
-        self._update_times(t.interval, 'get_direction_towards_position')
+    @classmethod
+    def _near_enemy(cls, my_position, items, dist, prev, enemies, radius):
+        nearest_enemy_position = cls._nearest_position(dist, enemies, items,
+                                                       radius)
+        return cls._get_direction_towards_position(my_position,
+                                                   nearest_enemy_position, prev)
 
-    # @classmethod
-    # def _near_good_powerup(cls, my_position, items, dist, prev, radius):
-    def _near_good_powerup(self, my_position, items, dist, prev, radius):
+    @classmethod
+    def _near_good_powerup(cls, my_position, items, dist, prev, radius):
         objs = [
-            constants.Item.ExtraBomb,
-            constants.Item.IncrRange,
+            constants.Item.ExtraBomb, constants.Item.IncrRange,
             constants.Item.Kick
         ]
-        with utility.Timer() as t:
-            nearest_item_position = self._nearest_position(dist, objs, items,
-                                                           radius)
-        self._update_times(t.interval, 'nearest_position')
-        with utility.Timer() as t:
-            return self._get_direction_towards_position(
-                my_position, nearest_item_position, prev)
-        self._update_times(t.interval, 'get_direction_towards_position')
+        nearest_item_position = cls._nearest_position(dist, objs, items, radius)
+        return cls._get_direction_towards_position(my_position,
+                                                   nearest_item_position, prev)
 
-    # @classmethod
-    # def _near_wood(cls, my_position, items, dist, prev, radius):
-    def _near_wood(self, my_position, items, dist, prev, radius):
+    @classmethod
+    def _near_wood(cls, my_position, items, dist, prev, radius):
         objs = [constants.Item.Wood]
-        with utility.Timer() as t:
-            nearest_item_position = self._nearest_position(dist, objs, items,
-                                                           radius)
-        self._update_times(t.interval, 'nearest_position')
-        with utility.Timer() as t:
-            return self._get_direction_towards_position(
-                my_position, nearest_item_position, prev)
-        self._update_times(t.interval, 'get_direction_towards_position')
+        nearest_item_position = cls._nearest_position(dist, objs, items, radius)
+        return cls._get_direction_towards_position(my_position,
+                                                   nearest_item_position, prev)
 
     @staticmethod
     def _filter_invalid_directions(board, my_position, directions, enemies):

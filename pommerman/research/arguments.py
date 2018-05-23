@@ -86,13 +86,16 @@ def get_args():
                         help='add nonlinearity to value head')
     parser.add_argument('--batch-size', type=int, default=5120,
                         help='batch size used for training')
-
+    parser.add_argument('--anneal-bomb-penalty-epochs', type=int, default=0,
+                        help='number of epochs to anneal from 0 --> 1 the neg '
+                        'reward that the training agents receive from dying. '
+                        'disabled if set to 0.')
     # specific to Pommerman
     parser.add_argument('--agents',
                         default=','.join(['simple::null']*4),
                         help='Comma delineated list of agent types to run in '
                         'run_battle or generate_game_data.')
-    parser.add_argument('--board_size', type=int, default=11,
+    parser.add_argument('--board-size', type=int, default=11,
                         help='size of the board')
     parser.add_argument('--config', type=str, default='PommeFFA-v3',
                         help='Configuration to execute. See env_ids in '
@@ -106,10 +109,12 @@ def get_args():
                         help='comma separated paths to the saved models.')
     parser.add_argument('--game-state-file', type=str, default='',
                         help='a game state file from which to load.')
+    parser.add_argument('--uniform-v-factor', type=float, default=1.5,
+                        help='a factor for which to multiple the uniform_v')
     parser.add_argument('--state-directory', type=str, default='',
                         help='a game state directory from which to load.')
     parser.add_argument('--state-directory-distribution', type=str,
-                        default='uniform', help='a distribution to load the '
+                        default='', help='a distribution to load the '
                         'states in the directory. uniform will choose on'
                         'randomly. for the others, see envs.py.')
     parser.add_argument('--how-train', type=str, default='simple',

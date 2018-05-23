@@ -48,7 +48,8 @@ def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
             optimizer_state_dict = None
             model = net(None)
 
-        agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda)
+        agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda,
+                           num_processes=args.num_processes)
         agent.initialize(args, obs_shape, action_space,
                          num_training_per_episode, num_episodes, total_steps,
                          num_epoch, optimizer_state_dict, num_steps)
@@ -58,7 +59,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
 
 
 def load_inference_agent(path, agent_type, network_type, action_space,
-                         obs_shape, args):
+                         obs_shape, num_processes, args):
     print("Loading inference agent %s from path %s." % (agent_type, path))
     if network_type == 'qmix':
         net = lambda state: networks.get_q_network(args.model_str)(
@@ -72,7 +73,7 @@ def load_inference_agent(path, agent_type, network_type, action_space,
     loaded_model = torch_load(path, args.cuda, args.cuda_device)
     model_state_dict = loaded_model['state_dict']
     model = net(model_state_dict)
-    agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda)
+    agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda, num_processes=num_processes)
     if args.cuda:
         agent.cuda()
     return agent
@@ -262,8 +263,9 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        running_num_episodes, mean_total_loss,
                        mean_kl_loss=None, mean_pg_loss=None, lr=None,
                        distill_factor=0, reinforce_only=False,
-                       start_step_ratios=None, action_choices=None,
-                       action_probs=None):
+                       start_step_ratios=None, bomb_penalty_lambda=None,
+                       action_choices=None, action_probs=None, uniform_v=None,
+                       mean_running_success_rate=None):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -295,7 +297,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
         writer.add_scalar('entropy_step', mean_dist_entropy, total_steps)
         writer.add_scalar('action_loss_step', mean_action_loss, total_steps)
         writer.add_scalar('value_loss_step', mean_value_loss, total_steps)
-    if mean_kl_loss:
+    if mean_kl_loss and not np.isnan(mean_kl_loss):
         writer.add_scalar('kl_loss_step', mean_kl_loss, total_steps)
     writer.add_scalar('total_loss_step', mean_total_loss, total_steps)
 
@@ -315,85 +317,88 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
         writer.add_scalar(title, 1.0 * count / running_num_episodes,
                           total_steps)
 
-    # writer.add_scalars('bomb_distances_step', {
-    #     key.split(':')[1]: 1.0 * count / running_num_episodes
-    #     for key, count in count_stats.items() \
-    #     if key.startswith('bomb:')
-    # }, total_steps)
+    writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
+    # writer.add_scalar('bomb_penalty_lambda', bomb_penalty_lambda, num_epoch)
+    
+    # if array_stats.get('rank'):
+    #     writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
+    #                       total_steps)
 
-    if array_stats.get('rank'):
-        writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
-                          total_steps)
+    # if array_stats.get('dead'):
+    #     writer.add_scalar('mean_dying_step_step', np.mean(array_stats['dead']),
+    #                       total_steps)
+    #     writer.add_scalar(
+    #         'percent_dying_per_episode_step',
+    #         1.0 * len(array_stats['dead']) / running_num_episodes,
+    #         total_steps)
 
-    if array_stats.get('dead'):
-        writer.add_scalar('mean_dying_step_step', np.mean(array_stats['dead']),
-                          total_steps)
-        writer.add_scalar(
-            'percent_dying_per_episode_step',
-            1.0 * len(array_stats['dead']) / running_num_episodes,
-            total_steps)
-
-    writer.add_histogram('action_choices_epoch', action_choices, num_epoch)
-    writer.add_histogram('action_choices_steps', action_choices, total_steps)
+    writer.add_histogram('action_choices_epoch', action_choices, num_epoch, bins='doane')
+    writer.add_histogram('action_choices_steps', action_choices, total_steps, bins='doane')
     for num in range(len(action_probs)):
         writer.add_histogram('action_probs_epoch/%d' % num, action_probs[num],
-                             num_epoch)
+                             num_epoch, bins='doane')
         writer.add_histogram('action_probs_steps/%d' % num, action_probs[num],
-                             total_steps)
+                             total_steps, bins='doane')
+
+    if uniform_v is not None:
+        writer.add_scalar('uniform_v_epoch', uniform_v, num_epoch)
+    if mean_running_success_rate is not None and not np.isnan(mean_running_success_rate):
+        writer.add_scalar('mean_running_success_rate', mean_running_success_rate,
+                          num_epoch)        
 
     # x-axis: # episodes
-    if reinforce_only:
-        writer.add_scalar('pg_loss_epi', mean_pg_loss, num_episodes)
-    else:
-        writer.add_scalar('entropy_epi', mean_dist_entropy, num_episodes)
-        writer.add_scalar('action_loss_epi', mean_action_loss, num_episodes)
-        writer.add_scalar('value_loss_epi', mean_value_loss, num_episodes)
-    if mean_kl_loss:
-        writer.add_scalar('kl_loss_epi', mean_kl_loss, num_episodes)
-    writer.add_scalar('total_loss_epi', mean_total_loss, num_episodes)
+    # if reinforce_only:
+    #     writer.add_scalar('pg_loss_epi', mean_pg_loss, num_episodes)
+    # else:
+    #     writer.add_scalar('entropy_epi', mean_dist_entropy, num_episodes)
+    #     writer.add_scalar('action_loss_epi', mean_action_loss, num_episodes)
+    #     writer.add_scalar('value_loss_epi', mean_value_loss, num_episodes)
+    # if mean_kl_loss and not np.isnan(mean_kl_loss):
+    #     writer.add_scalar('kl_loss_epi', mean_kl_loss, num_episodes)
+    # writer.add_scalar('total_loss_epi', mean_total_loss, num_episodes)
 
-    writer.add_scalar('final_reward_epi', final_rewards.mean(), num_episodes)
-    writer.add_scalar('cumulative_reward_epi',
-                    1.0 * cumulative_reward / running_num_episodes, num_episodes)
-    writer.add_scalar('terminal_reward_epi',
-                    1.0 * terminal_reward / running_num_episodes, num_episodes)
-    writer.add_scalar('success_rate_epi',
-                    1.0 * success_rate / running_num_episodes, num_episodes)
-    writer.add_scalar('success_rate_alive_epi',
-                    1.0 * success_rate_alive / running_num_episodes,
-                    num_episodes)
+    # writer.add_scalar('final_reward_epi', final_rewards.mean(), num_episodes)
+    # writer.add_scalar('cumulative_reward_epi',
+    #                 1.0 * cumulative_reward / running_num_episodes, num_episodes)
+    # writer.add_scalar('terminal_reward_epi',
+    #                 1.0 * terminal_reward / running_num_episodes, num_episodes)
+    # writer.add_scalar('success_rate_epi',
+    #                 1.0 * success_rate / running_num_episodes, num_episodes)
+    # writer.add_scalar('success_rate_alive_epi',
+    #                 1.0 * success_rate_alive / running_num_episodes,
+    #                 num_episodes)
 
     for start_step, ratio in start_step_ratios.items():
         writer.add_scalar("win_startstep_epoch/%d" % start_step, ratio,
                           num_epoch)
         writer.add_scalar("win_startstep_step/%d" % start_step, ratio,
                           total_steps)
-        writer.add_scalar("win_startstep_epi/%d" % start_step, ratio,
-                          num_episodes)
+        # writer.add_scalar("win_startstep_epi/%d" % start_step, ratio,
+        #                   num_episodes)
 
-    for title, count in count_stats.items():
-        if title.startswith('bomb:'):
-            continue
-        writer.add_scalar(title, 1.0 * count / running_num_episodes,
-                          num_episodes)
+    # for title, count in count_stats.items():
+    #     if title.startswith('bomb:'):
+    #         continue
+    #     writer.add_scalar(title, 1.0 * count / running_num_episodes,
+    #                       num_episodes)
 
-    writer.add_scalars('bomb_distances_epi', {
-        key.split(':')[1]: 1.0 * count / running_num_episodes
-        for key, count in count_stats.items() \
-        if key.startswith('bomb:')
-    }, num_episodes)
+    # writer.add_scalars('bomb_distances_epi', {
+    #     key.split(':')[1]: 1.0 * count / running_num_episodes
+    #     for key, count in count_stats.items() \
+    #     if key.startswith('bomb:')
+    # }, num_episodes)
 
-    if array_stats.get('rank'):
-        writer.add_scalar('mean_rank_epi', np.mean(array_stats['rank']),
-                          num_episodes)
+    # if array_stats.get('rank'):
+    #     writer.add_scalar('mean_rank_epi', np.mean(array_stats['rank']),
+    #                       num_episodes)
 
-    if array_stats.get('dead'):
-        writer.add_scalar('mean_dying_step_epi', np.mean(array_stats['dead']),
-                          num_episodes)
-        writer.add_scalar(
-            'percent_dying_per_episode_epi',
-            1.0 * len(array_stats['dead']) / running_num_episodes,
-            num_episodes)
+    # if array_stats.get('dead'):
+    #     writer.add_scalar('mean_dying_step_epi', np.mean(array_stats['dead']),
+    #                       num_episodes)
+    #     writer.add_scalar(
+    #         'percent_dying_per_episode_epi',
+    #         1.0 * len(array_stats['dead']) / running_num_episodes,
+    #         num_episodes)
 
     # x-axis: # epochs / updates
     if lr is not None:
@@ -405,7 +410,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
         writer.add_scalar('entropy_epoch', mean_dist_entropy, num_epoch)
         writer.add_scalar('action_loss_epoch', mean_action_loss, num_epoch)
         writer.add_scalar('value_loss_epoch', mean_value_loss, num_epoch)
-    if mean_kl_loss:
+    if mean_kl_loss and not np.isnan(mean_kl_loss):
         writer.add_scalar('kl_loss_epoch', mean_kl_loss, num_epoch)
     if distill_factor > 0:
         writer.add_scalar('kl_factor_epoch', distill_factor, num_epoch)
@@ -423,29 +428,29 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                     num_epoch)
 
 
-    for title, count in count_stats.items():
-        if title.startswith('bomb:'):
-            continue
-        writer.add_scalar(title, 1.0 * count / running_num_episodes,
-                          num_epoch)
+    # for title, count in count_stats.items():
+    #     if title.startswith('bomb:'):
+    #         continue
+    #     writer.add_scalar(title, 1.0 * count / running_num_episodes,
+    #                       num_epoch)
 
-    writer.add_scalars('bomb_distances_epoch', {
-        key.split(':')[1]: 1.0 * count / running_num_episodes
-        for key, count in count_stats.items() \
-        if key.startswith('bomb:')
-    }, num_epoch)
+    # writer.add_scalars('bomb_distances_epoch', {
+    #     key.split(':')[1]: 1.0 * count / running_num_episodes
+    #     for key, count in count_stats.items() \
+    #     if key.startswith('bomb:')
+    # }, num_epoch)
 
-    if array_stats.get('rank'):
-        writer.add_scalar('mean_rank_epoch', np.mean(array_stats['rank']),
-                          num_epoch)
+    # if array_stats.get('rank'):
+    #     writer.add_scalar('mean_rank_epoch', np.mean(array_stats['rank']),
+    #                       num_epoch)
 
-    if array_stats.get('dead'):
-        writer.add_scalar('mean_dying_step_epoch', np.mean(array_stats['dead']),
-                          num_epoch)
-        writer.add_scalar(
-            'percent_dying_per_episode_epoch',
-            1.0 * len(array_stats['dead']) / running_num_episodes,
-            num_epoch)
+    # if array_stats.get('dead'):
+    #     writer.add_scalar('mean_dying_step_epoch', np.mean(array_stats['dead']),
+    #                       num_epoch)
+    #     writer.add_scalar(
+    #         'percent_dying_per_episode_epoch',
+    #         1.0 * len(array_stats['dead']) / running_num_episodes,
+    #         num_epoch)
 
 
 def validate_how_train(args):

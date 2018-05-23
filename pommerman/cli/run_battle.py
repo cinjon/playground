@@ -24,13 +24,11 @@ from .. import helpers
 from .. import make
 from .. import utility
 
+import pommerman
 
-time_avg = defaultdict(float)
-time_max = defaultdict(float)
-time_cnt = defaultdict(int)
 
 def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
-        acting_agent_ids=None):
+        acting_agent_ids=None, training_agents=None, curriculum=False):
     """Run the game a number of times.
 
     Args:
@@ -50,40 +48,42 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
     game_state_file = args.game_state_file
     num_times = num_times or int(args.num_times)
     render_mode = args.render_mode
-
     # TODO: After https://github.com/MultiAgentLearning/playground/pull/40
     #       this is still missing the docker_env_dict parsing for the agents.
-    agents = agents or [
-        helpers.make_agent_from_string(agent_string, agent_id+1000)
-        for agent_id, agent_string in enumerate(args.agents.split(','))
-    ]
+
+    if not curriculum:
+        agents = agents or [
+            helpers.make_agent_from_string(agent_string, agent_id+1000)
+            for agent_id, agent_string in enumerate(args.agents.split(','))
+        ]
+    else:
+        training_agent_ids = [random.randint(0, 3)]
+        agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
+        agents.insert(training_agent_ids[0], training_agents)
 
     env = make(config, agents, game_state_file, render_mode=render_mode)
     env.set_training_agents(training_agent_ids)
     if seed is None:
         seed = random.randint(0, 1e6)
+    seed = random.randint(0, 1e6)
     env.seed(seed)
     np.random.seed(seed)
     random.seed(seed)
+    if hasattr(args, 'state_directory'):
+        state_directory = args.state_directory
+        state_directory_distribution = args.state_directory_distribution
+    else:
+        state_directory = None
+        state_directory_distribution = None
+    env.set_state_directory(state_directory,
+                            state_directory_distribution)
 
     if record_pngs_dir:
         os.makedirs(record_pngs_dir)
     if record_json_dir:
         os.makedirs(record_json_dir)
 
-    def _update_times(t, key):
-        avg = time_avg[key]
-        cnt = time_cnt[key]
-        new_avg = (float(avg)*float(cnt) + float(t))
-        new_avg /= float(cnt + 1)
-        time_cnt[key] = cnt + 1
-        time_avg[key] = new_avg
-        time_max[key] = max(time_max[key], float(t))
-
     def _run(seed, acting_agent_ids, record_pngs_dir=None, record_json_dir=None):
-        global time_avg
-        global time_max
-        global time_cnt
         obs = env.reset()
         steps = 0
         done = False
@@ -95,51 +95,26 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
                            record_json_dir=record_json_dir,
                            mode=render_mode)
             actions = env.act(obs, acting_agent_ids=acting_agent_ids)
+                    
             for agent_id in acting_agent_ids:
-                with utility.Timer() as t:
-                    agent_obs = obs[agent_id]
-                    action = agents[agent_id].act(agent_obs, env.action_space)
-                _update_times(t.interval,
-                              '%s-%d' % (str(type(agents[agent_id])), agent_id))
+                agent_obs = obs[agent_id]
+                action = agents[agent_id].act(agent_obs, env.action_space)
                 actions.insert(agent_id, action)
-
+                
             obs, reward, done, info = env.step(actions)
             if type(done) == list:
                 done = all(done)
 
-            if done:
-                print("Agent Run Times:")
-                total = 0.0
-                for k, v in env.model._time_avg.items():
-                    time_avg[k] += v
-                for k, v in env.model._time_cnt.items():
-                    time_cnt[k] += v
-                for k, v in env.model._time_max.items():
-                    time_max[k] = max(time_max[k], v)
-
-                for key in sorted(time_avg.keys()):
-                    avg = time_avg[key]
-                    cnt = time_cnt[key]
-                    mx  = time_max[key]
-                    print("\t%s: %.4f (%d) --> %.4f, %.4f" % (key, avg, cnt,
-                                                              avg * cnt, mx))
-                    total += avg * cnt
-                print("\tTotal: %.4f" % total)
-                env.model.reset_times()
-                time_avg = defaultdict(float)
-                time_max = defaultdict(float)
-                time_cnt = defaultdict(int)
-
         for agent in agents:
             agent.episode_end(reward[agent.agent_id])
 
         for agent in agents:
             agent.episode_end(reward[agent.agent_id])
-        
+
         print("Final Result: ", info)
         if args.render:
             env.render(record_pngs_dir=args.record_pngs_dir,
-                       record_json_dir=args.record_json_dir, 
+                       record_json_dir=args.record_json_dir,
                        mode=args.render_mode)
             time.sleep(5)
             env.render(close=True)
@@ -149,23 +124,18 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
     times = []
     for i in range(num_times):
         start = time.time()
-        if seed is None:
-            seed = random.randint(0, 1e6)
-        np.random.seed(seed)
-        random.seed(seed)
-
         record_pngs_dir_ = record_pngs_dir + '/%d' % (i+1) \
                            if record_pngs_dir else None
         record_json_dir_ = record_json_dir + '/%d' % (i+1) \
                            if record_json_dir else None
         with utility.Timer() as t:
-            info = _run(seed, acting_agent_ids, record_pngs_dir_, record_json_dir_)
+            info = _run(seed, training_agent_ids, record_pngs_dir_, record_json_dir_)
         infos.append(info)
         times.append(t.interval)
         print("Game %d final result (%.4f): " % (i, times[-1]), infos[-1])
 
     atexit.register(env.close)
-    return infos
+    return infos, training_agent_ids
 
 
 def main():

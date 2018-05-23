@@ -16,8 +16,11 @@ from scipy.misc import imresize as resize
 try:
     import pyglet
 except ImportError as e:
-    reraise(suffix="HINT: you can install pyglet directly via 'pip install pyglet'. But if you really just want to install all Gym dependencies and not have to think about it, 'pip install -e .[all]' or 'pip install gym[all]' will do it.")
-    
+    reraise(
+        suffix="Install pyglet with 'pip install pyglet'. If you want to just "
+        "install all Gym dependencies, run 'pip install -e .[all]' or "
+        "'pip install gym[all]'.")
+
 try:
     from pyglet.gl import *
     layer_background = pyglet.graphics.OrderedGroup(0)
@@ -26,7 +29,12 @@ try:
 except pyglet.canvas.xlib.NoSuchDisplayException as e:
     print("Import error! You will not be able to render --> %s" % e)
 except ImportError as e:
-    reraise(prefix="Error occured while running `from pyglet.gl import *`", suffix="HINT: make sure you have OpenGL install. On Ubuntu, you can run 'apt-get install python-opengl'. If you're running on a server, you may need a virtual frame buffer; something like this should work: 'xvfb-run -s \"-screen 0 1400x900x24\" python <your_script.py>'")
+    reraise(
+        prefix="Error occured while running `from pyglet.gl import *`",
+        suffix="Make sure you have OpenGL installed. On Ubuntu, you can run "
+        "'apt-get install python-opengl'. If you're running on a server, you "
+        "may need a virtual frame buffer; something like this should work: "
+        "'xvfb-run -s \"-screen 0 1400x900x24\" python <your_script.py>'")
 
 from . import constants
 from . import utility
@@ -37,6 +45,7 @@ _resource_path = os.path.join(__location__, constants.RESOURCE_DIR)
 
 
 class Viewer(object):
+
     def __init__(self):
         self.window = None
         self.display = None
@@ -46,7 +55,7 @@ class Viewer(object):
         self._batch = None
         self.window = None
         self._step = 0
-        self._agent_view_size = 4
+        self._agent_view_size = None
         self._is_partially_observable = False
         self.isopen = False
 
@@ -55,19 +64,13 @@ class Viewer(object):
 
     def set_board(self, state):
         self._board_state = state
-    
+
     def set_agents(self, agents):
         self._agents = agents
         self._agent_count = len(agents)
 
-    def set_partially_observable(self, is_partially_observable):
-        self._is_partially_observable = is_partially_observable
-
     def set_step(self, step):
         self._step = step
-
-    def set_agent_view_size(self, view_size):
-        self._agent_view_size = view_size
 
     def close(self):
         self.window.close()
@@ -78,33 +81,40 @@ class Viewer(object):
 
     def save(self, path):
         now = datetime.now()
-        filename = now.strftime('%m-%d-%y_%-H-%M-%S_') + str(self._step) + '.png'
+        filename = now.strftime('%m-%d-%y_%-H-%M-%S_') + str(
+            self._step) + '.png'
         path = os.path.join(path, filename)
         pyglet.image.get_buffer_manager().get_color_buffer().save(path)
 
 
 class PixelViewer(Viewer):
-    def __init__(self, 
-                display=None, 
-                board_size=13, 
-                agents=[], 
-                partially_observable=False,
-                game_type=None
-        ):
-        from gym.envs.classic_control import rendering
+    def __init__(self,
+                 display=None,
+                 board_size=11,
+                 agents=[],
+                 partially_observable=False,
+                 agent_view_size=None,
+                 game_type=None):
         super().__init__()
+        from gym.envs.classic_control import rendering
         self.display = rendering.get_display(display)
         self._board_size = board_size
         self._agent_count = len(agents)
         self._agents = agents
         self._is_partially_observable = partially_observable
+        self._agent_view_size = agent_view_size
 
     def render(self):
         frames = self.build_frame()
 
         if self.window is None:
             height, width, _channels = frames.shape
-            self.window = pyglet.window.Window(width=4*width, height=4*height, display=self.display, vsync=False, resizable=True)
+            self.window = pyglet.window.Window(
+                width=4 * width,
+                height=4 * height,
+                display=self.display,
+                vsync=False,
+                resizable=True)
             self.width = width
             self.height = height
             self.isopen = True
@@ -117,9 +127,15 @@ class PixelViewer(Viewer):
             @self.window.event
             def on_close():
                 self.isopen = True
-                
-        assert len(frames.shape) == 3, "You passed in an image with the wrong number shape"
-        image = pyglet.image.ImageData(frames.shape[1], frames.shape[0], 'RGB', frames.tobytes(), pitch=frames.shape[1]*-3)
+
+        assert len(frames.shape
+                  ) == 3, "You passed in an image with the wrong number shape"
+        image = pyglet.image.ImageData(
+            frames.shape[1],
+            frames.shape[0],
+            'RGB',
+            frames.tobytes(),
+            pitch=frames.shape[1] * -3)
         self.window.clear()
         self.window.switch_to()
         self.window.dispatch_events()
@@ -131,12 +147,19 @@ class PixelViewer(Viewer):
         board_size = self._board_size
         agents = self._agents
         human_factor = constants.HUMAN_FACTOR
-        rgb_array = self.rgb_array(board, board_size, agents, self._is_partially_observable)
+        rgb_array = self.rgb_array(board, board_size, agents,
+                                   self._is_partially_observable,
+                                   self._agent_view_size)
 
-        all_img = resize(rgb_array[0], (board_size*human_factor, board_size*human_factor), interp='nearest')
+        all_img = resize(
+            rgb_array[0],
+            (board_size * human_factor, board_size * human_factor),
+            interp='nearest')
         other_imgs = [
-            resize(frame, (int(board_size*human_factor/4), int(board_size*human_factor/4)), interp='nearest')
-            for frame in rgb_array[1:]
+            resize(
+                frame, (int(board_size * human_factor / 4),
+                        int(board_size * human_factor / 4)),
+                interp='nearest') for frame in rgb_array[1:]
         ]
 
         other_imgs = np.concatenate(other_imgs, 0)
@@ -145,8 +168,8 @@ class PixelViewer(Viewer):
         return img
 
     @staticmethod
-    def rgb_array(board, board_size, agents, is_partially_observable):
-        agent_view_size = constants.AGENT_VIEW_SIZE
+    def rgb_array(board, board_size, agents, is_partially_observable,
+                  agent_view_size):
         frames = []
 
         all_frame = np.zeros((board_size, board_size, 3))
@@ -170,44 +193,49 @@ class PixelViewer(Viewer):
             for r in range(board_size):
                 for c in range(board_size):
                     if is_partially_observable and not all([
-                            row >= r - agent_view_size, row < r + agent_view_size,
-                            col >= c - agent_view_size, col < c + agent_view_size
+                            row >= r - agent_view_size, row <
+                            r + agent_view_size, col >= c - agent_view_size,
+                            col < c + agent_view_size
                     ]):
-                        my_frame[r, c] = constants.ITEM_COLORS[constants.Item.Fog.value]
+                        my_frame[r, c] = constants.ITEM_COLORS[
+                            constants.Item.Fog.value]
             frames.append(my_frame)
 
         return frames
 
 
 class PommeViewer(Viewer):
-    def __init__(self, 
-                display=None, 
-                board_size=13, 
-                agents=[], 
-                partially_observable=False,
-                game_type=None
-    ):
-        from gym.envs.classic_control import rendering
+    def __init__(self,
+                 display=None,
+                 board_size=11,
+                 agents=[],
+                 partially_observable=False,
+                 agent_view_size=None,
+                 game_type=None):
         super().__init__()
+        from gym.envs.classic_control import rendering
         self.display = rendering.get_display(display)
         board_height = constants.TILE_SIZE * board_size
-        height =  math.ceil(board_height + (constants.BORDER_SIZE * 2) + (constants.MARGIN_SIZE * 3))
-        width = math.ceil(board_height + board_height / 4 + (constants.BORDER_SIZE * 2) + constants.MARGIN_SIZE)
+        height = math.ceil(board_height + (constants.BORDER_SIZE * 2) +
+                           (constants.MARGIN_SIZE * 3))
+        width = math.ceil(board_height + board_height / 4 +
+                          (constants.BORDER_SIZE * 2) + constants.MARGIN_SIZE)
 
         self._height = height
         self._width = width
-        self.window = pyglet.window.Window(width=width, height=height, display=display)
+        self.window = pyglet.window.Window(
+            width=width, height=height, display=display)
         self.window.set_caption('Pommerman')
         self.isopen = True
         self._board_size = board_size
         self._resource_manager = ResourceManager()
         self._tile_size = constants.TILE_SIZE
-        self._agent_tile_size =  (board_height / 4) / board_size
+        self._agent_tile_size = (board_height / 4) / board_size
         self._agent_count = len(agents)
         self._agents = agents
         self._game_type = game_type
         self._is_partially_observable = partially_observable
-        
+        self._agent_view_size = agent_view_size
 
         @self.window.event
         def close(self):
@@ -224,7 +252,7 @@ class PommeViewer(Viewer):
         agents = self.render_dead_alive()
         board = self.render_main_board()
         agents_board = self.render_agents_board()
-        
+
         self._batch.draw()
         self.window.flip()
 
@@ -237,14 +265,17 @@ class PommeViewer(Viewer):
         return self.render_board(board, x_offset, y_offset, size, top)
 
     def render_agents_board(self):
-        x_offset = self._board_size * self._tile_size + constants.BORDER_SIZE + constants.MARGIN_SIZE
+        x_offset = self._board_size * self._tile_size + constants.BORDER_SIZE
+        x_offset += constants.MARGIN_SIZE
         size = self._agent_tile_size
         agents = []
         top = self._height - constants.BORDER_SIZE + constants.MARGIN_SIZE
         for agent in self._agents:
-            y_offset = agent.agent_id * size * self._board_size + ( agent.agent_id * constants.MARGIN_SIZE ) + constants.BORDER_SIZE
+            y_offset = agent.agent_id * size * self._board_size + (
+                agent.agent_id * constants.MARGIN_SIZE) + constants.BORDER_SIZE
             agent_board = self.agent_view(agent)
-            sprite = self.render_board(agent_board, x_offset, y_offset, size, top)
+            sprite = self.render_board(agent_board, x_offset, y_offset, size,
+                                       top)
             agents.append(sprite)
         return agents
 
@@ -258,7 +289,8 @@ class PommeViewer(Viewer):
                 tile = self._resource_manager.tile_from_state_value(tile_state)
                 tile.width = size
                 tile.height = size
-                sprite = pyglet.sprite.Sprite(tile, x, y, batch=self._batch, group=layer_foreground)
+                sprite = pyglet.sprite.Sprite(
+                    tile, x, y, batch=self._batch, group=layer_foreground)
                 sprites.append(sprite)
         return sprites
 
@@ -267,35 +299,38 @@ class PommeViewer(Viewer):
             return self._board_state
 
         agent_view_size = self._agent_view_size
-        state = self._board_state
+        state = self._board_state.copy()
         fog_value = self._resource_manager.fog_value()
         row, col = agent.position
-         
+
         for r in range(self._board_size):
             for c in range(self._board_size):
                 if self._is_partially_observable and not all([
-                            row >= r - agent_view_size, row < r + agent_view_size,
-                            col >= c - agent_view_size, col < c + agent_view_size
-                    ]):
+                        row >= r - agent_view_size, row <= r + agent_view_size,
+                        col >= c - agent_view_size, col <= c + agent_view_size
+                ]):
                     state[r][c] = fog_value
-        
+
         return state
 
     def render_background(self):
-        image_pattern = pyglet.image.SolidColorImagePattern(color=constants.BACKGROUND_COLOR)
+        image_pattern = pyglet.image.SolidColorImagePattern(
+            color=constants.BACKGROUND_COLOR)
         image = image_pattern.create_image(self._width, self._height)
-        return pyglet.sprite.Sprite(image, 0, 0, batch=self._batch, group=layer_background)
+        return pyglet.sprite.Sprite(
+            image, 0, 0, batch=self._batch, group=layer_background)
 
     def render_text(self):
         text = []
         board_top = self.board_top(y_offset=8)
-        title_label = pyglet.text.Label('Pommerman', 
-                    font_name='Cousine-Regular', 
-                    font_size=36,
-                    x=constants.BORDER_SIZE, 
-                    y=board_top,
-                    batch=self._batch,
-                    group=layer_top)
+        title_label = pyglet.text.Label(
+            'Pommerman',
+            font_name='Cousine-Regular',
+            font_size=36,
+            x=constants.BORDER_SIZE,
+            y=board_top,
+            batch=self._batch,
+            group=layer_top)
         title_label.color = constants.TILE_COLOR
         text.append(title_label)
 
@@ -306,13 +341,14 @@ class PommeViewer(Viewer):
         info_text += 'Time: ' + strftime('%b %d, %Y %H:%M:%S')
         info_text += '   Step: ' + str(self._step)
 
-        time_label = pyglet.text.Label(info_text, 
-                    font_name='Arial', 
-                    font_size=10,
-                    x=constants.BORDER_SIZE, 
-                    y=5,
-                    batch=self._batch,
-                    group=layer_top)
+        time_label = pyglet.text.Label(
+            info_text,
+            font_name='Arial',
+            font_size=10,
+            x=constants.BORDER_SIZE,
+            y=5,
+            batch=self._batch,
+            group=layer_top)
         time_label.color = constants.TEXT_COLOR
         text.append(time_label)
         return text
@@ -327,38 +363,50 @@ class PommeViewer(Viewer):
         sprites = []
 
         for agent in self._agents:
-            x = self.board_right(x_offset=-3) - (4 - agent.agent_id) * ( image_size + spacing)
-            y = board_top 
+            x = self.board_right(
+                x_offset=-3) - (4 - agent.agent_id) * (image_size + spacing)
+            y = board_top
             agent_image = self._resource_manager.agent_image(agent.agent_id)
             agent_image.width = image_size
             agent_image.height = image_size
-            sprites.append(pyglet.sprite.Sprite(agent_image, x, y, batch=self._batch, group=layer_foreground))
+            sprites.append(
+                pyglet.sprite.Sprite(
+                    agent_image,
+                    x,
+                    y,
+                    batch=self._batch,
+                    group=layer_foreground))
 
             if agent.is_alive is False:
-                sprites.append(pyglet.sprite.Sprite(dead, x, y, batch=self._batch, group=layer_top))
+                sprites.append(
+                    pyglet.sprite.Sprite(
+                        dead, x, y, batch=self._batch, group=layer_top))
 
         return sprites
 
     def board_top(self, y_offset=0):
-        return constants.BORDER_SIZE + (self._board_size * self._tile_size) + y_offset
+        return constants.BORDER_SIZE + (
+            self._board_size * self._tile_size) + y_offset
 
     def board_right(self, x_offset):
-        return constants.BORDER_SIZE + (self._board_size * self._tile_size) + x_offset
+        return constants.BORDER_SIZE + (
+            self._board_size * self._tile_size) + x_offset
 
 
 class ResourceManager(object):
+
     def __init__(self):
         self._index_resources()
         self._load_fonts()
         self.images = self._load_images()
         self._fog_value = self._get_fog_index_value()
-    
+
     @staticmethod
     def _index_resources():
         # Tell pyglet where to find the resources
         pyglet.resource.path = [_resource_path]
         pyglet.resource.reindex()
- 
+
     @staticmethod
     def _load_images():
         images_dict = constants.IMAGES_DICT
@@ -366,15 +414,16 @@ class ResourceManager(object):
             image_data = images_dict[i]
             image = pyglet.resource.image(image_data['file_name'])
             images_dict[i]['image'] = image
-        
+
         return images_dict
 
     @staticmethod
     def _load_fonts():
         for i in range(0, len(constants.FONTS_FILE_NAMES)):
-            font_path = os.path.join(_resource_path, constants.FONTS_FILE_NAMES[i])
+            font_path = os.path.join(_resource_path,
+                                     constants.FONTS_FILE_NAMES[i])
             pyglet.font.add_file(font_path)
-   
+
     @staticmethod
     def _get_fog_index_value():
         for id, data in constants.IMAGES_DICT.items():
@@ -382,17 +431,13 @@ class ResourceManager(object):
                 return id
 
     def tile_from_state_value(self, value):
-        img = self.images[value]
-        return img['image']
+        return self.images[value]['image']
 
-    def agent_image(self, agentId):
-        index = agentId + 16
-        img = self.images[index]
-        return img['image']
+    def agent_image(self, agent_id):
+        return self.images[agent_id + 15]['image']
 
     def dead_marker(self):
-        img = self.images[20]
-        return img['image']
+        return self.images[19]['image']
 
     def fog_value(self):
         return self._fog_value

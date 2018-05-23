@@ -22,7 +22,7 @@ CUDA_VISIBLE_DEVICES=0 python eval.py --eval-targets ppo::/path/to/model.py \
  --num-battles-eval 200 --config PommeFFAFast-v3 --cuda-device 0 \
  --eval-opponents simple::null,simple::null,simple::null
 
-On GPU, for team-simple (one agent + simple_agent vs two simple_agents) 
+On GPU, for team-simple (one agent + simple_agent vs two simple_agents)
 CUDA_VISIBLE_DEVICES=0 python eval.py --eval-targets ppo::/path/to/model.pt --num-battles-eval 100 --eval-opponents simple::null,simple::null --eval-mode team-simple --config PommeTeamShortFast-v3 --model-str <MakeSureThisMatches> --cuda-device 0
 
 TODO: Include an example using ssh.
@@ -86,7 +86,7 @@ def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
                              args_state_dict['board_size'],
                              args_state_dict['num_channels'])
         agent = agent_type(model, num_stack=args_state_dict['num_stack'],
-                           cuda=cuda)
+                           cuda=cuda, num_processes=args.num_processes)
         if cuda:
             agent.cuda()
         return agent
@@ -98,7 +98,7 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
     targets = targets.split(',')
     opponents = opponents.split(',')
 
-    if mode == 'ffa':
+    if mode == 'ffa' or mode == 'ffa-curriculum':
         assert(len(targets) == 1), "Exactly 1 target for ffa."
         assert(len(opponents) == 3), "Exactly 3 opponents for ffa."
     elif mode == 'team-simple':
@@ -129,7 +129,7 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
     return targets, opponents
 
 
-def eval(args=None, targets=None, opponents=None):
+def eval(args=None, targets=None, opponents=None, nbattle=0):
     args = args or get_args()
     if args.cuda:
         os.environ['OMP_NUM_THREADS'] = '1'
@@ -157,15 +157,19 @@ def eval(args=None, targets=None, opponents=None):
         for position in range(4):
             # TODO: Change this to use the parallel run_battle below.
             print("Running Battle Position %d..." % position)
+            print("num battles eval ", args.num_battles_eval)
             num_times = args.num_battles_eval // 4
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
             training_agent_ids = []
             if not type(targets[0]) == pommerman.agents.SimpleAgent:
                 training_agent_ids.append(position)
-            infos = run_battle.run(
+            acting_agent_ids = [num for num, agent in enumerate(agents)
+                                if type(agent) != pommerman.agents.SimpleAgent]
+            infos, _ = run_battle.run(
                 args, num_times=num_times, seed=args.seed, agents=agents,
-                training_agent_ids=training_agent_ids)
+                training_agent_ids=training_agent_ids,
+                acting_agent_ids=acting_agent_ids)
             for info in infos:
                 if all(['result' in info,
                         info['result'] == pommerman.constants.Result.Tie,
@@ -182,7 +186,8 @@ def eval(args=None, targets=None, opponents=None):
                         if k == 'dead':
                             deads[position].append(int(v))
                         elif k == 'rank':
-                            ranks[position].append(int(v))
+                            ranks[position].appen
+                            d(int(v))
 
         print("Wins: ", wins)
         print("Dead: ", deads)
@@ -190,6 +195,48 @@ def eval(args=None, targets=None, opponents=None):
         print("Ties: ", ties)
         print("\n")
         return wins, deads, ties, ranks
+
+    elif mode == 'ffa-curriculum':
+        print('Starting Curriculum FFA Battles.')
+        wins = []
+        ties = []
+        losses = []
+        ranks = []
+        # NOTE: don't set a seed so that you always get something rand
+        # (i.e. don't repeat the same envs every eval)
+        infos, positions = run_battle.run(
+            args, num_times=1, training_agents=targets[0], curriculum=True)
+        print("#############")
+        print("infos ", infos)
+        print("positions ", positions)
+        for info, position in zip(infos, positions):
+            print("info ", info)
+            print("position ", position)
+            step_count = info['step_count']
+            if info['result'] == pommerman.constants.Result.Tie:
+                ties.append(step_count)
+            else:
+                winners = info['winners']
+                if position in winners:
+                    wins.append(step_count)
+                else:
+                    losses.append(step_count)
+            if 'step_info' in info and position in info['step_info']:
+                agent_step_info = info['step_info'][position]
+                for kv in agent_step_info:
+                    if ':' not in kv:
+                        continue
+                    k, v = kv.split(':')
+                    if k == 'rank':
+                        ranks.append(int(v))
+
+        print("Wins: ", wins)
+        print("Ties: ", ties)
+        print("Losses: ", losses)
+        print("Ranks: ", ranks)
+        print("\n")
+        return wins, ties, losses, ranks
+
     elif mode == 'team-simple':
         if type(targets[0]) == pommerman.agents.SimpleAgent:
             print('Starting Team Battles with two simple agents.')
@@ -247,7 +294,7 @@ def eval(args=None, targets=None, opponents=None):
         print("\n")
         return wins, one_dead, ties, losses
     elif mode == 'homogenous':
-        print('Starting Homogenous Battles.') 
+        print('Starting Homogenous Battles.')
         ties = []
         wins = []
         losses = []
@@ -316,7 +363,7 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
       num_times: The number of times to run the battle.
       agents: What agents to use. If not, we will make them from the args.
       action_space: The action space for an environment. Likely Discrete(6).
-      acting_agent_ids: Which ids are the acting agents.    
+      acting_agent_ids: Which ids are the acting agents.
       training_agent_ids: Which ids are the training_agents.
 
     Returns:
@@ -335,7 +382,9 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
 
     envs = env_helpers.make_eval_envs(
         config, args.how_train, seed, agents, training_agent_ids,
-        acting_agent_ids, args.num_stack, num_processes)
+        acting_agent_ids, args.num_stack, num_processes,
+        state_directory=args.state_directory,
+        state_directory_distribution=args.state_directory_distribution)
 
     infos = []
     rewards = []
@@ -349,7 +398,7 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
             agent_actions = agents[acting_agent_id].act(agent_obs, action_space)
             for num_process in range(num_processes):
                 actions[num_process][num_action] = agent_actions[num_process]
-                    
+
         obs, reward, done, info = envs.step(actions)
         if args.eval_render:
             if done[0].all():

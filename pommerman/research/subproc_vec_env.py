@@ -49,6 +49,10 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.get_game_type()))
         elif cmd == 'record_json':
             remote.send((env.record_json(data)))
+        elif cmd == 'set_bomb_penalty_lambda':
+            remote.send((env.set_bomb_penalty_lambda(data)))
+        elif cmd == 'set_uniform_v':
+            remote.send((env.set_uniform_v(data)))
         else:
             raise NotImplementedError
 
@@ -244,4 +248,14 @@ class SubprocVecEnv(_VecEnv):
     def get_non_training_obs(self):
         for remote in self.remotes:
             remote.send(('get_non_training_obs', None))
+        return [remote.recv() for remote in self.remotes]
+
+    def set_bomb_penalty_lambda(self, l):
+        for remote in self.remotes:
+            remote.send(('set_bomb_penalty_lambda', l))
+        return [remote.recv() for remote in self.remotes]
+
+    def set_uniform_v(self, v):
+        for remote in self.remotes:
+            remote.send(('set_uniform_v', v))
         return [remote.recv() for remote in self.remotes]

@@ -17,9 +17,7 @@ from pommerman.constants import GameType
 def _make_train_env(config, how_train, seed, rank, game_state_file,
                     training_agents, num_stack, do_filter_team=True,
                     state_directory=None, state_directory_distribution=None):
-
     """Makes an environment callable for multithreading purposes.
-
     Args:
       config: See the arguments module's config options.
       how_train: Str for the method for training. 'heterogenous' is not
@@ -38,7 +36,6 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         states in the game) and "backloaded" (20% chance of loading each of
         the last three states, 5% chance of loading the next six states,
         uniform chance of remainder).
-
     Returns a callable to instantiate an environment fit for our PPO training
       purposes.
     """
@@ -78,24 +75,21 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 
         if config == 'PommeFFAEasy-v0' or config == 'PommeFFAEasy-v3' or \
             config == 'PommeTeamEasy-v0' or config == 'PommeTeamEasy-v3':
-            env = WrapPomme(env, how_train, easy=True,
-                            do_filter_team=do_filter_team)
+            env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
         else:
-            env = WrapPomme(env, how_train, easy=False,
-                            do_filter_team=do_filter_team)
+            env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
 
         env = MultiAgentFrameStack(env, num_stack)
         return env
     return _thunk
 
-
+# NOTE: should we use a different seed + rank (maybe multiplied/increased
+# by some large number) so that the eval seeds are different from training seeds?
 def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
-                   acting_agent_ids, num_stack):
-
+                   acting_agent_ids, num_stack, state_directory=None,
+                   state_directory_distribution=None):
     """Makes an environment callable for multithreading purposes.
-
     Used in conjunction with eval.py
-
     Args:
       config: See the arguments module's config options.
       how_train: Str for the method for training. 'heterogenous' is not
@@ -105,14 +99,14 @@ def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
       agents: The list of agents to use.
       training_agent_ids: The list of training agents to use.
       num_stack: For stacking frames.
-
     Returns a callable to instantiate an environment.
     """
     def _thunk():
         env = pommerman.make(config, agents, None, render_mode='rgb_pixel')
-        env.set_training_agents(training_agent_ids)
-        env.seed(seed + rank)
+        env.seed(seed + rank + 1000)
         env.rank = rank
+        env.set_training_agents(training_agent_ids)
+        env.set_state_directory(state_directory, state_directory_distribution)
         env = WrapPommeEval(env, how_train, acting_agent_ids=acting_agent_ids)
         return env
     return _thunk
@@ -135,12 +129,16 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
 
 
 def make_eval_envs(config, how_train, seed, agents, training_agent_ids,
-                   acting_agent_ids, num_stack, num_processes):
+                   acting_agent_ids, num_stack, num_processes,
+                   state_directory=None, state_directory_distribution=None):     
     envs = [
         _make_eval_env(
             config=config, how_train=how_train, seed=seed, rank=rank,
             agents=agents, training_agent_ids=training_agent_ids,
-            acting_agent_ids=acting_agent_ids, num_stack=num_stack)
+            acting_agent_ids=acting_agent_ids, num_stack=num_stack,
+            state_directory=state_directory,
+            state_directory_distribution=state_directory_distribution
+        )
         for rank in range(num_processes)
     ]
     return SubprocVecEnv(envs)
@@ -213,15 +211,13 @@ class WrapPommeEval(gym.ObservationWrapper):
 
 class WrapPomme(gym.ObservationWrapper):
     def __init__(self, env=None, how_train='simple', acting_agent_ids=None,
-                 easy=False, do_filter_team=True):
+                 do_filter_team=True):
         super(WrapPomme, self).__init__(env)
         self._how_train = how_train
         self._do_filter_team = do_filter_team
         self._acting_agent_ids = acting_agent_ids or self.env.training_agents
-        if easy:
-            obs_shape = (19, 11, 11)
-        else:
-            obs_shape = (19, 13, 13)
+        board_size = env.spec._kwargs['board_size']
+        obs_shape = (19, board_size, board_size)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]
         self.observation_space = spaces.Box(
@@ -255,6 +251,12 @@ class WrapPomme(gym.ObservationWrapper):
         observation = self.env.get_observations()
         return [obs for num, obs in enumerate(observation) \
                 if num not in self._acting_agent_ids]
+
+    def set_bomb_penalty_lambda(self, l):
+        self.env.set_bomb_penalty_lambda(l)
+
+    def set_uniform_v(self, v):
+        self.env.set_uniform_v(v)
 
     def get_training_ids(self):
         return self.env.training_agents
