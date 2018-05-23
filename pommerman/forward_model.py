@@ -393,7 +393,7 @@ class ForwardModel(object):
                     bomb_occupancy[curr_position] += 1
                     num_agent = bombs_kicked_by.get(num_bomb)
                     if num_agent is not None:
-                        agent = live_agents[num_agent]
+                        agent = alive_agents[num_agent]
                         desired_agent_positions[num_agent] = agent.position
                         agent_occupancy[agent.position] += 1
                         del agent_kicked[num_bomb]
