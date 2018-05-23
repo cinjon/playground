@@ -375,35 +375,40 @@ class ForwardModel(object):
                     agent_occupancy[curr_position] += 1
                     change = True
 
-            for bomb_num, bomb in enumerate(curr_bombs):
-                desired_position = desired_bomb_positions[bomb_num]
+            for num_bomb, bomb in enumerate(curr_bombs):
+                desired_position = desired_bomb_positions[num_bomb]
                 curr_position = bomb.position
+
                 # This bomb may be a boomerang, i.e. it was kicked back to the
                 # original location it moved from. If it is blocked now, it
                 # can't be kicked and the agent needs to move back to stay
                 # consistent with other movements.
-                if  (desired_position != curr_position or (bomb_num in bombs_kicked_by )) and \
-                      (bomb_occupancy[desired_position] > 1 or agent_occupancy[desired_position] > 1):
-                    desired_bomb_positions[bomb_num] = curr_position
+                if desired_position == curr_position and num_bomb not in bombs_kicked_by:
+                    continue
+
+                bomb_occupancy_ = bomb_occupancy[desired_position]
+                agent_occupancy_ = agent_occupancy[desired_position]
+                if bomb_occupancy_ > 1 or agent_occupancy_ > 1:
+                    desired_bomb_positions[num_bomb] = curr_position
                     bomb_occupancy[curr_position] += 1
-                    if bomb_num in bombs_kicked_by:
-                        num_agent = agent_kicked_by[bomb_num]
+                    num_agent = bombs_kicked_by.get(num_bomb)
+                    if num_agent is not None:
                         agent = live_agents[num_agent]
                         desired_agent_positions[num_agent] = agent.position
                         agent_occupancy[agent.position] += 1
-                        del agent_kicked[bomb_num]
+                        del agent_kicked[num_bomb]
                     change = True
 
-        for bomb_num, bomb in enumerate(curr_bombs):
-            if desired_bomb_positions[bomb_num] == bomb.position and \
-               not bomb_num in bombs_kicked_by:
+        for num_bomb, bomb in enumerate(curr_bombs):
+            if desired_bomb_positions[num_bomb] == bomb.position and \
+               not num_bomb in bombs_kicked_by:
                 # Bomb was not kicked this turn and its desired position is its
                 # current location. Stop it just in case it was moving before.
                 bomb.stop()
             else:
                 # Move bomb to the new position.
                 # NOTE: We already set the moving direction up above.
-                bomb.position = desired_bomb_positions[bomb_num]
+                bomb.position = desired_bomb_positions[num_bomb]
 
         for num_agent, agent in enumerate(alive_agents):
             if desired_agent_positions[num_agent] != agent.position:

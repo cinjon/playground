@@ -120,6 +120,12 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
             env.render(close=True)
         return info
 
+    if seed is None:
+        seed = random.randint(0, 1e6)
+    np.random.seed(seed)
+    random.seed(seed)
+    env.seed(seed)
+
     infos = []
     times = []
     for i in range(num_times):
