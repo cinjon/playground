@@ -351,7 +351,11 @@ def train():
         # NOTE: Here, we put the first observation into the rollouts.
         training_agents[0].update_rollouts(obs=current_obs, timestep=0)
 
-    torch.manual_seed(args.seed)
+    if args.seed:
+        torch.manual_seed(args.seed)
+        np.random.seed(seed)
+        random.seed(seed)
+        
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
         current_obs = current_obs.cuda()
