@@ -356,10 +356,12 @@ class ForwardModel(object):
 
         for (bomb_num, bomb_position) in delayed_bomb_updates:
             desired_bomb_positions[bomb_num] = bomb_position
+            bomb_occupancy[bomb_position] += 1
             change = True
 
         for (num_agent, agent_position) in delayed_agent_updates:
             desired_agent_positions[num_agent] = agent_position
+            agent_occupancy[agent_position] += 1
             change = True
 
         while change:
