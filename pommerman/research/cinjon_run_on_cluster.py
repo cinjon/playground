@@ -1337,52 +1337,48 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 # These are testing out the 8x8 agent to see if maybe PPO can work on that,
 # possibly with a classification loss. These are on the no sjull set up though.
-job = {
-    "num-processes": 25, "how-train": "simple", 
-    "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
-    "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFA8x8-v0", "board-size": 8,
-    "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    # "eval-mode": "ffa-curriculum"
-}
-counter = 0
-for learning_rate in [1e-4, 6e-5]:
-    for gamma in [.99, .995]:
-        for distill in [0]:
-            j = {k:v for k,v in job.items()}
-            j["run-name"] = "pman8x8nsk-%d" % counter
-            j["gamma"] = gamma
-            j["lr"] = learning_rate
-            train_ppo_job(j, j["run-name"], is_fb=True)
-            counter += 1
-
-
-### These are homogenous jobs using the above uniform21 approach.
-# THESE HAVE NOT BEEN RUN UYET
 # job = {
-#     "num-processes": 25, "how-train": "homogenous", "eval-mode": "homogenous",
+#     "num-processes": 25, "how-train": "simple", 
 #     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
 #     "save-dir": os.path.join(directory, "models"),
-#     "config": "PommeTeamEasy-v0", "num-battles-eval": 100,
-#     "model-str": "PommeCNNPolicySmall",
-#     "state-directory": os.path.join(directory, "teameasyv0-seed1"),
-#     "state-directory-distribution": "uniform21", "use-gae": ""
+#     "config": "PommeFFA8x8-v0", "board-size": 8,
+#     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     # "eval-mode": "ffa-curriculum"
 # }
 # counter = 0
-# for learning_rate in [7e-4, 3e-4]:
+# for learning_rate in [1e-4, 6e-5]:
 #     for gamma in [.99, .995]:
-#         for distill in [0, 2000, 4000]:
+#         for distill in [0, 3000]:
+#             j = {k:v for k,v in job.items()}
+#             j["run-name"] = "pman8x8nsk-%d" % counter
 #             if distill:
-#                 run_name = "pmanhomdst"
-#                 job["distill-epochs"] = distill
-#                 job["distill-expert"] = "SimpleAgent"
-#             else:
-#                 run_name = "pmanhom"
-
-#             job["run-name"] = run_name + "-%d" % counter
-#             job["gamma"] = gamma
-#             job["lr"] = learning_rate
-#             train_ppo_job(job, "pmanhom-%d" % counter, is_fb=True)
+#                 j["run-name"] += "-dst"
+#                 j["distill-epochs"] = distill
+#                 j["distill-expert"] = "SimpleAgent"
+#             j["gamma"] = gamma
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
 #             counter += 1
+
+
+### These are homogenous jobs on 8x8.
+job = {
+    "num-processes": 25, "how-train": "homogenous", "eval-mode": "homogenous",
+    "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+    "save-dir": os.path.join(directory, "models"),
+    "config": "PommeTeam8x8-v0", "num-battles-eval": 200,
+    "model-str": "PommeCNNPolicySmall",
+    "use-gae": "", "board-size": 8,
+}
+counter = 0
+for learning_rate in [3e-4, 1e-4]:
+    for gamma in [.99, .995]:
+        j = {k:v for k,v in job.items()}        
+        run_name = "pmanhom8x8"
+        j["run-name"] = run_name + "-%d" % counter
+        j["gamma"] = gamma
+        j["lr"] = learning_rate
+        train_ppo_job(j, j["run-name"], is_fb=True)
+        counter += 1
             
 
