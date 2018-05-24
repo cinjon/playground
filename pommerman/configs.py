@@ -28,7 +28,7 @@ def ffa_competition_env():
         'num_wood': constants.NUM_WOOD,
         'num_items': constants.NUM_ITEMS,
         'max_steps': constants.MAX_STEPS,
-        'render_fps': constants.RENDER_FPS,
+        'render_fps': 200, # constants.RENDER_FPS,
     }
     agent = characters.Bomber
     return locals()
@@ -71,6 +71,26 @@ def team_competition_env():
         'is_partially_observable': True,
     }
     agent = characters.Bomber
+    return locals()
+
+def ffa_v0_original_env():
+    """Start up a FFA config with a lower complexity board."""
+    env = envs.v0.Pomme
+    game_type = constants.GameType.FFA
+    env_entry_point = 'pommerman.envs.v0:Pomme'
+    env_id = 'PommeFFAOriginal-v0'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': 13,
+        'agent_view_size': 4,
+        'num_rigid': 50,
+        'num_wood': 50,
+        'num_items': 25,
+        'max_steps': 800,
+        'render_fps': constants.RENDER_FPS,
+    }
+    agent = characters.Bomber(bomb_life=25,
+                              blast_strength=3)
     return locals()
 
 def ffa_v0_easy_env():
