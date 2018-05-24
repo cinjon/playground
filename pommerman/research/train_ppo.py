@@ -259,24 +259,26 @@ def train():
         saved_paths = utils.save_agents(
             "ppo-", 0, training_agents, total_steps,
             num_episodes, args, suffix)
-        bad_guys_eval = [
-            SimpleAgent() for _ in range(2)
-        ]
-        bad_guys_train = [
-            SimpleAgent() for _ in range(2)
-        ]
-        # bad_guys_eval = [
-        #     utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
-        #                                "ppo", action_space, obs_shape,
-        #                                args.num_processes // 2, args)
-        #     for _ in range(2)
-        # ]
-        # bad_guys_train = [
-        #     utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
-        #                                "ppo", action_space, obs_shape,
-        #                                args.num_processes, args)
-        #     for _ in range(2)
-        # ]
+        if args.homogenous_init == 'self':
+            bad_guys_eval = [
+                utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
+                                           "ppo", action_space, obs_shape,
+                                           args.num_processes // 2, args)
+                for _ in range(2)
+            ]
+            bad_guys_train = [
+                utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
+                                           "ppo", action_space, obs_shape,
+                                           args.num_processes, args)
+                for _ in range(2)
+            ]
+        else:
+            bad_guys_eval = [
+                SimpleAgent() for _ in range(2)
+            ]
+            bad_guys_train = [
+                SimpleAgent() for _ in range(2)
+            ]
         eval_round = 0
 
     elif how_train == 'simple':
@@ -353,8 +355,8 @@ def train():
 
     if args.seed:
         torch.manual_seed(args.seed)
-        np.random.seed(seed)
-        random.seed(seed)
+        np.random.seed(args.seed)
+        random.seed(args.seed)
         
     if args.cuda:
         torch.cuda.manual_seed(args.seed)

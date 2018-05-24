@@ -120,6 +120,12 @@ def get_args():
     parser.add_argument('--how-train', type=str, default='simple',
                         help='how to train: simple, homogenous, heterogenous, '
                         'dagger.')
+    parser.add_argument('--homogenous-init', type=str, default='self',
+                        help='whether the initial oppomnent for homomgeous is '
+                        'self or simple agent.')
+    parser.add_argument('--step-loss', type=float, default=0.0,
+                        help='the loss to apply per-step. this should be '
+                        'negative if used. 0.0 otherwise.')
     parser.add_argument('--num-channels', type=int, default=256,
                         help='number of channels in the convolutional layers')
     parser.add_argument('--render', default=False, action='store_true',
