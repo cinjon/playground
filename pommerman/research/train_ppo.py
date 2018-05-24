@@ -97,11 +97,17 @@ def train():
         suffix += ".%s" % args.state_directory_distribution
     if args.anneal_bomb_penalty_epochs:
         suffix += ".abpe%d" % args.anneal_bomb_penalty_epochs
+    if args.bomb_reward:
+        suffix += ".bombrew%.3f" % args.bomb_reward
+    if args.step_loss:
+        suffix += ".steploss%.3f" % args.step_loss
 
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
         num_stack, num_processes, state_directory=args.state_directory,
-        state_directory_distribution=args.state_directory_distribution)
+        state_directory_distribution=args.state_directory_distribution,
+        step_loss=args.step_loss, bomb_reward=args.bomb_reward
+    )
 
     uniform_v = None
     running_success_rate = []
@@ -198,6 +204,8 @@ def train():
     success_rate = 0
     success_rate_alive = 0
     prev_epoch = start_epoch
+    game_step_counts = [0 for _ in range(num_processes)]
+    running_total_game_step_counts = []
 
     if args.reinforce_only:
         final_pg_losses = [[] for agent in range(len(training_agents))]
@@ -543,6 +551,13 @@ def train():
             reward = reward.astype(np.float)
             update_stats(info)
             game_ended = np.array([done_.all() for done_ in done])
+            for num_process, ended_ in enumerate(game_ended):
+                game_step_counts[num_process] += 1
+                if ended_:
+                    running_total_game_step_counts.append(
+                        game_step_counts[num_process])
+                    game_step_counts[num_process] = 0
+
             win, alive_win = get_win_alive(info, envs)
             game_state_start_steps = np.array([
                 info_.get('game_state_step_start') for info_ in info])
@@ -897,7 +912,8 @@ def train():
                                      start_step_ratios, bomb_penalty_lambda,
                                      np.array(action_choices),
                                      np.array(action_probs), uniform_v,
-                                     np.mean(running_success_rate))
+                                     np.mean(running_success_rate),
+                                     running_total_game_step_counts)
 
             if args.state_directory_distribution == 'uniformAdapt':
                 rate_ = 1.0 * success_rate / running_num_episodes
@@ -926,6 +942,7 @@ def train():
             array_stats = defaultdict(list)
             final_rewards = torch.zeros([num_training_per_episode,
                                          num_processes, 1])
+            running_total_game_step_counts = []
             running_num_episodes = 0
             cumulative_reward = 0
             terminal_reward = 0

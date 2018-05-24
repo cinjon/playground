@@ -16,7 +16,8 @@ from pommerman.constants import GameType
 
 def _make_train_env(config, how_train, seed, rank, game_state_file,
                     training_agents, num_stack, do_filter_team=True,
-                    state_directory=None, state_directory_distribution=None):
+                    state_directory=None, state_directory_distribution=None,
+                    step_loss=None, bomb_reward=None):
     """Makes an environment callable for multithreading purposes.
     Args:
       config: See the arguments module's config options.
@@ -72,6 +73,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 
         env.set_training_agents(training_agent_ids)
         env.set_state_directory(state_directory, state_directory_distribution)
+        env.set_reward_shaping(step_loss, bomb_reward)
 
         if config == 'PommeFFAEasy-v0' or config == 'PommeFFAEasy-v3' or \
             config == 'PommeTeamEasy-v0' or config == 'PommeTeamEasy-v3':
@@ -114,14 +116,16 @@ def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
 
 def make_train_envs(config, how_train, seed, game_state_file, training_agents,
                     num_stack, num_processes, do_filter_team=True,
-                    state_directory=None, state_directory_distribution=None):
+                    state_directory=None, state_directory_distribution=None,
+                    step_loss=None, bomb_reward=None):
     envs = [
         _make_train_env(
             config=config, how_train=how_train, seed=seed, rank=rank,
             game_state_file=game_state_file, training_agents=training_agents,
             num_stack=num_stack, do_filter_team=do_filter_team,
             state_directory=state_directory,
-            state_directory_distribution=state_directory_distribution
+            state_directory_distribution=state_directory_distribution,
+            step_loss=step_loss, bomb_reward=bomb_reward
         )
         for rank in range(num_processes)
     ]

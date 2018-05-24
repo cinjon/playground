@@ -52,6 +52,8 @@ class Pomme(gym.Env):
         self._is_partially_observable = is_partially_observable
         self._default_bomb_life = default_bomb_life
         self._bomb_penalty_lambda = 1.0
+        self._step_loss = 0.0
+        self._bomb_reward = 0.0
 
         self.training_agents = []
         self.model = forward_model.ForwardModel()
@@ -77,6 +79,10 @@ class Pomme(gym.Env):
 
     def set_bomb_penalty_lambda(self, l):
         self._bomb_penalty_lambda = l
+
+    def set_reward_shaping(self, step_loss, bomb_reward):
+        self._step_loss = step_loss
+        self._bomb_reward = bomb_reward
 
     def _set_observation_space(self):
         """The Observation Space for each agent.
@@ -417,6 +423,14 @@ class Pomme(gym.Env):
         obs = self.get_observations()
         reward = self._get_rewards()
         info = self._get_info(done, reward)
+
+        for agent in self._agents:
+            if not agent.is_alive:
+                continue
+            reward[agent.agent_id] -= self._step_loss
+            if actions[agent.agent_id] == 5:
+                reward[agent.agent_id] += self._bomb_reward
+
         return obs, reward, done, info
 
     def render(self,

@@ -265,7 +265,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        distill_factor=0, reinforce_only=False,
                        start_step_ratios=None, bomb_penalty_lambda=None,
                        action_choices=None, action_probs=None, uniform_v=None,
-                       mean_running_success_rate=None):
+                       mean_running_success_rate=None,
+                       running_total_game_step_counts=[]):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -344,7 +345,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
         writer.add_scalar('uniform_v_epoch', uniform_v, num_epoch)
     if mean_running_success_rate is not None and not np.isnan(mean_running_success_rate):
         writer.add_scalar('mean_running_success_rate', mean_running_success_rate,
-                          num_epoch)        
+                          num_epoch)
+    if running_total_game_step_counts:
+        avg = np.mean(running_total_game_step_counts)
+        std = np.std(running_total_game_step_counts)
+        writer.add_scalar('game_step_counts/mean', avg, num_epoch)
+        writer.add_scalar('game_step_counts/std', std, num_epoch)
 
     # x-axis: # episodes
     # if reinforce_only:
