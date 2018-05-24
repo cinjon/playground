@@ -1494,81 +1494,83 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 ### These are attempting to do reward shaping. We are using the small dataset
 ### because then we'll get results faster.
-job = {
-    "how-train": "simple",  "log-interval": 1000,
-    "log-dir": os.path.join(directory, "logs"),
-    "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFACompetition-v0", "num-battles-eval": 100,
-    "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "state-directory": os.path.join(directory, "ffacompetition4-s100/train"),
-    "num-processes": 50,
-}
-counter = 0
-for learning_rate in [1e-4]:
-    for gamma in [.995]:
-        for distill in [0, 3000]:
-            for (name, distro) in [
-                    ("uAdpt", "uniformAdapt"),
-                    ("uBnA", "uniformBoundsA")
-            ]:
-                for bomb_reward in [0.0, 0.05, 0.1]:
-                    for step_loss in [0.0, -0.05, -0.1]:
-                        if bomb_reward == 0.0 and step_loss == 0.0:
-                            continue
+### Yeah these didn't work. They achieeved full success, but it wasn't sufficient
+### to get the agents to learn another approach other than "don't bomb."
+# job = {
+#     "how-train": "simple",  "log-interval": 1000,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "state-directory": os.path.join(directory, "ffacompetition4-s100/train"),
+#     "num-processes": 50,
+# }
+# counter = 0
+# for learning_rate in [1e-4]:
+#     for gamma in [.995]:
+#         for distill in [0, 3000]:
+#             for (name, distro) in [
+#                     ("uAdpt", "uniformAdapt"),
+#                     ("uBnA", "uniformBoundsA")
+#             ]:
+#                 for bomb_reward in [0.0, 0.05, 0.1]:
+#                     for step_loss in [0.0, -0.05, -0.1]:
+#                         if bomb_reward == 0.0 and step_loss == 0.0:
+#                             continue
 
-                        j = {k:v for k,v in job.items()}
-                        j["run-name"] = "pman4"
+#                         j = {k:v for k,v in job.items()}
+#                         j["run-name"] = "pman4"
 
-                        if bomb_reward:
-                            j["run-name"] += "br%d" % int(100*bomb_reward)
-                        if step_loss:
-                            j["run-name"] += "st%d" % int(100*step_loss)
+#                         if bomb_reward:
+#                             j["run-name"] += "br%d" % int(100*bomb_reward)
+#                         if step_loss:
+#                             j["run-name"] += "st%d" % int(100*step_loss)
 
-                        if distill:
-                            j["distill-epochs"] = distill
-                            j["distill-expert"] = "SimpleAgent"
-                            j["run-name"] += "-dst"
+#                         if distill:
+#                             j["distill-epochs"] = distill
+#                             j["distill-expert"] = "SimpleAgent"
+#                             j["run-name"] += "-dst"
 
-                        j["state-directory-distribution"] = distro
-                        j["run-name"] += "-%s-%d" % (name, counter)
-                        j["gamma"] = gamma
-                        j["lr"] = learning_rate
-                        train_ppo_job(j, j["run-name"], is_fb=True)
-                        counter += 1
+#                         j["state-directory-distribution"] = distro
+#                         j["run-name"] += "-%s-%d" % (name, counter)
+#                         j["gamma"] = gamma
+#                         j["lr"] = learning_rate
+#                         train_ppo_job(j, j["run-name"], is_fb=True)
+#                         counter += 1
+# # These are the same as above but with 8x8.
+# job = {
+#     "num-processes": 50, "how-train": "simple", 
+#     "log-interval": 1000,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFA8x8-v0", "board-size": 8,
+#     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     # "eval-mode": "ffa-curriculum"
+# }
+# counter = 0
+# for learning_rate in [1e-4]:
+#     for gamma in [.995]:
+#         for distill in [0, 3000]:
+#             for bomb_reward in [0.0, 0.05, 0.1]:
+#                 for step_loss in [0.0, -0.05, -0.1]:
+#                     if bomb_reward == 0.0 and step_loss == 0.0:
+#                         continue
+#                     j = {k:v for k,v in job.items()}
+#                     j["run-name"] = "pman8x8"
+#                     if bomb_reward:
+#                         j["run-name"] += "br%d" % int(100*bomb_reward)
+#                     if step_loss:
+#                         j["run-name"] += "st%d" % int(100*step_loss)
 
-# These are the same as above but with 8x8.
-job = {
-    "num-processes": 50, "how-train": "simple", 
-    "log-interval": 1000,
-    "log-dir": os.path.join(directory, "logs"),
-    "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFA8x8-v0", "board-size": 8,
-    "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    # "eval-mode": "ffa-curriculum"
-}
-counter = 0
-for learning_rate in [1e-4]:
-    for gamma in [.995]:
-        for distill in [0, 3000]:
-            for bomb_reward in [0.0, 0.05, 0.1]:
-                for step_loss in [0.0, -0.05, -0.1]:
-                    if bomb_reward == 0.0 and step_loss == 0.0:
-                        continue
-                    j = {k:v for k,v in job.items()}
-                    j["run-name"] = "pman8x8"
-                    if bomb_reward:
-                        j["run-name"] += "br%d" % int(100*bomb_reward)
-                    if step_loss:
-                        j["run-name"] += "st%d" % int(100*step_loss)
+#                     j["state-directory-distribution"] = distro
+#                     if distill:
+#                         j["distill-epochs"] = distill
+#                         j["distill-expert"] = "SimpleAgent"
+#                         j["run-name"] += "-dst"
 
-                    j["state-directory-distribution"] = distro
-                    if distill:
-                        j["distill-epochs"] = distill
-                        j["distill-expert"] = "SimpleAgent"
-                        j["run-name"] += "-dst"
+#                     j["run-name"] += "-%s-%d" % (name, counter)
+#                     j["gamma"] = gamma
+#                     j["lr"] = learning_rate
+#                     train_ppo_job(j, j["run-name"], is_fb=True)
+#                     counter += 1
 
-                    j["run-name"] += "-%s-%d" % (name, counter)
-                    j["gamma"] = gamma
-                    j["lr"] = learning_rate
-                    train_ppo_job(j, j["run-name"], is_fb=True)
-                    counter += 1
