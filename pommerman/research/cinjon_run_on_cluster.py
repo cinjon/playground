@@ -1435,33 +1435,6 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 #                     counter += 1
 
 
-### Homog but this time against the simple agent as the starting challenger.
-# TODO: THESE DIDNT START ... WHy not??
-# job = {
-#     "num-processes": 30, "how-train": "homogenous", "eval-mode": "homogenous",
-#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
-#     "save-dir": os.path.join(directory, "models"),
-#     "config": "PommeTeam8x8-v0", "num-battles-eval": 100,
-#     "model-str": "PommeCNNPolicySmall",
-#     "use-gae": "", "board-size": 8, 
-# }
-# counter = 0
-# for learning_rate in [1e-4, 6e-5]:
-#     for gamma in [.995, .999]:
-#         for distill in [0, 2500, 5000]:
-#             run_name = "pmanhom8smpst"
-#             j = {k:v for k,v in job.items()}
-#             if distill:
-#                 j["distill-expert"] = "SimpleAgent"
-#                 j["distill-epochs"] = distill
-#                 run_name += "dst"
-#             j["run-name"] = run_name + "-%d" % counter
-#             j["gamma"] = gamma
-#             j["lr"] = learning_rate
-#             train_ppo_job(j, j["run-name"], is_fb=True)
-#             counter += 1
-
-
 ### These are redos for the new dataset.
 # job = {
 #     "how-train": "simple",  "log-interval": 1000,
@@ -1574,3 +1547,66 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 #                     train_ppo_job(j, j["run-name"], is_fb=True)
 #                     counter += 1
 
+
+
+### Homog with reward shaping.
+job = {
+    "num-processes": 50, "how-train": "homogenous", "eval-mode": "homogenous",
+    "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+    "save-dir": os.path.join(directory, "models"),
+    "config": "PommeTeam8x8-v0", "num-battles-eval": 100,
+    "model-str": "PommeCNNPolicySmall",
+    "use-gae": "", "board-size": 8
+}
+counter = 0
+for learning_rate in [1e-4]:
+    for gamma in [.995, 1.]:
+        for distill in [0, 3000]:
+            for bomb_reward in [0.0, 0.001, 0.01]:
+                for step_loss in [0.0, -0.001, -0.01]:
+                    if bomb_reward == 0.0 and step_loss == 0.0:
+                        continue
+                    j = {k:v for k,v in job.items()}
+
+                    j["run-name"] = "pmhom8x8"
+                    if bomb_reward:
+                        j["run-name"] += "br%d" % int(100*bomb_reward)
+                    if step_loss:
+                        j["run-name"] += "st%d" % int(100*step_loss)
+
+                    if distill:
+                        j["distill-expert"] = "SimpleAgent"
+                        j["distill-epochs"] = distill
+
+                    j["run-name"] = j["run_name"] + "-%d" % counter
+                    j["gamma"] = gamma
+                    j["lr"] = learning_rate
+                    train_ppo_job(j, j["run-name"], is_fb=True)
+                    counter += 1
+
+
+### Homog but this time against the simple agent as the starting challenger.
+# TODO: THESE DIDNT START ... WHy not??
+# job = {
+#     "num-processes": 30, "how-train": "homogenous", "eval-mode": "homogenous",
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeTeam8x8-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall",
+#     "use-gae": "", "board-size": 8, 
+# }
+# counter = 0
+# for learning_rate in [1e-4, 6e-5]:
+#     for gamma in [.995, .999]:
+#         for distill in [0, 2500, 5000]:
+#             run_name = "pmanhom8smpst"
+#             j = {k:v for k,v in job.items()}
+#             if distill:
+#                 j["distill-expert"] = "SimpleAgent"
+#                 j["distill-epochs"] = distill
+#                 run_name += "dst"
+#             j["run-name"] = run_name + "-%d" % counter
+#             j["gamma"] = gamma
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
+#             counter += 1
