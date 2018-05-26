@@ -97,10 +97,6 @@ def train():
         suffix += ".%s" % args.state_directory_distribution
     if args.anneal_bomb_penalty_epochs:
         suffix += ".abpe%d" % args.anneal_bomb_penalty_epochs
-    if args.bomb_reward:
-        suffix += ".bombrew%.3f" % args.bomb_reward
-    if args.step_loss:
-        suffix += ".steploss%.3f" % args.step_loss
 
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,

@@ -1490,11 +1490,16 @@ for learning_rate in [1e-4]:
                         j = {k:v for k,v in job.items()}
                         j["run-name"] = "pmhom8x8"
                         j["begin-selfbombing-epoch"] = begin_selfbombing_epoch
+
+                        if begin_selfbombing_epoch > 0:
+                            j["run-name"] += "-bsbe%d" % begin_selfbombing_epoch
+
                         if bomb_reward:
-                            j["run-name"] += "br%d" % int(1000*bomb_reward)
+                            j["run-name"] += "-br%d" % int(1000*bomb_reward)
                             j["bomb-reward"] = bomb_reward
+
                         if step_loss:
-                            j["run-name"] += "st%d" % int(1000*step_loss)
+                            j["run-name"] += "-st%d" % int(-1000*step_loss)
                             j["step-loss"] = step_loss
 
                         if distill:
