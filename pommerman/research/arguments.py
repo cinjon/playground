@@ -146,6 +146,9 @@ def get_args():
                         if True, for simple and team, \
                         env.step returns the rewards and done for both \
                         the training agent and its teammate')
+    parser.add_argument('--begin-selfbombing-epoch', default=0, type=int,
+                        help='the epoch at which to begin dying from your own '
+                        'bombs. this applies to all agents, even simple ones. ')
 
     ### Eval Specific
     parser.add_argument('--eval-mode', type=str, default='ffa',

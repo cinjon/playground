@@ -53,6 +53,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.set_bomb_penalty_lambda(data)))
         elif cmd == 'set_uniform_v':
             remote.send((env.set_uniform_v(data)))
+        elif cmd == 'enable_selfbombing':
+            remote.send((env.enable_selfbombing()))
         else:
             raise NotImplementedError
 
@@ -253,6 +255,11 @@ class SubprocVecEnv(_VecEnv):
     def set_bomb_penalty_lambda(self, l):
         for remote in self.remotes:
             remote.send(('set_bomb_penalty_lambda', l))
+        return [remote.recv() for remote in self.remotes]
+
+    def enable_selfbombing(self):
+        for remote in self.remotes:
+            remote.send(('enable_selfbombing', None))
         return [remote.recv() for remote in self.remotes]
 
     def set_uniform_v(self, v):

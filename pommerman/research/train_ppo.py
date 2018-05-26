@@ -396,6 +396,9 @@ def train():
     bomb_penalty_lambda = 1.0
 
     for num_epoch in range(start_epoch, num_epochs):
+        if num_epoch >= args.begin_selfbombing_epoch:
+            envs.enable_selfbombing()
+
         if anneal_bomb_penalty_epochs > 0:
             bomb_penalty_lambda = 1.0 * num_epoch / anneal_bomb_penalty_epochs
             bomb_penalty_lambda = min(1.0, bomb_penalty_lambda)

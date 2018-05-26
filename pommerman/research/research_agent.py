@@ -46,7 +46,7 @@ class ResearchAgent(BaseAgent):
         if type(obs) != list:
             obs = [obs]
 
-        # If this errors, did you set num_processes correctly?
+        # NOTE: If this errors, did you set num_processes correctly?
         for num, o in enumerate(obs):
             self._obs_stacks[num].append(self._featurize_obs(o))
 

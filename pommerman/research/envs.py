@@ -265,6 +265,9 @@ class WrapPomme(gym.ObservationWrapper):
     def get_training_ids(self):
         return self.env.training_agents
 
+    def enable_selfbombing(self):
+        self.env.enable_selfbombing()
+
     def get_expert_obs(self):
         return self._filter(self.env.get_observations())
 

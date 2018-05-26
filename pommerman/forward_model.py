@@ -137,13 +137,13 @@ class ForwardModel(object):
 
     @staticmethod
     def step(actions, curr_board, curr_agents, curr_bombs, curr_items,
-             curr_flames, max_blast_strength=10):
+             curr_flames, max_blast_strength=10, selfbombing=True, do_print=False):
         board_size = len(curr_board)
         tmp_board = curr_board.copy()
 
         # Tick the flames. Replace any dead ones with passages. If there is an
         # item there, then reveal that item.
-        flames = []
+        flames_dict = {}
         for flame in curr_flames:
             position = flame.position
             if flame.is_dead():
@@ -152,11 +152,14 @@ class ForwardModel(object):
                     del curr_items[position]
                 else:
                     item_value = constants.Item.Passage.value
-                curr_board[position] = item_value
+
+                # NOTE: We add this in to deal with the fact that there may be
+                # an agent there because of selfbombing.
+                if curr_board[position] == constants.Item.Flames.value:
+                    curr_board[position] = item_value
             else:
                 flame.tick()
-                flames.append(flame)
-        curr_flames = flames
+                flames_dict[position] = flame
 
         # Step the living agents and moving bombs.
         # If two agents try to go to the same spot, they should bounce back to
@@ -420,6 +423,9 @@ class ForwardModel(object):
 
         # Explode bombs.
         exploded_map = np.zeros_like(curr_board)
+        # The exploded_causes is a dict of explosion position to list of agents
+        # that caused that position to blow up.
+        exploded_causes = defaultdict(list)
         has_new_explosions = False
 
         for bomb in curr_bombs:
@@ -448,6 +454,7 @@ class ForwardModel(object):
                         if curr_board[r][c] == constants.Item.Rigid.value:
                             break
                         exploded_map[r][c] = 1
+                        exploded_causes[(r, c)].append(bomb.bomber.agent_id)
                         if curr_board[r][c] == constants.Item.Wood.value:
                             break
 
@@ -464,16 +471,29 @@ class ForwardModel(object):
         # Update the board's flames.
         flame_positions = np.where(exploded_map == 1)
         for row, col in zip(flame_positions[0], flame_positions[1]):
-            curr_flames.append(characters.Flame((row, col)))
+            position = (row, col)
+            flames_dict[position] = characters.Flame(
+                position, bomber_ids=exploded_causes[position])
+
+        curr_flames = flames_dict.values()
         for flame in curr_flames:
             curr_board[flame.position] = constants.Item.Flames.value
 
         # Kill agents on flames. Otherwise, update position on curr_board.
+        # if do_print:
+        # print("SELFBOMBING: ", selfbombing)c
+        # print(exploded_causes)
         for agent in alive_agents:
-            if curr_board[agent.position] == constants.Item.Flames.value:
-                agent.die()
-            else:
+            position = agent.position
+            flame = flames_dict.get(position)
+            if flame is None:
+                # Not on a flame.
                 curr_board[agent.position] = utility.agent_value(agent.agent_id)
+            else:
+                if selfbombing or agent.agent_id not in flame.bomber_ids:
+                    agent.die()
+                else:
+                    curr_board[agent.position] = utility.agent_value(agent.agent_id)
 
         return curr_board, curr_agents, curr_bombs, curr_items, curr_flames
 

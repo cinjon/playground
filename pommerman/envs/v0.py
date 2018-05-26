@@ -54,6 +54,7 @@ class Pomme(gym.Env):
         self._bomb_penalty_lambda = 1.0
         self._step_loss = 0.0
         self._bomb_reward = 0.0
+        self._selfbombing = False
 
         self.training_agents = []
         self.model = forward_model.ForwardModel()
@@ -79,6 +80,9 @@ class Pomme(gym.Env):
 
     def set_bomb_penalty_lambda(self, l):
         self._bomb_penalty_lambda = l
+
+    def enable_selfbombing(self):
+        self._selfbombing = True
 
     def set_reward_shaping(self, step_loss, bomb_reward):
         self._step_loss = step_loss
@@ -410,7 +414,8 @@ class Pomme(gym.Env):
         max_blast_strength = self._agent_view_size or 10
         result = self.model.step(actions, self._board, self._agents,
                                  self._bombs, self._items, self._flames,
-                                 max_blast_strength = max_blast_strength)
+                                 max_blast_strength = max_blast_strength,
+                                 selfbombing=self._selfbombing, do_print=self.rank == 0)
         self._board, self._agents, self._bombs = result[:3]
         self._items, self._flames = result[3:]
 
