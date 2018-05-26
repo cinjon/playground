@@ -995,9 +995,13 @@ def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
     writer.add_scalar('%s/win_rate' % descriptor, win_rate, epoch)
     writer.add_scalar('%s/tie_rate' % descriptor, tie_rate, epoch)
     writer.add_scalar('%s/loss_rate' % descriptor, loss_rate, epoch)
-    writer.add_scalar('%s/mean_win_time' % descriptor, mean_win_time, epoch)
-    writer.add_scalar('%s/mean_tie_time' % descriptor, mean_tie_time, epoch)
-    writer.add_scalar('%s/mean_loss_time' % descriptor, mean_loss_time, epoch)
+    if not np.isnan(mean_win_time):
+        writer.add_scalar('%s/mean_win_time' % descriptor, mean_win_time, epoch)
+    if not np.isnan(mean_tie_time):
+        writer.add_scalar('%s/mean_tie_time' % descriptor, mean_tie_time, epoch)
+    if not np.isnan(mean_loss_time):
+        writer.add_scalar('%s/mean_loss_time' % descriptor, mean_loss_time, epoch)
+
     writer.add_scalar('%s/mean_all_time' % descriptor, mean_all_time, epoch)
     writer.add_scalar('%s/one_dead_per_battle' % descriptor,
                       one_dead_per_battle, epoch)
