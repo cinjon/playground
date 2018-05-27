@@ -24,61 +24,39 @@ class SimpleAgent(BaseAgent):
         # Keep track of the previous direction to help with the enemy
         # standoffs.
         self._prev_direction = None
-        self.reset_times()
 
     def clear_obs_stack(self, num_stack=None):
         pass
-    
-    def reset_times(self):
-        self._time_avg = defaultdict(float)
-        self._time_max = defaultdict(float)
-        self._time_cnt = defaultdict(int)
 
-    def _update_times(self, t, key):
-        avg = self._time_avg[key]
-        cnt = self._time_cnt[key]
-        new_avg = (float(avg)*float(cnt) + float(t))
-        new_avg /= float(cnt + 1)
-        self._time_cnt[key] = cnt + 1
-        self._time_avg[key] = new_avg
-        self._time_max[key] = max(self._time_max[key], float(t))
+    @staticmethod
+    def convert_bombs(bomb_map):
+        ret = []
+        locations = np.where(bomb_map > 0)
+        for r, c in zip(locations[0], locations[1]):
+            ret.append({
+                'position': (r, c),
+                'blast_strength': int(bomb_map[(r, c)])
+            })
+        return ret
 
     def act(self, obs, action_space):
-        def convert_bombs(bomb_map):
-            ret = []
-            locations = np.where(bomb_map > 0)
-            for r, c in zip(locations[0], locations[1]):
-                ret.append({
-                    'position': (r, c),
-                    'blast_strength': int(bomb_map[(r, c)])
-                })
-            return ret
-
         my_position = tuple(obs['position'])
         board = np.array(obs['board'])
-        with utility.Timer() as t:
-            bombs = convert_bombs(np.array(obs['bomb_blast_strength']))
-        self._update_times(t.interval, 'convert_bombs')
+        bombs = self.convert_bombs(np.array(obs['bomb_blast_strength']))
 
         enemies = [constants.Item(e) for e in obs['enemies']]
         ammo = int(obs['ammo'])
         blast_strength = int(obs['blast_strength'])
 
-        with utility.Timer() as t:
-            items, dist, prev = self._djikstra(board, my_position, bombs,
-                                               enemies, depth=10)
-        self._update_times(t.interval, 'djikstra')
+        items, dist, prev = self._djikstra(board, my_position, bombs,
+                                           enemies, depth=10)
 
         # Move if we are in an unsafe place.
-        with utility.Timer() as t:
-            unsafe_directions = self._directions_in_range_of_bomb(
-                board, my_position, bombs, dist)
-        self._update_times(t.interval, 'directions_in_range_of_bomb')
+        unsafe_directions = self._directions_in_range_of_bomb(
+            board, my_position, bombs, dist)
         if unsafe_directions:
-            with utility.Timer() as t:
-                directions = self._find_safe_directions(
-                    board, my_position, unsafe_directions, bombs, enemies)
-            self._update_times(t.interval, 'find_safe_directions')
+            directions = self._find_safe_directions(
+                board, my_position, unsafe_directions, bombs, enemies)
             return random.choice(directions).value
 
         # Lay pomme if we are adjacent to an enemy.
@@ -87,63 +65,46 @@ class SimpleAgent(BaseAgent):
             return constants.Action.Bomb.value
 
         # Move to an enemy if there is one in exactly three reachable spaces.
-        with utility.Timer() as t:
-            direction = self._near_enemy(my_position, items, dist, prev,
-                                         enemies, 3)
-        self._update_times(t.interval, 'near_enemy')
+        direction = self._near_enemy(my_position, items, dist, prev,
+                                     enemies, 3)
         if direction is not None and \
            (self._prev_direction != direction or random.random() < .5):
             self._prev_direction = direction
             return direction.value
 
         # Move towards a good item if there is one within two reachable spaces.
-        with utility.Timer() as t:
-            direction = self._near_good_powerup(
-                my_position, items, dist, prev, 2)
-
-        self._update_times(t.interval, 'near_good_powerup')
+        direction = self._near_good_powerup(
+            my_position, items, dist, prev, 2)
         if direction is not None:
             return direction.value
 
         # Maybe lay a bomb if we are within a space of a wooden wall.
-        with utility.Timer() as t:
-            if self._near_wood(my_position, items, dist, prev, 1):
-                if self._maybe_bomb(ammo, blast_strength, items, dist,
-                                    my_position):
-                    return constants.Action.Bomb.value
-                else:
-                    return constants.Action.Stop.value
-        self._update_times(t.interval, 'near_wood_1')
+        if self._near_wood(my_position, items, dist, prev, 1):
+            if self._maybe_bomb(ammo, blast_strength, items, dist,
+                                my_position):
+                return constants.Action.Bomb.value
+            else:
+                return constants.Action.Stop.value
 
         # Move towards a wooden wall if there is one within two reachable
         # spaces and you have a bomb.
-        with utility.Timer() as t:
-            direction = self._near_wood(my_position, items, dist, prev, 2)
-        self._update_times(t.interval, 'near_wood_2')
+        direction = self._near_wood(my_position, items, dist, prev, 2)
         if direction is not None:
-            with utility.Timer() as t:
-                directions = self._filter_unsafe_directions(board, my_position,
-                                                            [direction], bombs)
-                if directions:
-                    return directions[0].value
-            self._update_times(t.interval, 'filter_unsafe_directions')
+            directions = self._filter_unsafe_directions(board, my_position,
+                                                        [direction], bombs)
+            if directions:
+                return directions[0].value
 
         # Choose a random but valid direction.
         directions = [constants.Action.Stop, constants.Action.Left,
                       constants.Action.Right, constants.Action.Up,
                       constants.Action.Down]
-        with utility.Timer() as t:
-            valid_directions = self._filter_invalid_directions(
-                board, my_position, directions, enemies)
-        self._update_times(t.interval, 'filter_invalid_directions')
-        with utility.Timer() as t:
-            directions = self._filter_unsafe_directions(
-                board, my_position, valid_directions, bombs)
-        self._update_times(t.interval, 'filter_unsafe_directions')
-        with utility.Timer() as t:
-            directions = self._filter_recently_visited(
-                directions, my_position, self._recently_visited_positions)
-        self._update_times(t.interval, 'filter_recently_visited')
+        valid_directions = self._filter_invalid_directions(
+            board, my_position, directions, enemies)
+        directions = self._filter_unsafe_directions(
+            board, my_position, valid_directions, bombs)
+        directions = self._filter_recently_visited(
+            directions, my_position, self._recently_visited_positions)
         if len(directions) > 1:
             directions = [k for k in directions if k != constants.Action.Stop]
         if not len(directions):
