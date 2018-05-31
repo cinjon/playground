@@ -24,25 +24,28 @@ class SimpleAgent(BaseAgent):
         # Keep track of the previous direction to help with the enemy
         # standoffs.
         self._prev_direction = None
+        self.is_simple_agent = True
 
     def clear_obs_stack(self, num_stack=None):
         pass
 
     @staticmethod
-    def convert_bombs(bomb_map):
+    def convert_bombs(bomb_blast_strength, bomb_life):
         ret = []
-        locations = np.where(bomb_map > 0)
+        locations = np.where(bomb_blast_strength > 0)
         for r, c in zip(locations[0], locations[1]):
             ret.append({
                 'position': (r, c),
-                'blast_strength': int(bomb_map[(r, c)])
+                'blast_strength': int(bomb_blast_strength[(r, c)]),
+                'life': int(bomb_life[(r, c)]),
             })
         return ret
 
     def act(self, obs, action_space):
         my_position = tuple(obs['position'])
         board = np.array(obs['board'])
-        bombs = self.convert_bombs(np.array(obs['bomb_blast_strength']))
+        bombs = self.convert_bombs(np.array(obs['bomb_blast_strength']),
+                                   np.array(obs['bomb_life']))
 
         enemies = [constants.Item(e) for e in obs['enemies']]
         ammo = int(obs['ammo'])

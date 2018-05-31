@@ -163,7 +163,7 @@ def train():
             else:
                 suffix += ".dstlDagEp{}".format(distill_epochs)
             suffix += ".ikl{}".format(init_kl_factor)
-        elif distill_expert == 'SimpleAgent':
+        elif distill_expert.startswith('SimpleAgent'):
             if set_distill_kl >= 0:
                 suffix += ".dstlSimKL{}".format(set_distill_kl)
             else:
@@ -361,7 +361,7 @@ def train():
         torch.manual_seed(args.seed)
         np.random.seed(args.seed)
         random.seed(args.seed)
-        
+
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
         current_obs = current_obs.cuda()
@@ -441,7 +441,7 @@ def train():
                         _, _, _, _, probs, _ = distill_agent.act_on_data(
                             *data, deterministic=True)
                         dagger_prob_distr.append(probs)
-                    elif distill_expert == 'SimpleAgent':
+                    elif distill_expert.startswith('SimpleAgent'):
                         expert_obs = envs.get_expert_obs()
                         expert_actions = envs.get_expert_actions(expert_obs)
                         make_onehot(expert_actions)
@@ -484,7 +484,7 @@ def train():
                                 *probs.shape[1:]])
                             for num_agent in range(num_training_per_episode):
                                 dagger_prob_distr.append(probs[:, num_agent])
-                        elif distill_expert == 'SimpleAgent':
+                        elif distill_expert.startswith('SimpleAgent'):
                             # TODO: change this so that you get actions for all the agents
                             expert_obs = envs.get_expert_obs()
                             expert_actions = envs.get_expert_actions(expert_obs)  #8x4
@@ -521,7 +521,7 @@ def train():
                             action_probs[num].extend([p[num] for p in probs])
 
                     non_training_obs = envs.get_non_training_obs()
-                    if type(bad_guys_train[0]) == SimpleAgent:
+                    if hasattr(bad_guys_train[0], 'is_simple_agent'):
                         non_training_actions = envs.get_expert_actions(
                             non_training_obs)
                     else:
@@ -705,7 +705,7 @@ def train():
             if do_distill:
                 if distill_expert == 'DaggerAgent':
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
-                elif distill_expert == 'SimpleAgent':
+                elif distill_expert.startswith('SimpleAgent'):
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr,\
                         data=False)
                 else:

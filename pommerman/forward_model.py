@@ -7,7 +7,6 @@ import numpy as np
 from . import constants
 from . import characters
 from . import utility
-from .agents import SimpleAgent
 
 
 class ForwardModel(object):

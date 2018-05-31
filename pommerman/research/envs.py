@@ -40,13 +40,19 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
     Returns a callable to instantiate an environment fit for our PPO training
       purposes.
     """
+    print("CONFIG: ", config)
+    simple_agent = pommerman.agents.SimpleAgent
+    if '8' in config:
+        simple_agent = pommerman.agents.SimpleAgent8
+    print(type(simple_agent))
+
     def _thunk():
         if how_train == 'dummy':
-            agents = [pommerman.agents.SimpleAgent() for _ in range(4)]
+            agents = [simple_agent() for _ in range(4)]
             training_agent_ids = []
         elif how_train == 'simple' or how_train == 'dagger':
             training_agent_ids = [rank % 4]
-            agents = [pommerman.agents.SimpleAgent() for _ in range(3)]
+            agents = [simple_agent() for _ in range(3)]
             agents.insert(training_agent_ids[0], training_agents[0])
         elif how_train == 'homogenous':
             # NOTE: Here we have two training agents on a team together. They
@@ -57,7 +63,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         elif how_train == 'qmix':
             # randomly pick team [0,2] or [1,3]
             training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)]
-            agents = [pommerman.agents.SimpleAgent() for _ in range(2)]
+            agents = [simple_agent() for _ in range(2)]
             agents.insert(training_agent_ids[0], training_agents[0])
             agents.insert(training_agent_ids[1], training_agents[1])
         else:
@@ -75,12 +81,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         env.set_state_directory(state_directory, state_directory_distribution)
         env.set_reward_shaping(step_loss, bomb_reward)
 
-        if config == 'PommeFFAEasy-v0' or config == 'PommeFFAEasy-v3' or \
-            config == 'PommeTeamEasy-v0' or config == 'PommeTeamEasy-v3':
-            env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
-        else:
-            env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
-
+        env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
         env = MultiAgentFrameStack(env, num_stack)
         return env
     return _thunk
@@ -170,7 +171,7 @@ class WrapPommeEval(gym.ObservationWrapper):
             obs = self.env.get_observations()
             all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
             training_agents = self.env.training_agents
-            if training_agents and type(training_agents[0]) != pommerman.agents.SimpleAgent:
+            if training_agents and hasattr(training_agents[0], 'is_simple_agent'):
                 if type(actions) == list:
                     if len(actions) > 1:
                         raise ValueError
