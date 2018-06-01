@@ -179,7 +179,7 @@ class Pomme(gym.Env):
 
     def clear_agent_obs(self):
         for agent in self._agents:
-            if type(agent) != SimpleAgent:
+            if not agent.is_simple_agent:
                 agent.clear_obs_stack()
 
     def act(self, obs, acting_agent_ids=[], ex_agent_ids=None):
