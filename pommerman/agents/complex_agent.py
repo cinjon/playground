@@ -20,6 +20,8 @@ from pommerman.agents import BaseAgent
 from pommerman.characters import Flame
 
 
+verbose = False
+
 class State(Enum):
     Evader = 0
     Explorer = 1
@@ -46,7 +48,6 @@ class ComplexAgent(BaseAgent):
 
         self._state = State.Explorer
         self._board_size = kwargs.get('board_size', 11)
-        print("BS: ", self._board_size)
         self._visit_map = np.zeros((self._board_size, self._board_size))
         self._target = None
         self.bombing_agents = {}
@@ -179,7 +180,8 @@ class ComplexAgent(BaseAgent):
                 self._prev_position = self.my_position
                 # print(self.board)
                 # print("Safe prev direction", direction)
-                print("146", direction.value)
+                if verbose:
+                    print("146", direction.value)
                 return direction.value
             else:
                 self._closest_safe_positions = ()
@@ -192,7 +194,8 @@ class ComplexAgent(BaseAgent):
             Evd = self.EvaderAction()
         elif self.AttackerCondition():
             Att = self.AttackerAction()
-            print("ATTACK ACTION", Att)
+            if verbose:
+                print("ATTACK ACTION", Att)
             if Att == 5 and not self._maybe_bomb(
                     self.ammo, self.blast_strength, self.items, self.dist,
                     self.my_position, self.board, self.prev, self.enemies,
@@ -209,13 +212,16 @@ class ComplexAgent(BaseAgent):
         # print(Evd, Att, Exp)
         if Evd is not -1:
             output = Evd
-            print("170 Evader ", output)
+            if verbose:
+                print("170 Evader ", output)
         elif Att is not -1:
             output = Att
-            print("173 Attacker ", output)
+            if verbose:
+                print("173 Attacker ", output)
         elif Exp is not -1:
             output = Exp
-            print("176 Explorer", output)
+            if verbose:
+                print("176 Explorer", output)
 
         # output = self.bomb_if_towards_negative(output)
         if type(output) != int:
@@ -1287,7 +1293,7 @@ def get_next_direction_according_to_prev(my_position, target_position, prev):
 
 # Change the default value for enabled to enable all output
 def agent_output(output_array, enabled=0):
-    if (enabled):
+    if (enabled) and verbose:
         for s in output_array:
             print(s)
 
@@ -1666,9 +1672,11 @@ def win_cond_with_target(target, obs):
 
         return True
     elif (cond_num == 2):
-        print("Unknown Cond_Num")
+        if verbose:
+            print("Unknown Cond_Num")
         return False
-    print("Unknown Cond_Num")
+    if verbose:
+        print("Unknown Cond_Num")
     return False
 
 

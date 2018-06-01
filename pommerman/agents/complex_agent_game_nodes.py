@@ -7,6 +7,8 @@ import numpy as np
 from pommerman import utility, constants, characters, forward_model, agents
 
 
+verbose = False
+
 class State():
 
     def am_I_alive(self):
@@ -80,10 +82,12 @@ class State():
                     # modify enemies
                     agent_idx = None
 
-                    print(copy_obs)
+                    if verbose:
+                        print(copy_obs)
                     for j, enemy in enumerate(copy_obs['enemies']):
                         enemyId = enemy if type(enemy) == int else enemy.value
-                        print(agent.agent_id + 10, enemyId)
+                        if verbose:
+                            print(agent.agent_id + 10, enemyId)
 
                         if agent.agent_id + 10 == enemyId:
                             agent_idx = j
