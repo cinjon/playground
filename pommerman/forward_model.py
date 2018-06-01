@@ -474,7 +474,7 @@ class ForwardModel(object):
             flames_dict[position] = characters.Flame(
                 position, bomber_ids=exploded_causes[position])
 
-        curr_flames = flames_dict.values()
+        curr_flames = list(flames_dict.values())
         for flame in curr_flames:
             curr_board[flame.position] = constants.Item.Flames.value
 

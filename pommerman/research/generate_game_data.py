@@ -34,6 +34,8 @@ def _get_info(inp, args):
         return dagger_agent.DaggerAgent, model_path
     elif model_type == 'simple':
         return pommerman.agents.SimpleAgent, None
+    elif model_type == 'complex':
+        return pommerman.agents.ComplexAgent, None
 
 
 def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
@@ -71,7 +73,7 @@ def build_agents(agents, obs_shape, action_space, args):
                      args.cuda, args.cuda_device, args.model_str)
                for agent in agents]
     acting_agent_ids = [num for num, agent in enumerate(agents) \
-                        if type(agent) != pommerman.agents.SimpleAgent]
+                        if not agent.is_simple_agent]
     return agents, acting_agent_ids
 
 
