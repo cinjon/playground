@@ -17,7 +17,11 @@ def make_agent_from_string(agent_string, port=None, docker_env_dict=None):
         assert port is not None
         agent_instance = agents.DockerAgent(agent_control, port=port, env_vars=docker_env_dict)
     elif agent_type == "test":
-        agent_instance = eval(agent_control)()
+        kwargs = {}
+        if agent_control.endswith('ComplexAgent8'):
+            agent_control = agent_control.strip('8')
+            kwargs['board_size'] = 8
+        agent_instance = eval(agent_control)(**kwargs)
     elif agent_type == "tensorforce":
         agent_instance = agents.TensorForceAgent(algorithm=agent_control)
 

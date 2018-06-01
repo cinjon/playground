@@ -40,11 +40,9 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
     Returns a callable to instantiate an environment fit for our PPO training
       purposes.
     """
-    print("CONFIG: ", config)
+    # NOTE: Changed this from SimpleAgent.
     simple_agent = pommerman.agents.SimpleAgent
-    if '8' in config:
-        simple_agent = pommerman.agents.SimpleAgent8
-    print(type(simple_agent))
+    complex_agent = pommerman.agents.ComplexAgent
 
     def _thunk():
         if how_train == 'dummy':
@@ -52,7 +50,9 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             training_agent_ids = []
         elif how_train == 'simple' or how_train == 'dagger':
             training_agent_ids = [rank % 4]
-            agents = [simple_agent() for _ in range(3)]
+            # agents = [simple_agent() for _ in range(3)]
+            board_size = 8 if '8' in config else 11
+            agents = [complex_agent(board_size=board_size) for _ in range(3)]
             agents.insert(training_agent_ids[0], training_agents[0])
         elif how_train == 'homogenous':
             # NOTE: Here we have two training agents on a team together. They

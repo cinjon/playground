@@ -63,6 +63,8 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
 
     env = make(config, agents, game_state_file, render_mode=render_mode)
     env.set_training_agents(training_agent_ids)
+    env.rank = 0
+
     if seed is None:
         seed = random.randint(0, 1e6)
     seed = random.randint(0, 1e6)
@@ -136,7 +138,7 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
 
 
 def main():
-    simple_agent = 'test::agents.SimpleAgent'
+    simple_agent = 'test::agents.ComplexAgent'
     player_agent = 'player::arrows'
     docker_agent = 'docker::pommerman/simple-agent'
     parser = argparse.ArgumentParser(description='Playground Flags.')

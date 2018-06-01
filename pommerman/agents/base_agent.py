@@ -4,7 +4,7 @@ from .. import characters
 class BaseAgent:
     """Parent abstract Agent."""
 
-    def __init__(self, character=characters.Bomber):
+    def __init__(self, character=characters.Bomber, **kwargs):
         self._character = character
         self._is_initialized = False
 

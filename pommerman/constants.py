@@ -66,7 +66,7 @@ DEFAULT_BLAST_STRENGTH_EASY = 2
 
 # Constants for easier setting of the "8x8" game.
 BOARD_SIZE_8 = 8
-NUM_RIGID_8 = 14
+NUM_RIGID_8 = 20
 NUM_WOOD_8 = 12
 DEFAULT_BOMB_LIFE_8 = 7
 MAX_STEPS_8 = 500
