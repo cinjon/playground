@@ -272,8 +272,8 @@ class WrapPomme(gym.ObservationWrapper):
     def get_expert_obs(self):
         return self._filter(self.env.get_observations())
 
-    def get_expert_actions(self, obs):
-        return self.env.get_expert_actions(obs)
+    def get_expert_actions(self, obs, expert):
+        return self.env.get_expert_actions(obs, expert)
 
     def get_game_type(self):
         return self.env._game_type

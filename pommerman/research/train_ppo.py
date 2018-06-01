@@ -39,6 +39,7 @@ import time
 
 import numpy as np
 from pommerman.agents import SimpleAgent
+from pommerman.agents import ComplexAgent
 from pommerman import utility
 from tensorboardX import SummaryWriter
 import torch
@@ -169,14 +170,20 @@ def train():
             else:
                 suffix += ".dstlDagEp{}".format(distill_epochs)
             suffix += ".ikl{}".format(init_kl_factor)
-        elif distill_expert.startswith('SimpleAgent'):
+        elif distill_expert == 'SimpleAgent':
             if set_distill_kl >= 0:
                 suffix += ".dstlSimKL{}".format(set_distill_kl)
             else:
                 suffix += ".dstlSimEp{}".format(distill_epochs)
             suffix += ".ikl{}".format(init_kl_factor)
+        elif distill_expert == 'ComplexAgent':
+            if set_distill_kl >= 0:
+                suffix += ".dstlComKL{}".format(set_distill_kl)
+            else:
+                suffix += ".dstlComEp{}".format(distill_epochs)
+            suffix += ".ikl{}".format(init_kl_factor)
         else:
-            raise ValueError("Only distill from Dagger or Simple.")
+            raise ValueError("Only distill from Dagger, Simple, or Complex.")
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
@@ -281,13 +288,6 @@ def train():
                                            "ppo", action_space, obs_shape,
                                            args.num_processes, args)
                 for _ in range(2)
-            ]
-        else:
-            bad_guys_eval = [
-                SimpleAgent() for _ in range(2)
-            ]
-            bad_guys_train = [
-                SimpleAgent() for _ in range(2)
             ]
         eval_round = 0
 
@@ -447,14 +447,15 @@ def train():
                         _, _, _, _, probs, _ = distill_agent.act_on_data(
                             *data, deterministic=True)
                         dagger_prob_distr.append(probs)
-                    elif distill_expert.startswith('SimpleAgent'):
+                    elif distill_expert in ['SimpleAgent', 'ComplexAgent']:
                         expert_obs = envs.get_expert_obs()
-                        expert_actions = envs.get_expert_actions(expert_obs)
+                        expert_actions = envs.get_expert_actions(expert_obs,
+                                                                 distill_expert)
                         make_onehot(expert_actions)
                         dagger_prob_distr.append(expert_actions_onehot)
                     else:
                         raise ValueError("We only support distilling from \
-                            DaggerAgent or SimpleAgent \n")
+                            DaggerAgent, SimpleAgent, or ComplexAgent")
 
                 result = training_agent.actor_critic_act(step, 0)
                 # [num_processor,] ..., [num_processor, 6]
@@ -490,16 +491,18 @@ def train():
                                 *probs.shape[1:]])
                             for num_agent in range(num_training_per_episode):
                                 dagger_prob_distr.append(probs[:, num_agent])
-                        elif distill_expert.startswith('SimpleAgent'):
+                        elif distill_expert in ['SimpleAgent', 'ComplexAgent']:
                             # TODO: change this so that you get actions for all the agents
                             expert_obs = envs.get_expert_obs()
-                            expert_actions = envs.get_expert_actions(expert_obs)  #8x4
+                            expert_actions = envs.get_expert_actions(
+                                expert_obs, distill_expert)
                             make_onehot(expert_actions)
                             for num_agent in range(num_training_per_episode):
-                                dagger_prob_distr.append(expert_actions_onehot[:, num_agent])
+                                dagger_prob_distr.append(
+                                    expert_actions_onehot[:, num_agent])
                         else:
                             raise ValueError("We only support distilling from \
-                                DaggerAgent or SimpleAgent \n")
+                                DaggerAgent, SimpleAgent, or ComplexAgent")
 
                     training_acts = training_agents[0].act_on_data(
                         observations, states, masks, deterministic=False)
@@ -711,7 +714,7 @@ def train():
             if do_distill:
                 if distill_expert == 'DaggerAgent':
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
-                elif distill_expert.startswith('SimpleAgent'):
+                elif distill_expert in ['SimpleAgent', 'ComplexAgent']:
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr,\
                         data=False)
                 else:

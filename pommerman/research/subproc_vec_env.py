@@ -219,9 +219,9 @@ class SubprocVecEnv(_VecEnv):
             remote.send(('get_expert_obs', None))
         return [remote.recv() for remote in self.remotes]
 
-    def get_expert_actions(self, observations):
+    def get_expert_actions(self, observations, expert):
         for remote, obs in zip(self.remotes, observations):
-            remote.send(('get_expert_actions', obs))
+            remote.send(('get_expert_actions', (obs, expert)))
         self.waiting = True
 
         actions = [remote.recv() for remote in self.remotes]
