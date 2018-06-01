@@ -19,6 +19,7 @@ from .. import forward_model
 from .. import graphics
 from .. import utility
 from ..agents import SimpleAgent
+from ..agents import ExpertAgent
 
 
 class Pomme(gym.Env):
@@ -70,7 +71,8 @@ class Pomme(gym.Env):
         # they are actually returned as a dict for easier understanding.
         self._set_action_space()
         self._set_observation_space()
-        self.expert = SimpleAgent()
+        self.simple_expert = SimpleAgent()
+        self.complex_expert = ComplexAgent()
 
     def _set_action_space(self):
         self.action_space = spaces.Discrete(6)
@@ -191,8 +193,14 @@ class Pomme(gym.Env):
                       agent.agent_id not in acting_agent_ids]
         return self.model.act(agents, obs, self.action_space)
 
-    def get_expert_actions(self, obs):
-        return self.model.expert_act(self.expert, obs, self.action_space)
+    def get_expert_actions(self, data):
+        obs, expert = data
+        if expert == 'SimpleAgent':
+            return self.model.expert_act(self.simple_expert, obs,
+                                         self.action_space)
+        elif expert == 'ComplexAgent':
+            return self.model.expert_act(self.complex_expert, obs,
+                                         self.action_space)
 
     def get_observations(self):
         self.observations = self.model.get_observations(
