@@ -1515,94 +1515,96 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 
 # What happens if we do homogenous with a large begin_slefbombing_epoch?
-job = {
-    "num-processes": 50, "how-train": "homogenous", "eval-mode": "homogenous",
-    "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
-    "save-dir": os.path.join(directory, "models"),
-    "config": "PommeTeam8x8-v0", "num-battles-eval": 100,
-    "model-str": "PommeCNNPolicySmall",
-    "use-gae": "", "board-size": 8
-}
-counter = 0
-for learning_rate in [1e-4]:
-    for gamma in [.995, 1.]:
-        for distill in [0, 3000]:
-            for begin_selfbombing_epoch in [10000]:
-                j = {k:v for k,v in job.items()}
-                j["run-name"] = "pmhom8x8"
-                j["run-name"] += "-bsbe%d" % begin_selfbombing_epoch
-                j["begin-selfbombing-epoch"] = begin_selfbombing_epoch
-                if distill:
-                    j["distill-expert"] = "SimpleAgent"
-                    j["distill-epochs"] = distill
+# job = {
+#     "num-processes": 50, "how-train": "homogenous", "eval-mode": "homogenous",
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeTeam8x8-v0", "num-battles-eval": 100,
+#     "model-str": "PommeCNNPolicySmall",
+#     "use-gae": "", "board-size": 8
+# }
+# counter = 0
+# for learning_rate in [1e-4]:
+#     for gamma in [.995, 1.]:
+#         for distill in [0, 3000]:
+#             for begin_selfbombing_epoch in [10000]:
+#                 j = {k:v for k,v in job.items()}
+#                 j["run-name"] = "pmhom8x8"
+#                 j["run-name"] += "-bsbe%d" % begin_selfbombing_epoch
+#                 j["begin-selfbombing-epoch"] = begin_selfbombing_epoch
+#                 if distill:
+#                     j["distill-expert"] = "SimpleAgent"
+#                     j["distill-epochs"] = distill
                     
-                j["run-name"] = j["run-name"] + "-%d" % counter
-                j["gamma"] = gamma
-                j["lr"] = learning_rate
-                train_ppo_job(j, j["run-name"], is_fb=True)
-                counter += 1
+#                 j["run-name"] = j["run-name"] + "-%d" % counter
+#                 j["gamma"] = gamma
+#                 j["lr"] = learning_rate
+#                 train_ppo_job(j, j["run-name"], is_fb=True)
+#                 counter += 1
                         
 
-### These are being run with a very small dataset of just 4 things.
-# Testing what happens if we use a large begin_selfbombing_epoch
-job = {
-    "how-train": "simple",  "log-interval": 1000,
-    "log-dir": os.path.join(directory, "logs"),
-    "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFACompetition-v0",
-    "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "state-directory": os.path.join(directory, "ffacompetition4-s100/train"),
-    "num-processes": 50,
-}
-counter = 0
-for learning_rate in [1e-4]:
-    for gamma in [.995, 1]:
-        for distill in [0, 3000]:
-            for (name, distro) in [
-                    ("uAdpt", "uniformAdapt"),
-                    ("uSchA", "uniformScheduleB"),
-            ]:
-                for begin_selfbombing_epoch in [6000]:
-                    j = {k:v for k,v in job.items()}
-                    j["run-name"] = "pman4%s-lgbsbe%d-%d" % (
-                        name, begin_selfbombing_epoch, counter)
-                    j["begin-selfbombing-epoch"] = begin_selfbombing_epoch
-                    j["state-directory-distribution"] = distro
-                    if distill:
-                        j["distill-epochs"] = distill
-                        j["distill-expert"] = "SimpleAgent"
-                    j["gamma"] = gamma
-                    j["lr"] = learning_rate
-                    train_ppo_job(j, j["run-name"], is_fb=True)
-                    counter += 1
+# ### These are being run with a very small dataset of just 4 things.
+# # Testing what happens if we use a large begin_selfbombing_epoch.
+# # They had the same effect as before, namely that nothiung interesting happened
+# # after the selfbombing was allowed again.
+# job = {
+#     "how-train": "simple",  "log-interval": 1000,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0",
+#     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "state-directory": os.path.join(directory, "ffacompetition4-s100/train"),
+#     "num-processes": 50,
+# }
+# counter = 0
+# for learning_rate in [1e-4]:
+#     for gamma in [.995, 1]:
+#         for distill in [0, 3000]:
+#             for (name, distro) in [
+#                     ("uAdpt", "uniformAdapt"),
+#                     ("uSchA", "uniformScheduleB"),
+#             ]:
+#                 for begin_selfbombing_epoch in [6000]:
+#                     j = {k:v for k,v in job.items()}
+#                     j["run-name"] = "pman4%s-lgbsbe%d-%d" % (
+#                         name, begin_selfbombing_epoch, counter)
+#                     j["begin-selfbombing-epoch"] = begin_selfbombing_epoch
+#                     j["state-directory-distribution"] = distro
+#                     if distill:
+#                         j["distill-epochs"] = distill
+#                         j["distill-expert"] = "SimpleAgent"
+#                     j["gamma"] = gamma
+#                     j["lr"] = learning_rate
+#                     train_ppo_job(j, j["run-name"], is_fb=True)
+#                     counter += 1
 
 
 ### These are doing 8x8 simple ffa with the begin_selfbombing_epoch.
-job = {
-    "num-processes": 50, "how-train": "simple", 
-    "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
-    "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFA8x8-v0", "board-size": 8,
-    "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    # "eval-mode": "ffa-curriculum"
-}
-counter = 0
-for learning_rate in [1e-4]:
-    for gamma in [.995, 1.]:
-        for distill in [0, 3000]:
-            for begin_selfbombing_epoch in [1000, 10000]:
-                j = {k:v for k,v in job.items()}
-                j["run-name"] = "pman8x8nsk-lgbsbe%d-%d" % (
-                    begin_selfbombing_epoch, counter)
-                j["begin-selfbombing-epoch"] = begin_selfbombing_epoch
-                if distill:
-                    j["run-name"] += "-dst"
-                    j["distill-epochs"] = distill
-                    j["distill-expert"] = "SimpleAgent"
-                j["gamma"] = gamma
-                j["lr"] = learning_rate
-                train_ppo_job(j, j["run-name"], is_fb=True)
-                counter += 1
+# job = {
+#     "num-processes": 50, "how-train": "simple", 
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFA8x8-v0", "board-size": 8,
+#     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     # "eval-mode": "ffa-curriculum"
+# }
+# counter = 0
+# for learning_rate in [1e-4]:
+#     for gamma in [.995, 1.]:
+#         for distill in [0, 3000]:
+#             for begin_selfbombing_epoch in [1000, 10000]:
+#                 j = {k:v for k,v in job.items()}
+#                 j["run-name"] = "pman8x8nsk-lgbsbe%d-%d" % (
+#                     begin_selfbombing_epoch, counter)
+#                 j["begin-selfbombing-epoch"] = begin_selfbombing_epoch
+#                 if distill:
+#                     j["run-name"] += "-dst"
+#                     j["distill-epochs"] = distill
+#                     j["distill-expert"] = "SimpleAgent"
+#                 j["gamma"] = gamma
+#                 j["lr"] = learning_rate
+#                 train_ppo_job(j, j["run-name"], is_fb=True)
+#                 counter += 1
 
 
 ### Homog but this time against the simple agent as the starting challenger.
@@ -1715,3 +1717,28 @@ for learning_rate in [1e-4]:
 #                     j["lr"] = learning_rate
 #                     train_ppo_job(j, j["run-name"], is_fb=True)
 #                     counter += 1
+
+
+# These are repeating teh 8x8 test but with complex agents because they don't
+# kill themsevles.
+job = {
+    "num-processes": 25, "how-train": "simple", 
+    "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+    "save-dir": os.path.join(directory, "models"),
+    "config": "PommeFFA8x8-v0", "board-size": 8,
+    "model-str": "PommeCNNPolicySmall", "use-gae": "",
+}
+counter = 0
+for learning_rate in [1e-4, 6e-5]:
+    for gamma in [.99, .995, 1.]:
+        for distill in [0, 2500, 5000]:
+            j = {k:v for k,v in job.items()}
+            j["run-name"] = "pmancmplx8x8-%d" % counter
+            if distill:
+                j["distill-epochs"] = distill
+                j["distill-expert"] = "ComplexAgent"
+
+            j["gamma"] = gamma
+            j["lr"] = learning_rate
+            train_ppo_job(j, j["run-name"], is_fb=True)
+            counter += 1
