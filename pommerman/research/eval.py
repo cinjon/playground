@@ -86,7 +86,8 @@ def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
                              args_state_dict['board_size'],
                              args_state_dict['num_channels'])
         agent = agent_type(model, num_stack=args_state_dict['num_stack'],
-                           cuda=cuda, num_processes=args.num_processes)
+                           cuda=cuda, num_processes=args.num_processes,
+                           recurrent_policy=args.recurrent_policy)
         if cuda:
             agent.cuda()
         return agent
@@ -152,6 +153,7 @@ def eval(args=None, targets=None, opponents=None, nbattle=0):
         print('Starting FFA Battles.')
         ties = defaultdict(int)
         wins = defaultdict(int)
+        loses = defaultdict(int)
         deads = defaultdict(list)
         ranks = defaultdict(list)
         for position in range(4):
@@ -170,13 +172,19 @@ def eval(args=None, targets=None, opponents=None, nbattle=0):
                 args, num_times=num_times, seed=args.seed, agents=agents,
                 training_agent_ids=training_agent_ids,
                 acting_agent_ids=acting_agent_ids)
+            print("infos: ", infos)
+            print("acting agent ids: ", acting_agent_ids)
             for info in infos:
+                print("info ", info)
                 if all(['result' in info,
                         info['result'] == pommerman.constants.Result.Tie,
                         not info.get('step_info')]):
                     ties[position] += 1
-                if 'winners' in info and info['winners'] == [position]:
-                    wins[position] += 1
+                if 'winners' in info:
+                    if info['winners'] == [position]:
+                        wins[position] += 1
+                    else:
+                        loses[position] += 1
                 if 'step_info' in info and position in info['step_info']:
                     agent_step_info = info['step_info'][position]
                     for kv in agent_step_info:
@@ -186,10 +194,10 @@ def eval(args=None, targets=None, opponents=None, nbattle=0):
                         if k == 'dead':
                             deads[position].append(int(v))
                         elif k == 'rank':
-                            ranks[position].appen
-                            d(int(v))
+                            ranks[position].append(int(v))
 
         print("Wins: ", wins)
+        print("Loses: ", loses)
         print("Dead: ", deads)
         print("Ranks: ", ranks)
         print("Ties: ", ties)
@@ -213,6 +221,8 @@ def eval(args=None, targets=None, opponents=None, nbattle=0):
             print("info ", info)
             print("position ", position)
             step_count = info['step_count']
+            print("\n")
+            print("ID ", position)
             if info['result'] == pommerman.constants.Result.Tie:
                 ties.append(step_count)
             else:
