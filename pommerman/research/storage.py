@@ -174,6 +174,109 @@ class RolloutStorage(object):
                 adv_targ, action_log_probs_distr_batch, \
                 dagger_probs_distr_batch
 
+    def recurrent_generator(self, advantages, num_mini_batch, batch_size,
+                            num_steps, kl_factor):
+        advantages = advantages.view([-1, 1])
+        num_steps = self.rewards.size(0)
+        num_training_per_episode = self.rewards.size(1)
+        num_processes = self.rewards.size(2)
+        num_total = num_training_per_episode * num_processes
+        obs_shape = self.observations.shape[3:]
+        action_shape = self.actions.shape[3:]
+        state_size = self.states.size(3)
+        num_envs_per_batch = num_processes // num_mini_batch
+        perm = torch.randperm(num_processes)
+
+        # Reshape so that trajectories per agent look like new processes.
+        observations = self.observations.view([
+            num_steps+1, num_total, *obs_shape])
+        states = self.states.view([num_steps+1, num_total, state_size])
+        rewards = self.rewards.view([num_steps, num_total, 1])
+        value_preds = self.value_preds.view([num_steps+1, num_total, 1])
+        returns = self.returns.view([num_steps+1, num_total, 1])
+        actions = self.actions.view([num_steps, num_total, *action_shape])
+        action_log_probs = self.action_log_probs.view([
+            num_steps, num_total, 1])
+        masks = self.masks.view([num_steps+1, num_total, 1])
+
+        if kl_factor > 0:
+            distr_shape = self.dagger_probs_distr.shape[3:]
+            dagger_probs_distr = self.dagger_probs_distr.view(
+                [num_steps, num_total, *distr_shape])
+            action_log_probs_distr = self.action_log_probs_distr.view(
+                [num_steps, num_total, *distr_shape])
+
+        for start_ind in range(0, num_processes, num_envs_per_batch):
+            observations_batch = []
+            states_batch = []
+            actions_batch = []
+            return_batch = []
+            masks_batch = []
+            old_action_log_probs_batch = []
+            adv_targ = []
+            dagger_probs_distr_batch = []
+            action_log_probs_distr_batch = []
+
+            for offset in range(num_envs_per_batch):
+                indices = perm[start_ind + offset]
+                observations_batch.append(observations[:-1] \
+                                     .contiguous() \
+                                     .view((num_steps*num_total), \
+                                           *observations.size()[2:])[indices])
+                states_batch.append(states[:-1] \
+                               .contiguous() \
+                               .view((num_steps*num_total), states.size()[2])[indices])
+                actions_batch.append(actions \
+                                .contiguous() \
+                                .view((num_steps*num_total), 1)[indices])
+                return_batch.append(returns[:-1] \
+                               .contiguous() \
+                               .view((num_steps*num_total), 1)[indices])
+                masks_batch.append(masks[:-1] \
+                              .contiguous() \
+                              .view((num_steps*num_total), 1)[indices])
+                old_action_log_probs_batch.append(action_log_probs \
+                                    .contiguous() \
+                                    .view((num_steps*num_total), 1)[indices])
+                adv_targ.append(advantages.contiguous().view(-1, 1)[indices])
+
+                if kl_factor > 0:
+                    # TODO: Change the hard-coded 6.
+                    dagger_probs_distr_batch.append(dagger_probs_distr \
+                                               .contiguous() \
+                                               .view((num_steps*num_total), 6)[indices])
+                    action_log_probs_distr_batch.append(action_log_probs_distr \
+                                                   .contiguous() \
+                                                   .view((num_steps*num_total), 6)[indices])
+
+            observations_batch = torch.cat(observations_batch, 0) \
+                                 .view(num_envs_per_batch, *observations.size()[2:])
+            states_batch = torch.cat(states_batch, 0) \
+                           .view(num_envs_per_batch, states.size()[2])
+            actions_batch = torch.cat(actions_batch, 0) \
+                            .view(num_envs_per_batch, 1)
+            return_batch = torch.cat(return_batch, 0) \
+                           .view(num_envs_per_batch, 1)
+            masks_batch = torch.cat(masks_batch, 0) \
+                          .view(num_envs_per_batch, 1)
+            old_action_log_probs_batch = torch.cat(old_action_log_probs_batch, 0) \
+                                         .view(num_envs_per_batch, 1)
+            adv_targ = torch.cat(adv_targ, 0) \
+                       .view(num_envs_per_batch, 1)
+
+            if kl_factor > 0:
+                dagger_probs_distr_batch = torch.cat(dagger_probs_distr_batch, 0) \
+                                           .view(num_envs_per_batch, 6)
+                action_log_probs_distr_batch = torch.cat(action_log_probs_distr_batch, 0) \
+                                               .view(num_envs_per_batch, 6)
+            else:
+                dagger_probs_distr_batch = None
+                action_log_probs_distr_batch = None
+
+            yield observations_batch, states_batch, actions_batch, \
+                return_batch, masks_batch, old_action_log_probs_batch, \
+                adv_targ, action_log_probs_distr_batch, dagger_probs_distr_batch
+
 
 class CPUReplayBuffer:
     """

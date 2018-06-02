@@ -118,10 +118,11 @@ class PommeCNNPolicySmall(_FFPolicy):
       num_channels: The number of channels to use in the convnet.
     """
     def __init__(self, state_dict, num_inputs, action_space, board_size,
-                 num_channels):
+                 num_channels, use_gru):
         super(PommeCNNPolicySmall, self).__init__()
         self.board_size = board_size
         self.num_channels = num_channels
+        self.use_gru = use_gru
         self._init_network(num_inputs)
         self.dist = Categorical(512, action_space.n)
         self.train()
@@ -131,7 +132,14 @@ class PommeCNNPolicySmall(_FFPolicy):
 
     @property
     def state_size(self):
-        return 1
+        if hasattr(self, 'gru'):
+            return 512
+        else:
+            return 1
+
+    @property
+    def output_size(self):
+        return 512
 
     def _init_network(self, num_inputs):
         self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
@@ -147,6 +155,13 @@ class PommeCNNPolicySmall(_FFPolicy):
         self.fc2 = nn.Linear(1024, 512)
         self.critic_linear = nn.Linear(512, 1)
         self.actor_linear = nn.Linear(512, 1)
+
+        if self.use_gru:
+            self.gru = nn.GRUCell(512, 512)
+            nn.init.orthogonal(self.gru.weight_ih.data)
+            nn.init.orthogonal(self.gru.weight_hh.data)
+            self.gru.bias_ih.data.fill_(0)
+            self.gru.bias_hh.data.fill_(0)
 
     def reset_parameters(self):
         self.apply(_weights_init)
@@ -166,11 +181,21 @@ class PommeCNNPolicySmall(_FFPolicy):
         x = x.view(-1, self.num_channels * self.board_size**2)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-
+        if hasattr(self, 'gru'):
+            if inputs.size(0) == states.size(0):
+                x = states = self.gru(x, states * masks)
+            else:
+                x = x.view(-1, states.size(0), x.size(1))
+                masks = masks.view(-1, states.size(0), 1)
+                outputs = []
+                for i in range(x.size(0)):
+                    hx = states = self.gru(x[i], states * masks[i])
+                    outputs.append(hx)
+                x = torch.cat(outputs, 0)
         return self.critic_linear(x), x, states
 
 
-class PommeCNNPolicySmaller(PommeCNNPolicySmall):
+class PommeCNNPolicySmaller(_FFPolicy):
     """Class implementing a policy.
 
     Args:
@@ -181,6 +206,30 @@ class PommeCNNPolicySmaller(PommeCNNPolicySmall):
       board_size: The size of the game board (13).
       num_channels: The number of channels to use in the convnet.
     """
+    def __init__(self, state_dict, num_inputs, action_space, board_size,
+                 num_channels, use_gru):
+        super(PommeCNNPolicySmaller, self).__init__()
+        self.board_size = board_size
+        self.num_channels = num_channels
+        self.use_gru = use_gru
+        self._init_network(num_inputs)
+        self.dist = Categorical(512, action_space.n)
+        self.train()
+        self.reset_parameters()
+        if state_dict:
+            self.load_state_dict(state_dict)
+
+    @property
+    def state_size(self):
+        if hasattr(self, 'gru'):
+            return 512
+        else:
+            return 1
+
+    @property
+    def output_size(self):
+        return 512
+
     def _init_network(self, num_inputs):
         self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
                                padding=1)
@@ -191,6 +240,13 @@ class PommeCNNPolicySmaller(PommeCNNPolicySmall):
         self.fc2 = nn.Linear(1024, 512)
         self.critic_linear = nn.Linear(512, 1)
         self.actor_linear = nn.Linear(512, 1)
+
+        if self.use_gru:
+            self.gru = nn.GRUCell(512, 512)
+            nn.init.orthogonal(self.gru.weight_ih.data)
+            nn.init.orthogonal(self.gru.weight_hh.data)
+            self.gru.bias_ih.data.fill_(0)
+            self.gru.bias_hh.data.fill_(0)
 
     def reset_parameters(self):
         self.apply(_weights_init)
@@ -206,10 +262,23 @@ class PommeCNNPolicySmaller(PommeCNNPolicySmall):
         x = x.view(-1, self.num_channels * self.board_size**2)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+
+        if hasattr(self, 'gru'):
+            if inputs.size(0) == states.size(0):
+                x = states = self.gru(x, states * masks)
+            else:
+                x = x.view(-1, states.size(0), x.size(1))
+                masks = masks.view(-1, states.size(0), 1)
+                outputs = []
+                for i in range(x.size(0)):
+                    hx = states = self.gru(x[i], states * masks[i])
+                    outputs.append(hx)
+                x = torch.cat(outputs, 0)
+
         return self.critic_linear(x), x, states
 
 
-class PommeCNNPolicySmallNonlinCritic(PommeCNNPolicySmall):
+class PommeCNNPolicySmallNonlinCritic(_FFPolicy):
     """Class implementing a policy that adds extra nonlinearity to the value head.
 
     Args:
@@ -220,6 +289,30 @@ class PommeCNNPolicySmallNonlinCritic(PommeCNNPolicySmall):
       board_size: The size of the game board (13).
       num_channels: The number of channels to use in the convnet.
     """
+    def __init__(self, state_dict, num_inputs, action_space, board_size,
+                 num_channels, use_gru):
+        super(PommeCNNPolicySmallNonlinCritic, self).__init__()
+        self.board_size = board_size
+        self.num_channels = num_channels
+        self.use_gru = use_gru
+        self._init_network(num_inputs)
+        self.dist = Categorical(512, action_space.n)
+        self.train()
+        self.reset_parameters()
+        if state_dict:
+            self.load_state_dict(state_dict)
+
+    @property
+    def state_size(self):
+        if hasattr(self, 'gru'):
+            return 512
+        else:
+            return 1
+
+    @property
+    def output_size(self):
+        return 512
+
     def _init_network(self, num_inputs):
         self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
                                padding=1)
@@ -236,6 +329,13 @@ class PommeCNNPolicySmallNonlinCritic(PommeCNNPolicySmall):
         self.fc_critic = nn.Linear(512, 512)
         self.critic_linear = nn.Linear(512, 1)
         self.actor_linear = nn.Linear(512, 1)
+
+        if self.use_gru:
+            self.gru = nn.GRUCell(512, 512)
+            nn.init.orthogonal(self.gru.weight_ih.data)
+            nn.init.orthogonal(self.gru.weight_hh.data)
+            self.gru.bias_ih.data.fill_(0)
+            self.gru.bias_hh.data.fill_(0)
 
     def reset_parameters(self):
         self.apply(_weights_init)
@@ -256,11 +356,23 @@ class PommeCNNPolicySmallNonlinCritic(PommeCNNPolicySmall):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
 
+        if hasattr(self, 'gru'):
+            if inputs.size(0) == states.size(0):
+                x = states = self.gru(x, states * masks)
+            else:
+                x = x.view(-1, states.size(0), x.size(1))
+                masks = masks.view(-1, states.size(0), 1)
+                outputs = []
+                for i in range(x.size(0)):
+                    hx = states = self.gru(x[i], states * masks[i])
+                    outputs.append(hx)
+                x = torch.cat(outputs, 0)
+
         y = F.tanh(self.fc_critic(x))
 
         return self.critic_linear(y), x, states
 
-class PommeCNNPolicySmallerNonlinCritic(PommeCNNPolicySmaller):
+class PommeCNNPolicySmallerNonlinCritic(_FFPolicy):
     """Class implementing a policy that adds extra nonlinearity to the value head.
 
     Args:
@@ -271,6 +383,30 @@ class PommeCNNPolicySmallerNonlinCritic(PommeCNNPolicySmaller):
       board_size: The size of the game board (13).
       num_channels: The number of channels to use in the convnet.
     """
+    def __init__(self, state_dict, num_inputs, action_space, board_size,
+                 num_channels, use_gru):
+        super(PommeCNNPolicySmallerNonlinCritic, self).__init__()
+        self.board_size = board_size
+        self.num_channels = num_channels
+        self.use_gru = use_gru
+        self._init_network(num_inputs)
+        self.dist = Categorical(512, action_space.n)
+        self.train()
+        self.reset_parameters()
+        if state_dict:
+            self.load_state_dict(state_dict)
+
+    @property
+    def state_size(self):
+        if hasattr(self, 'gru'):
+            return 512
+        else:
+            return 1
+
+    @property
+    def output_size(self):
+        return 512
+
     def _init_network(self, num_inputs):
         self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
                                padding=1)
@@ -283,6 +419,13 @@ class PommeCNNPolicySmallerNonlinCritic(PommeCNNPolicySmaller):
         self.fc_critic = nn.Linear(512, 512)
         self.critic_linear = nn.Linear(512, 1)
         self.actor_linear = nn.Linear(512, 1)
+
+        if self.use_gru:
+            self.gru = nn.GRUCell(512, 512)
+            nn.init.orthogonal(self.gru.weight_ih.data)
+            nn.init.orthogonal(self.gru.weight_hh.data)
+            self.gru.bias_ih.data.fill_(0)
+            self.gru.bias_hh.data.fill_(0)
 
     def reset_parameters(self):
         self.apply(_weights_init)
@@ -298,6 +441,18 @@ class PommeCNNPolicySmallerNonlinCritic(PommeCNNPolicySmaller):
         x = x.view(-1, self.num_channels * self.board_size**2)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+
+        if hasattr(self, 'gru'):
+            if inputs.size(0) == states.size(0):
+                x = states = self.gru(x, states * masks)
+            else:
+                x = x.view(-1, states.size(0), x.size(1))
+                masks = masks.view(-1, states.size(0), 1)
+                outputs = []
+                for i in range(x.size(0)):
+                    hx = states = self.gru(x[i], states * masks[i])
+                    outputs.append(hx)
+                x = torch.cat(outputs, 0)
 
         y = F.tanh(self.fc_critic(x))
 

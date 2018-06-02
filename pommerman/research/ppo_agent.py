@@ -147,8 +147,14 @@ class PPOAgent(ResearchAgent):
         kl_loss = None
         total_losses = []
 
-        for sample in self._rollout.feed_forward_generator(
-                advantages, num_mini_batch, batch_size, num_steps, kl_factor):
+        if hasattr(self._actor_critic, 'gru'):
+            data_generator = self._rollout.recurrent_generator(
+                advantages, num_mini_batch, batch_size, num_steps, kl_factor)
+        else:
+            data_generator = self._rollout.feed_forward_generator(
+                advantages, num_mini_batch, batch_size, num_steps, kl_factor)
+
+        for sample in data_generator:
             observations_batch, states_batch, actions_batch, return_batch, \
                 masks_batch, old_action_log_probs_batch, adv_targ, \
                 action_log_probs_distr_batch, dagger_probs_distr_batch = sample

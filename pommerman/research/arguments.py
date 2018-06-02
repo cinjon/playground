@@ -31,8 +31,8 @@ def get_args():
                         help='number of forward steps')
     parser.add_argument('--ppo-epoch', type=int, default=4,
                         help='number of ppo epochs (4)')
-    parser.add_argument('--num-mini-batch', type=int, default=32,
-                        help='number of batches for ppo (32)')
+    parser.add_argument('--num-mini-batch', type=int, default=2,
+                        help='number of batches for ppo (2)')
     parser.add_argument('--clip-param', type=float, default=0.2,
                         help='ppo clip parameter (0.2)')
     parser.add_argument('--num-stack', type=int, default=2,
@@ -90,6 +90,9 @@ def get_args():
                         help='number of epochs to anneal from 0 --> 1 the neg '
                         'reward that the training agents receive from dying. '
                         'disabled if set to 0.')
+    parser.add_argument('--recurrent-policy', default=False, action='store_true',
+                        help='whether to use recurrency in the policy networks')
+
     # specific to Pommerman
     parser.add_argument('--agents',
                         default=','.join(['simple::null']*4),
@@ -121,7 +124,7 @@ def get_args():
                         help='how to train: simple, homogenous, heterogenous, '
                         'dagger.')
     parser.add_argument('--homogenous-init', type=str, default='self',
-                        help='whether the initial oppomnent for homomgeous is '
+                        help='whether the initial opponent for homomgeous is '
                         'self or simple agent.')
     parser.add_argument('--step-loss', type=float, default=0.0,
                         help='the loss to apply per-step. this should be '

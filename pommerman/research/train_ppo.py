@@ -119,14 +119,14 @@ def train():
         uniform_v_factor = 2
         uniform_v_incr = 3000
         uniform_v_prior = 0
-        envs.set_uniform_v(uniform_v)        
+        envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'uniformScheduleB':
         uniform_v = 33
         uniform_v_factor = 2
         uniform_v_incr = 1000
         uniform_v_prior = 0
-        envs.set_uniform_v(uniform_v)        
-    elif args.state_directory_distribution == 'uniformBoundsA': 
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsA':
         # (0, 32), (24, 64), (56, 128), (120, 256), (248, 512), ...
         uniform_v = 32
         uniform_v_factor = 2
@@ -267,7 +267,8 @@ def train():
         good_guys = [
             ppo_agent.PPOAgent(training_agents[0].model,
                                num_stack=args.num_stack, cuda=args.cuda,
-                               num_processes=args.num_processes // 2)
+                               num_processes=args.num_processes // 2,
+                               recurrent_policy=args.recurrent_policy)
             for _ in range(2)
         ]
         if args.cuda:
@@ -295,7 +296,8 @@ def train():
         good_guys = [
             ppo_agent.PPOAgent(training_agents[0].model,
                                num_stack=args.num_stack, cuda=args.cuda,
-                               num_processes=args.num_processes)
+                               num_processes=args.num_processes,
+                               recurrent_policy=args.recurrent_policy)
         ]
         if args.cuda:
             for guy in good_guys:
@@ -538,7 +540,7 @@ def train():
                             non_training_obs, action_space)
                         non_training_actions = non_training_actions.reshape(
                             (num_processes, 2))
-                    
+
                     for num_agent in range(4):
                         for num_process in range(num_processes):
                             is_training_agent = any([
@@ -555,7 +557,7 @@ def train():
                                 cpu_actions_agents[num_process].append(action)
             with utility.Timer() as t:
                 obs, reward, done, info = envs.step(cpu_actions_agents)
-                
+
             reward = reward.astype(np.float)
             update_stats(info)
             game_ended = np.array([done_.all() for done_ in done])
@@ -643,7 +645,7 @@ def train():
                 for num, done_ in enumerate(done):
                     if done_.all():
                         bad_guys_train[0].clear_obs_stack(num)
-                        
+
                 running_num_episodes += sum([int(done_.all())
                                              for done_ in done])
                 # NOTE: The masking for homogenous should be such that:
@@ -967,7 +969,7 @@ def train():
             uniform_v_prior = num_epoch
             uniform_v = int(uniform_v * uniform_v_factor)
             envs.set_uniform_v(uniform_v)
-            
+
     writer.close()
 
 
@@ -996,7 +998,7 @@ def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
     loss_rate = 1.0*loss_count/num_battles
     one_dead_per_battle = 1.0*one_dead_count/num_battles
     one_dead_per_win = 1.0*one_dead_count/win_count if win_count else 0
-    writer.add_scalar('eval_round', eval_round, epoch)    
+    writer.add_scalar('eval_round', eval_round, epoch)
     writer.add_scalar('%s/win_rate' % descriptor, win_rate, epoch)
     writer.add_scalar('%s/tie_rate' % descriptor, tie_rate, epoch)
     writer.add_scalar('%s/loss_rate' % descriptor, loss_rate, epoch)

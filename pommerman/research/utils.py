@@ -17,7 +17,7 @@ def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
     else:
         net = lambda state: networks.get_actor_critic(args.model_str)(
             state, obs_shape[0], action_space, args.board_size,
-            args.num_channels)
+            args.num_channels, args.recurrent_policy)
 
     paths = args.saved_paths
     if not type(paths) == list:
@@ -49,7 +49,8 @@ def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
             model = net(None)
 
         agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda,
-                           num_processes=args.num_processes)
+                           num_processes=args.num_processes,
+                           recurrent_policy = args.recurrent_policy)
         agent.initialize(args, obs_shape, action_space,
                          num_training_per_episode, num_episodes, total_steps,
                          num_epoch, optimizer_state_dict, num_steps)
@@ -68,12 +69,14 @@ def load_inference_agent(path, agent_type, network_type, action_space,
     else:
         net = lambda state: networks.get_actor_critic(args.model_str)(
             state, obs_shape[0], action_space, args.board_size,
-            args.num_channels)
-            
+            args.num_channels, args.recurrent_policy)
+
     loaded_model = torch_load(path, args.cuda, args.cuda_device)
     model_state_dict = loaded_model['state_dict']
     model = net(model_state_dict)
-    agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda, num_processes=num_processes)
+    agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda,
+                       num_processes=num_processes,
+                       recurrent_policy=args.recurrent_policy)
     if args.cuda:
         agent.cuda()
     return agent
@@ -88,7 +91,7 @@ def load_distill_agent(obs_shape, action_space, args):
         # obs_shape = [36, 13, 13]
         model = networks.get_actor_critic(args.model_str)(
             model_state_dict, obs_shape[0], action_space, args.board_size,
-            args.num_channels)
+            args.num_channels, args.recurrent_policy)
         return dagger_agent.DaggerAgent(model, cuda=args.cuda,
                                         num_stack=args.num_stack)
     else:
@@ -182,6 +185,9 @@ def get_train_vars(args, num_training_per_episode):
     how_train = args.how_train
     config = args.config
     num_agents = args.num_agents
+    if args.recurrent_policy:
+        assert(args.num_stack == 1), \
+        "If you are using a recurrent model, than num_stack must be 1."
     num_stack = args.num_stack
     num_mini_batch = args.num_mini_batch
     batch_size = args.batch_size
@@ -320,7 +326,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
 
     writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
     # writer.add_scalar('bomb_penalty_lambda', bomb_penalty_lambda, num_epoch)
-    
+
     # if array_stats.get('rank'):
     #     writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
     #                       total_steps)
@@ -351,7 +357,6 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
         std = np.std(running_total_game_step_counts)
         writer.add_scalar('game_step_counts/mean', avg, num_epoch)
         writer.add_scalar('game_step_counts/std', std, num_epoch)
-
     # x-axis: # episodes
     # if reinforce_only:
     #     writer.add_scalar('pg_loss_epi', mean_pg_loss, num_episodes)

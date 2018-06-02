@@ -12,10 +12,18 @@ import networks
 
 class ResearchAgent(BaseAgent):
 
-    def __init__(self, character=characters.Bomber, **kwargs):
+    def __init__(self, character=characters.Bomber,
+                 **kwargs):
         super(ResearchAgent, self).__init__(character)
         # NOTE: This is assuming that our num_stack size is 2.
-        self._num_stack = kwargs.get('num_stack', 2)
+        self._recurrent_policy = kwargs.get('recurrent_policy')
+        print("self recurrent policy: ", self._recurrent_policy)
+        if self._recurrent_policy:
+            self._num_stack = kwargs.get('num_stack', 1)
+        else:
+            self._num_stack = kwargs.get('num_stack', 2)
+        print("self num stack ", self._num_stack)
+        print("")
         self._num_processes = kwargs.get('num_processes', 1)
         self._obs_stacks = [deque([], maxlen=self._num_stack)
                             for _ in range(self._num_processes)]
@@ -41,7 +49,7 @@ class ResearchAgent(BaseAgent):
             [obs_stack.clear() for obs_stack in self._obs_stacks]
         else:
             self._obs_stacks[num_stack].clear()
-        
+
     def act(self, obs, action_space):
         if type(obs) != list:
             obs = [obs]
