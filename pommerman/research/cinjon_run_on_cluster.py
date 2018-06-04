@@ -1776,26 +1776,24 @@ job = {
     "how-train": "simple",  "log-interval": 1000,
     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "state-directory": os.path.join(directory, "ffacompetition100-s100-complex/train"),
-    "num-processes": 50,
+    "num-processes": 50, "gamma": 1.0,
 }
 counter = 0
-for learning_rate in [1e-4, 6e-5]:
-    for gamma in [.995, 1.]:
-        for distill in [0, 4000]:
-            for (name, distro) in [("uSchA", "uniformScheduleA"),
-                                   ("uAdpt", "uniformAdapt"),
-                                   ("uBnA", "uniformBoundsB")]:
-                j = {k:v for k,v in job.items()}
-                j["run-name"] = "pman100cmplx%s-%d" % (name, counter)
-                j["state-directory-distribution"] = distro
-                if distill:
-                    j["distill-epochs"] = distill
-                    j["distill-expert"] = "ComplexAgent"
-                    j["init-kl-factor"] = 10.0
-                j["gamma"] = gamma
-                j["lr"] = learning_rate
-                train_ppo_job(j, j["run-name"], is_fb=True)
-                counter += 1
+for learning_rate in [1e-4, 6e-5, 3e-5]:
+    for (name, distro) in [
+            ("uSchB", "uniformScheduleB"),
+            ("uSchC", "uniformScheduleC"),
+            ("uSchD", "uniformScheduleD"),                                                           ("uBnB", "uniformBoundsB"),
+            ("uBnC", "uniformBoundsC"),
+            ("uBnD", "uniformBoundsD")                    
+    ]:
+        for numgames in [4, 100]:
+            j = {k:v for k,v in job.items()}
+            j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+            j["run-name"] = "pman%dcmplx2%s-%d" % (numgames, name, counter)
+            j["state-directory-distribution"] = distro
+            j["lr"] = learning_rate
+            train_ppo_job(j, j["run-name"], is_fb=True)
+            counter += 1
                 
                     

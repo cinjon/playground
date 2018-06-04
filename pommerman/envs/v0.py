@@ -123,7 +123,6 @@ class Pomme(gym.Env):
         self._uniform_v = v
 
     def set_state_directory(self, directory, distribution):
-        print("SET SSD: ", directory, distribution)
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
         self._applicable_games = []
@@ -147,8 +146,8 @@ class Pomme(gym.Env):
 
                     step_count = endgame['step_count']
                     self._applicable_games.append((path, step_count))
-            print("Environment has %d applicable games." % \
-                  len(self._applicable_games))
+            # print("Environment has %d applicable games." % \
+            #       len(self._applicable_games))
 
     def set_init_game_state(self, game_state_file):
         """Set the initial game state.
