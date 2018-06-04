@@ -368,3 +368,11 @@ class Timer:
     def __exit__(self, *args):
         self.end = time.time()
         self.interval = self.end - self.start
+
+
+def is_int(s):
+    try:
+        s = int(s)
+        return True
+    except Exception as e:
+        return False

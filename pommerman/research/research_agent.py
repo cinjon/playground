@@ -24,6 +24,8 @@ class ResearchAgent(BaseAgent):
             self._num_stack = kwargs.get('num_stack', 2)
         print("self num stack ", self._num_stack)
         print("")
+        # NOTE: This doesn't work in eval simple with more than one process
+        # because it's getting passed args.num_processes.
         self._num_processes = kwargs.get('num_processes', 1)
         self._obs_stacks = [deque([], maxlen=self._num_stack)
                             for _ in range(self._num_processes)]

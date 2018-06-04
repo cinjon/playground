@@ -63,9 +63,12 @@ def _get_info(inp, args):
         return dagger_agent.DaggerAgent, model_path
     elif model_type == 'simple':
         return pommerman.agents.SimpleAgent, None
+    elif model_type == 'complex':
+        return pommerman.agents.ComplexAgent, None
 
 
-def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
+def _build(info, obs_shape, action_space, cuda, cuda_device, model_str,
+           num_processes, recurrent_policy):
     agent_type, path = info
     if path:
         actor_critic = lambda state, board_size, num_channels: \
@@ -86,8 +89,8 @@ def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
                              args_state_dict['board_size'],
                              args_state_dict['num_channels'])
         agent = agent_type(model, num_stack=args_state_dict['num_stack'],
-                           cuda=cuda, num_processes=args.num_processes,
-                           recurrent_policy=args.recurrent_policy)
+                           cuda=cuda, num_processes=num_processes,
+                           recurrent_policy=recurrent_policy)
         if cuda:
             agent.cuda()
         return agent
@@ -122,15 +125,17 @@ def build_agents(mode, targets, opponents, obs_shape, action_space, args):
         raise ValueError
 
     targets = [_build(_get_info(agent, args), obs_shape, action_space,
-                      args.cuda, args.cuda_device, args.model_str)
+                      args.cuda, args.cuda_device, args.model_str,
+                      args.num_processes, args.recurrent_policy)
                for agent in targets]
     opponents = [_build(_get_info(agent, args), obs_shape, action_space,
-                        args.cuda, args.cuda_device, args.model_str)
+                        args.cuda, args.cuda_device, args.model_str,
+                        args.num_processes, args.recurrent_policy)
                  for agent in opponents]
     return targets, opponents
 
 
-def eval(args=None, targets=None, opponents=None, nbattle=0):
+def eval(args=None, targets=None, opponents=None):
     args = args or get_args()
     if args.cuda:
         os.environ['OMP_NUM_THREADS'] = '1'
@@ -164,10 +169,10 @@ def eval(args=None, targets=None, opponents=None, nbattle=0):
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
             training_agent_ids = []
-            if not type(targets[0]) == pommerman.agents.SimpleAgent:
+            if not targets[0].is_simple_agent:
                 training_agent_ids.append(position)
             acting_agent_ids = [num for num, agent in enumerate(agents)
-                                if type(agent) != pommerman.agents.SimpleAgent]
+                                if not agent.is_simple_agent]
             infos, _ = run_battle.run(
                 args, num_times=num_times, seed=args.seed, agents=agents,
                 training_agent_ids=training_agent_ids,
@@ -395,6 +400,7 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
         acting_agent_ids, args.num_stack, num_processes,
         state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution)
+    envs.enable_selfbombing()
 
     infos = []
     rewards = []

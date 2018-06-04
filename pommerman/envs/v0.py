@@ -19,7 +19,7 @@ from .. import forward_model
 from .. import graphics
 from .. import utility
 from ..agents import SimpleAgent
-from ..agents import ExpertAgent
+from ..agents import ComplexAgent
 
 
 class Pomme(gym.Env):
@@ -122,7 +122,8 @@ class Pomme(gym.Env):
     def set_uniform_v(self, v):
         self._uniform_v = v
 
-    def set_state_directory(self, directory, distribution, uniform_v=33):
+    def set_state_directory(self, directory, distribution):
+        print("SET SSD: ", directory, distribution)
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
         self._applicable_games = []
@@ -146,8 +147,8 @@ class Pomme(gym.Env):
 
                     step_count = endgame['step_count']
                     self._applicable_games.append((path, step_count))
-            # print("Environment has %d applicable games." % \
-            #       len(self._applicable_games))
+            print("Environment has %d applicable games." % \
+                  len(self._applicable_games))
 
     def set_init_game_state(self, game_state_file):
         """Set the initial game state.
@@ -382,6 +383,12 @@ class Pomme(gym.Env):
                         break
                 step = step or random.choice(
                     range(max(0, step_count - 40), step_count - 20)
+                )
+            elif utility.is_int(self._game_state_distribution):
+                game_state_int = int(self._game_state_distribution)
+                step = random.choice(
+                    range(max(0, step_count - game_state_int - 5),
+                          step_count - game_state_int + 5)
                 )
             else:
                 raise

@@ -46,7 +46,13 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
     record_pngs_dir = args.record_pngs_dir
     record_json_dir = args.record_json_dir
     game_state_file = args.game_state_file
-    num_times = num_times or int(args.num_times)
+    num_times = num_times
+    if not num_times:
+        try:
+            num_times = int(args.num_times)
+        except Exception as e:
+            num_times = 1
+
     render_mode = args.render_mode
     # TODO: After https://github.com/MultiAgentLearning/playground/pull/40
     #       this is still missing the docker_env_dict parsing for the agents.
@@ -63,6 +69,7 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
 
     env = make(config, agents, game_state_file, render_mode=render_mode)
     env.set_training_agents(training_agent_ids)
+    env.enable_selfbombing()
     env.rank = 0
 
     if seed is None:
@@ -97,7 +104,7 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
                            record_json_dir=record_json_dir,
                            mode=render_mode)
             actions = env.act(obs, acting_agent_ids=acting_agent_ids)
-                    
+
             for agent_id in acting_agent_ids:
                 agent_obs = obs[agent_id]
                 action = agents[agent_id].act(agent_obs, env.action_space)
@@ -174,6 +181,13 @@ def main():
     parser.add_argument('--num-times',
                         default=1,
                         help="The number of battles to run")
+    parser.add_argument('--state-directory', type=str, default='',
+                        help='a game state directory from which to load.')
+    parser.add_argument('--state-directory-distribution', type=str,
+                        default='', help='a distribution to load the '
+                        'states in the directory. uniform will choose on'
+                        'randomly. for the others, see envs.py.')
+
     args = parser.parse_args()
     run(args)
 

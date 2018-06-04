@@ -118,7 +118,7 @@ class PommeCNNPolicySmall(_FFPolicy):
       num_channels: The number of channels to use in the convnet.
     """
     def __init__(self, state_dict, num_inputs, action_space, board_size,
-                 num_channels, use_gru):
+                 num_channels, use_gru=False):
         super(PommeCNNPolicySmall, self).__init__()
         self.board_size = board_size
         self.num_channels = num_channels
@@ -207,7 +207,7 @@ class PommeCNNPolicySmaller(_FFPolicy):
       num_channels: The number of channels to use in the convnet.
     """
     def __init__(self, state_dict, num_inputs, action_space, board_size,
-                 num_channels, use_gru):
+                 num_channels, use_gru=False):
         super(PommeCNNPolicySmaller, self).__init__()
         self.board_size = board_size
         self.num_channels = num_channels
@@ -290,7 +290,7 @@ class PommeCNNPolicySmallNonlinCritic(_FFPolicy):
       num_channels: The number of channels to use in the convnet.
     """
     def __init__(self, state_dict, num_inputs, action_space, board_size,
-                 num_channels, use_gru):
+                 num_channels, use_gru=False):
         super(PommeCNNPolicySmallNonlinCritic, self).__init__()
         self.board_size = board_size
         self.num_channels = num_channels
@@ -384,7 +384,7 @@ class PommeCNNPolicySmallerNonlinCritic(_FFPolicy):
       num_channels: The number of channels to use in the convnet.
     """
     def __init__(self, state_dict, num_inputs, action_space, board_size,
-                 num_channels, use_gru):
+                 num_channels, use_gru=False):
         super(PommeCNNPolicySmallerNonlinCritic, self).__init__()
         self.board_size = board_size
         self.num_channels = num_channels
