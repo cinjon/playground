@@ -7,6 +7,7 @@ class BaseAgent:
     def __init__(self, character=characters.Bomber, **kwargs):
         self._character = character
         self._is_initialized = False
+        self.is_simple_agent = False
 
     def __getattr__(self, attr):
         return getattr(self._character, attr)
