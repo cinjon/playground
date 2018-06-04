@@ -136,7 +136,13 @@ def train():
     elif args.state_directory_distribution == 'uniformBoundsB':
         uniform_v = 32
         uniform_v_factor = 2
-        uniform_v_incr = 4000
+        uniform_v_incr = 1000
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsC':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 1500
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
 
