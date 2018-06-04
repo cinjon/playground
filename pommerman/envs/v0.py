@@ -72,7 +72,7 @@ class Pomme(gym.Env):
         self._set_action_space()
         self._set_observation_space()
         self.simple_expert = SimpleAgent()
-        self.complex_expert = ComplexAgent()
+        self.complex_expert = ComplexAgent(board_size=board_size)
 
     def _set_action_space(self):
         self.action_space = spaces.Discrete(6)
