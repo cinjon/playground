@@ -1719,26 +1719,83 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 #                     counter += 1
 
 
-# These are repeating teh 8x8 test but with complex agents because they don't
-# kill themsevles.
+### These are repeating teh 8x8 test but with complex agents because they don't
+### kill themsevles.
+# job = {
+#     "num-processes": 25, "how-train": "simple", 
+#     "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFA8x8-v0", "board-size": 8,
+#     "model-str": "PommeCNNPolicySmall", "use-gae": "",
+# }
+# counter = 0
+# for learning_rate in [1e-4, 6e-5]:
+#     for gamma in [.99, .995, 1.]:
+#         for distill in [0, 2500, 5000]:
+#             j = {k:v for k,v in job.items()}
+#             j["run-name"] = "pmancmplx8x8-%d" % counter
+#             if distill:
+#                 j["distill-epochs"] = distill
+#                 j["distill-expert"] = "ComplexAgent"
+
+#             j["gamma"] = gamma
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
+#             counter += 1
+
+
+### These are being run with a very small dataset of just 4 things and with ComplexAgent.
+# job = {
+#     "how-train": "simple",  "log-interval": 1000,
+#     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "state-directory": os.path.join(directory, "ffacompetition4-s100-complex/train")
+# }
+# counter = 0
+# for learning_rate in [1e-4, 6e-5]:
+#     for gamma in [.995, 1.]:
+#         for distill in [0, 2500, 5000]:
+#             for (name, distro) in [("uSchA", "uniformScheduleA"),
+#                                    ("uAdpt", "uniformAdapt"),
+#                                    ("uBnA", "uniformBoundsA")]:
+#                 for num_processes in [50]:
+#                     j = {k:v for k,v in job.items()}
+#                     j["run-name"] = "pman4cmplx%s-%d" % (name, counter)
+#                     j["num-processes"] = num_processes
+#                     j["state-directory-distribution"] = distro
+#                     if distill:
+#                         j["distill-epochs"] = distill
+#                         j["distill-expert"] = "ComplexAgent"
+#                     j["gamma"] = gamma
+#                     j["lr"] = learning_rate
+#                     train_ppo_job(j, j["run-name"], is_fb=True)
+#                     counter += 1
+            
+
 job = {
-    "num-processes": 25, "how-train": "simple", 
-    "log-interval": 1000,  "log-dir": os.path.join(directory, "logs"),
-    "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFA8x8-v0", "board-size": 8,
-    "model-str": "PommeCNNPolicySmall", "use-gae": "",
+    "how-train": "simple",  "log-interval": 1000,
+    "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+    "state-directory": os.path.join(directory, "ffacompetition100-s100-complex/train"),
+    "num-processes": 50,
 }
 counter = 0
 for learning_rate in [1e-4, 6e-5]:
-    for gamma in [.99, .995, 1.]:
-        for distill in [0, 2500, 5000]:
-            j = {k:v for k,v in job.items()}
-            j["run-name"] = "pmancmplx8x8-%d" % counter
-            if distill:
-                j["distill-epochs"] = distill
-                j["distill-expert"] = "ComplexAgent"
-
-            j["gamma"] = gamma
-            j["lr"] = learning_rate
-            train_ppo_job(j, j["run-name"], is_fb=True)
-            counter += 1
+    for gamma in [.995, 1.]:
+        for distill in [0, 4000]:
+            for (name, distro) in [("uSchA", "uniformScheduleA"),
+                                   ("uAdpt", "uniformAdapt"),
+                                   ("uBnA", "uniformBoundsB")]:
+                j = {k:v for k,v in job.items()}
+                j["run-name"] = "pman100cmplx%s-%d" % (name, counter)
+                j["state-directory-distribution"] = distro
+                if distill:
+                    j["distill-epochs"] = distill
+                    j["distill-expert"] = "ComplexAgent"
+                    j["init-kl-factor"] = 10.0
+                j["gamma"] = gamma
+                j["lr"] = learning_rate
+                train_ppo_job(j, j["run-name"], is_fb=True)
+                counter += 1
+                
+                    
