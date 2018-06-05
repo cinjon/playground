@@ -493,12 +493,12 @@ class State():
             this_variable_is_useless_id = i['agent']
             for j, agent in enumerate(self.curr_agents):
                 if this_variable_is_useless_id == agent.agent_id:
-                    this_variable_is_useless = agent
+                    bomb_obj_list.append(
+                        characters.Bomb(agent, i['position'],
+                                        i['bomb_life'], i['blast_strength'],
+                                        i['moving_direction'])
+                    )
                     break
-            bomb_obj_list.append(
-                characters.Bomb(this_variable_is_useless, i['position'],
-                                i['bomb_life'], i['blast_strength'],
-                                i['moving_direction']))
 
         return bomb_obj_list
 
