@@ -2,6 +2,7 @@ from functools import wraps
 import errno
 import itertools
 import json
+from jsonmerge import Merger
 import os
 import random
 import signal
@@ -76,6 +77,8 @@ def make_board(size, num_rigid=0, num_wood=0):
             if x != y])
 
         # Set the players down. Exclude them from coordinates.
+        # Agent0 is in top left. Agent1 is in bottom left.
+        # Agent2 is in bottom right. Agent 3 is in top right.
         board[1, 1] = constants.Item.Agent0.value
         board[size - 2, 1] = constants.Item.Agent1.value
         board[size - 2, size - 2] = constants.Item.Agent2.value
@@ -376,3 +379,40 @@ def is_int(s):
         return True
     except Exception as e:
         return False
+
+
+def join_json_state(record_json_dir, agents, finished_at, config):
+    jsonSchema = {
+        "properties": {
+            "state": {
+                "mergeStrategy": "append"
+            }
+        }
+    }
+
+    jsonTemplate = {
+        "agents": agents,
+        "finished_at": finished_at,
+        "config": config,
+        "state": []
+    }
+
+    merger = Merger(jsonSchema)
+    base = merger.merge({}, jsonTemplate)
+
+    for root, dirs, files in os.walk(record_json_dir):
+        for name in files:
+            path = os.path.join(record_json_dir, name)
+            if name.endswith('.json') and "game_state" not in name:
+                with open(path) as data_file:    
+                    data = json.load(data_file)
+                    head = {"state":[data]}
+                    base = merger.merge(base, head)
+    
+    with open(os.path.join(record_json_dir, 'game_state.json'), 'w') as f:
+        f.write(json.dumps(base, sort_keys=True, indent=4))
+
+    for root, dirs, files in os.walk(record_json_dir):
+        for name in files:
+            if "game_state" not in name:
+                os.remove(os.path.join(record_json_dir, name))

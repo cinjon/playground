@@ -23,43 +23,57 @@ class DockerAgent(BaseAgent):
         super(DockerAgent, self).__init__(character)
 
         self._docker_image = docker_image
-        self._docker_client = docker_client or docker.from_env()
+        self._docker_client = docker_client
+        if not self._docker_client:
+            self._docker_client = docker.from_env()
+            self._docker_client.login(os.getenv("PLAYGROUND_DOCKER_LOGIN"),
+                                      os.getenv("PLAYGROUND_DOCKER_PASSWORD"))
+
+        self._acknowledged = False # Becomes True when the container is ready.
         self._server = server
         self._port = port
+        self._timeout = 32
         self._container = None
         self._env_vars = env_vars or {}
-
-        container_thread = threading.Thread(
-            target=self._run_container, daemon=True)
-        container_thread.start()
-        self._wait_for_docker(self._server, self._port, 32)
-
-    def _run_container(self):
-        print("Starting container...")
-
-        # Any environment variables that start with DOCKER_AGENT are passed to the container
-        env_vars = self._env_vars
+        # Pass env variables starting with DOCKER_AGENT to the container.
         for key, value in os.environ.items():
             if not key.startswith("DOCKER_AGENT_"):
                 continue
             env_key = key.replace("DOCKER_AGENT_", "")
-            env_vars[env_key] = value
+            self._env_vars[env_key] = value
+        
+        # Start the docker agent if it is on this computer. Otherwise, it's far
+        # away and we need to tell that server to start it.
+        if 'localhost' in server:
+            container_thread = threading.Thread(
+                target=self._run_container, daemon=True)
+            container_thread.start()
+            print("Waiting for docker agent at {}:{}...".format(server, port))
+            self._wait_for_docker()
+        else:
+            request_url = "{}:8000/run_container".format(server)
+            request_json = {'docker_image': self._docker_image,
+                            'env_vars': self._env_vars,
+                            'port': port}
+            requests.post(request_url, json=request_json)
+            waiting_thread = threading.Thread(
+                target=self._wait_for_docker, daemon=True)
+            waiting_thread.start()
 
+    def _run_container(self):
+        print("Starting container...")
         self._container = self._docker_client.containers.run(
             self._docker_image,
             detach=True,
             auto_remove=True,
             ports={10080: self._port},
-            environment=env_vars)
+            environment=self._env_vars)
+        for line in self._container.logs(stream=True):
+            print(line.decode("utf-8").strip())
 
-    @staticmethod
-    def _wait_for_docker(server, port, timeout=None):
-        """Wait for network service to appear.
-
-        Args:
-          port: Integer port.
-          timeout: Seconds to wait. 0 waits forever.
-        """
+    def _wait_for_docker(self):
+        """Wait for network service to appear. A timeout of 0 waits forever."""
+        timeout = self._timeout
         backoff = .25
         max_backoff = min(timeout, 16)
 
@@ -71,11 +85,12 @@ class DockerAgent(BaseAgent):
             try:
                 now = time.time()
                 if timeout and end < now:
-                    return False
+                    print("Timed out - %s:%s" % (self._server, self._port))
+                    raise
 
-                request_url = '%s:%s/ping' % (server, port
-                                             )  # 'http://localhost', 83
+                request_url = '%s:%s/ping' % (self._server, self._port)
                 req = requests.get(request_url)
+                self._acknowledged = True
                 return True
             except requests.exceptions.ConnectionError as e:
                 print("ConnectionError: ", e)
@@ -95,7 +110,7 @@ class DockerAgent(BaseAgent):
         try:
             req = requests.post(
                 request_url,
-                timeout=0.25,
+                timeout=0.15,
                 json={
                     "obs":
                     obs_serialized,

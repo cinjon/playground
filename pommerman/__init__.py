@@ -4,6 +4,7 @@ from . import agents
 from . import configs
 from . import constants
 from . import forward_model
+from . import helpers
 from . import utility
 
 registry = None
@@ -44,5 +45,4 @@ def make(config_id, agent_list, game_state_file=None, render_mode='human'):
     env.set_render_mode(render_mode)
     return env
 
-# We put this down here to avoid a circular import concern.
 from . import cli

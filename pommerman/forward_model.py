@@ -398,7 +398,7 @@ class ForwardModel(object):
                         agent = alive_agents[num_agent]
                         desired_agent_positions[num_agent] = agent.position
                         agent_occupancy[agent.position] += 1
-                        del agent_kicked[num_bomb]
+                        del bombs_kicked_by[num_bomb]
                     change = True
 
         for num_bomb, bomb in enumerate(curr_bombs):

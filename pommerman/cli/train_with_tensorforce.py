@@ -7,7 +7,7 @@ and then report back the result.
 An example with all three simple agents running ffa:
 python train_with_tensorforce.py \
  --agents=tensorforce::ppo,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent \
- --config=PommeFFA-v0
+ --config=PommeFFACompetition-v0
 """
 import atexit
 import functools
@@ -60,7 +60,7 @@ def main():
                         default="pommerman",
                         help="Game to choose.")
     parser.add_argument("--config",
-                        default="PommeFFA-v0",
+                        default="PommeFFACompetition-v0",
                         help="Configuration to execute. See env_ids in "
                         "configs.py for options.")
     parser.add_argument("--agents",

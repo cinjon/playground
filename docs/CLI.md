@@ -7,19 +7,19 @@ Call this with a config, a game, and a list of agents. The script will start sep
 An example with all four test agents running ffa:
 
 ```bash
-pom_battle --agents=test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent --config=PommeFFA-v0
+pom_battle --agents=test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent --config=PommeFFACompetition-v0
 ```
 
 An example with one player, two random agents, and one test agent:
 
 ```bash
-pom_battle --agents=player::arrows,test::agents.SimpleAgent,random::null,random::null --config=PommeFFA-v0
+pom_battle --agents=player::arrows,test::agents.SimpleAgent,random::null,random::null --config=PommeFFACompetition-v0
 ```
 
 An example with a docker agent:
 
 ```bash
-pom_battle --agents=player::arrows,docker::pommerman/test-agent,random::null,random::null --config=PommeFFA-v0
+pom_battle --agents=player::arrows,docker::pommerman/test-agent,random::null,random::null --config=PommeFFACompetition-v0
 ```
 
 ## Configurations and Options
@@ -28,7 +28,7 @@ To get a list of active options you can run `pom_battle --help`. Below is a list
 
 - `--game` allows you to change the game your agent plays. The default is `pommerman`. Currently only supports `pommerman`
 
-- `--config` changes the type of game the agents will play. The default is `PommeFFA-v0`. Other options are `PommeFFA-v0`, `PommeFFAFast-v0`, `PommeFFA-v1`, `PommeRadio-v2`, `PommeTeam-v0`, and `PommeTeamFast-v0`.
+- `--config` changes the type of game the agents will play. The default is `PommeFFACompetition-v0`. Other options are `PommeFFACompetition-v0`, `PommeFFAFast-v0`, `PommeFFA-v1`, `PommeRadio-v2`, `PommeTeam-v0`, and `PommeTeamFast-v0`.
 
 - `--agents` defines the agents participating in the game. The default is 4 simple agents. To changes the agents in the game use a comma delineated list of agent.
 
@@ -60,5 +60,5 @@ Pommerman comes with a trainable agent out of the box. The agent uses a Proximal
 An example with all three simple agents running ffa:
 
 ```bash
-pom_tf_battle --agents=tensorforce::ppo,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent --config=PommeFFA-v0
+pom_tf_battle --agents=tensorforce::ppo,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent --config=PommeFFACompetition-v0
 ```

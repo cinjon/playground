@@ -5,3 +5,4 @@ Pillow~=5.0
 ruamel.yaml~=0.15
 Flask~=0.12
 requests~=2.18
+jsonmerge~=1.5.1

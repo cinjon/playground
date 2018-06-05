@@ -3,28 +3,29 @@ Call this with a config, a game, and a list of agents. The script will start sep
 and then report back the result.
 
 An example with all four test agents running ffa:
-python run_battle.py --agents=test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent --config=PommeFFA-v0
+python run_battle.py --agents=test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent --config=PommeFFACompetition-v0
 
 An example with one player, two random agents, and one test agent:
-python run_battle.py --agents=player::arrows,test::agents.SimpleAgent,random::null,random::null --config=PommeFFA-v0
+python run_battle.py --agents=player::arrows,test::agents.SimpleAgent,random::null,random::null --config=PommeFFACompetition-v0
 
 An example with a docker agent:
-python run_battle.py --agents=player::arrows,docker::pommerman/test-agent,random::null,random::null --config=PommeFFA-v0
+python run_battle.py --agents=player::arrows,docker::pommerman/test-agent,random::null,random::null --config=PommeFFACompetition-v0
 """
 import atexit
 from collections import defaultdict
 import os
 import random
 import time
+from datetime import datetime
 
 import argparse
 import numpy as np
 
 from .. import helpers
 from .. import make
-from .. import utility
 
 import pommerman
+from pommerman import utility
 
 
 def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
@@ -124,6 +125,12 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
                        mode=args.render_mode)
             time.sleep(5)
             env.render(close=True)
+
+        if record_json_dir:
+            finished_at = datetime.now().isoformat()
+            _agents = args.agents.split(',')
+            utility.join_json_state(record_json_dir, _agents, finished_at, config)
+
         return info
 
     infos = []
@@ -150,7 +157,7 @@ def main():
     docker_agent = 'docker::pommerman/simple-agent'
     parser = argparse.ArgumentParser(description='Playground Flags.')
     parser.add_argument('--config',
-                        default='PommeFFA-v0',
+                        default='PommeFFACompetition-v0',
                         help='Configuration to execute. See env_ids in '
                         'configs.py for options.')
     parser.add_argument('--agents',
@@ -187,7 +194,6 @@ def main():
                         default='', help='a distribution to load the '
                         'states in the directory. uniform will choose on'
                         'randomly. for the others, see envs.py.')
-
     args = parser.parse_args()
     run(args)
 
