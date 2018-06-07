@@ -1840,3 +1840,55 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 #             counter += 1
 
 
+### LSTM runs with distribution: 16
+job = {
+    "num-processes": 50, "how-train": "simple",
+    "log-interval": 2500, "save-interval": 250,
+    "log-dir": os.path.join(directory, "logs"),
+    "save-dir": os.path.join(directory, "models"),
+    "gamma": "1.0", "use-gae": "",
+    "model-str": "PommeCNNPolicySmall",
+    "recurrent-policy": "", "eval-mode": "ffa", "num-stack": 1,
+    "config": "PommeFFACompetition-v0"
+}
+counter = 0
+for learning_rate in [1e-4, 3e-5]:
+    for (name, distro) in [
+            ("exdistr", None),
+            ("genesis", "genesis"), # always starts at step 0 from replays.
+            ("uSchC", "uniformScheduleC"), #500
+            ("uSchB", "uniformScheduleB"), #1000
+            ("uSchF", "uniformScheduleF"), #2000
+            ("uBnF", "uniformBoundsF"), #500
+            ("uBnB", "uniformBoundsB"), #1000
+            ("uBnE", "uniformBoundsE"), #2000
+    ]:
+        if distro:
+            j["state-directory"] = os.path.join(directory, "ffacompetition4-s100-complex/train")
+            j["state-directory-distribution"] = distro
+
+        j = {k:v for k,v in job.items()}
+        j["run-name"] = "lstm-%s-pman%d" % (name, counter)
+        j["lr"] = learning_rate
+        train_ppo_job(j, j["run-name"], is_fb=True)
+        counter += 1
+
+
+### LSTM with 8x8: 2
+job = {
+    "num-processes": 50, "how-train": "simple",
+    "log-interval": 2500, "save-interval": 250,
+    "log-dir": os.path.join(directory, "logs"),
+    "save-dir": os.path.join(directory, "models"),
+    "gamma": "1.0", "use-gae": "",
+    "model-str": "PommeCNNPolicySmall",
+    "recurrent-policy": "", "eval-mode": "ffa", "num-stack": 1,
+    "config": "PommeFFA8x8-v0", "board-size": 8,
+}
+counter = 0
+for learning_rate in [1e-4, 3e-5]:
+    j = {k:v for k,v in job.items()}
+    j["run-name"] = "lstm8x8-pman%d" % (counter)
+    j["lr"] = learning_rate
+    train_ppo_job(j, j["run-name"], is_fb=True)
+    counter += 1
