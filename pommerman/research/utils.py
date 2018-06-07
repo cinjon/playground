@@ -340,12 +340,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     #         total_steps)
 
     writer.add_histogram('action_choices_epoch', action_choices, num_epoch, bins='doane')
-    writer.add_histogram('action_choices_steps', action_choices, total_steps, bins='doane')
-    for num in range(len(action_probs)):
-        writer.add_histogram('action_probs_epoch/%d' % num, action_probs[num],
-                             num_epoch, bins='doane')
-        writer.add_histogram('action_probs_steps/%d' % num, action_probs[num],
-                             total_steps, bins='doane')
+    # writer.add_histogram('action_choices_steps', action_choices, total_steps, bins='doane')
+    # for num in range(len(action_probs)):
+    #     writer.add_histogram('action_probs_epoch/%d' % num, action_probs[num],
+    #                          num_epoch, bins='doane')
+    #     writer.add_histogram('action_probs_steps/%d' % num, action_probs[num],
+    #                          total_steps, bins='doane')
 
     if uniform_v is not None:
         writer.add_scalar('uniform_v_epoch', uniform_v, num_epoch)

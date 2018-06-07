@@ -4,6 +4,7 @@ such as in v1.py, will inherit from this.
 """
 from collections import defaultdict
 import json
+import logging
 import os
 import random
 
@@ -263,6 +264,8 @@ class Pomme(gym.Env):
                     range(max(0, step_count - self._uniform_v), step_count - 1)
                 )
             elif self._game_state_distribution.startswith('uniformSchedule'):
+                # if uniform_v == 512 and step_count == 290, then this is range(0, 289)
+                # ... eh, wtf.
                 step = random.choice(
                     range(max(0, step_count - self._uniform_v), step_count - 1)
                 )
@@ -274,130 +277,44 @@ class Pomme(gym.Env):
                 else:
                     ub = int(lb / 2) - 8
 
+                # at lb == 512, minrange is either 0 or step_count - 512
+                # then maxrange is either 1, step_count - 511, or step_count - 244
+                # step_count - 244 > step_count - 511, so it can't be the latter.
+                # thus it's either 1 or step_count - 244.
+                # step is then either 0, random(0, step_count - 244) if step_count > 244,
+                # or random(step_count - 512, step_count - 244) if step_count > 512.
                 minrange = max(0, step_count - lb)
                 maxrange = max(minrange + 1, step_count - ub)
                 step = random.choice(range(minrange, maxrange))
-            elif self._game_state_distribution == 'overfit-20max':
-                # Pick a game state with the distribution probabilities:
-                # step_count - 2: 20%
-                # step_count - 3: 20%
-                # step_count - 4: 20%
-                # step_count - 5: 10%
-                # step_count - 6: 10%
-                # step_count - 7: 10%
-                # step_count - 8: 5%
-                # step_count - 9: 2.5%
-                # [0, step_count - 10]: uniform out of 2.5%.
-                step = None
-                choice = random.random()
-                for num, value in enumerate(
-                        [.8, .6, .4, .3, .2, .1, .05, .025]
-                ):
-                    if choice > value:
-                        step = step_count - 2 - num
-                        break
-                step = step or random.choice(
-                    range(max(0, step_count - 20), step_count - 9)
-                )
-            elif self._game_state_distribution == 'overfit-0max':
-                # Pick a game state with the distribution probabilities:
-                # step_count - 2: 20%
-                # step_count - 3: 20%
-                # step_count - 4: 20%
-                # step_count - 5: 10%
-                # step_count - 6: 10%
-                # step_count - 7: 10%
-                # step_count - 8: 5%
-                # step_count - 9: 2.5%
-                # [0, step_count - 10]: uniform out of 2.5%.
-                step = None
-                choice = random.random()
-                for num, value in enumerate(
-                        [.8, .6, .4, .3, .2, .1, .05, .025]
-                ):
-                    if choice > value:
-                        step = step_count - 2 - num
-                        break
-                step = step or random.choice(range(step_count - 9))
-            elif self._game_state_distribution == 'overfit-no-uniform':
-                # Pick a game state with the distribution probabilities:
-                # step_count - 2: 20%
-                # step_count - 3: 20%
-                # step_count - 4: 20%
-                # step_count - 5: 10%
-                # step_count - 6: 10%
-                # step_count - 7: 10%
-                # step_count - 8: 5%
-                # step_count - 9: 2.5%
-                # [0, step_count - 10]: uniform out of 2.5%.
-                step = None
-                choice = random.random()
-                for num, value in enumerate(
-                        [.8, .6, .4, .3, .2, .1, .05, .025]
-                ):
-                    if choice > value:
-                        step = step_count - 2 - num
-                        break
-                step = step or step_count - 10
-            elif self._game_state_distribution == 'overfit-40max':
-                # Pick a game state with the distribution probabilities:
-                # step_count - 2: 20%
-                # step_count - 3: 20%
-                # step_count - 4: 20%
-                # step_count - 5: 10%
-                # step_count - 6: 10%
-                # step_count - 7: 10%
-                # step_count - 8: 5%
-                # step_count - 9: 2.5%
-                # [0, step_count - 10]: uniform out of 2.5%.
-                step = None
-                choice = random.random()
-                for num, value in enumerate(
-                        [.8, .6, .4, .3, .2, .1, .05, .025]
-                ):
-                    if choice > value:
-                        step = step_count - 2 - num
-                        break
-                step = step or random.choice(
-                    range(max(0, step_count - 40), step_count - 9)
-                )
-            elif self._game_state_distribution == 'overfit-2040max':
-                # Pick a game state with the distribution probabilities:
-                # step_count - 2: 20%
-                # step_count - 3: 20%
-                # step_count - 4: 20%
-                # step_count - 5: 10%
-                # step_count - 6: 10%
-                # step_count - 7: 10%
-                # step_count - 8: 5%
-                # step_count - 9: 2.5%
-                # [0, step_count - 10]: uniform out of 2.5%.
-                step = None
-                choice = random.random()
-                for num, value in enumerate(
-                        [.8, .6, .4, .3, .2, .1, .05, .025]
-                ):
-                    if choice > value:
-                        step = step_count - 2 - num
-                        break
-                step = step or random.choice(
-                    range(max(0, step_count - 40), step_count - 20)
-                )
             elif utility.is_int(self._game_state_distribution):
                 game_state_int = int(self._game_state_distribution)
                 step = random.choice(
                     range(max(0, step_count - game_state_int - 5),
-                          step_count - game_state_int + 5)
+                          max(0, step_count - game_state_int) + 5)
                 )
+            elif self._game_state_distribution == 'genesis':
+                step = 0
+            elif self._game_state_distribution == 'forwardN':
+                step = random.choice(range(self._uniform_v))
             else:
                 raise
             return os.path.join(directory, '%d.json' % step), step
 
         if hasattr(self, '_applicable_games') and self._applicable_games:
             directory, step_count = random.choice(self._applicable_games)
-            game_state_file, step = get_game_state_file(directory, step_count)
-            while not os.path.exists(game_state_file):
+            counter = 0
+            while True:
                 game_state_file, step = get_game_state_file(directory, step_count)
+                counter += 1
+                try:
+                    while not os.path.exists(game_state_file):
+                        game_state_file, step = get_game_state_file(directory, step_count)
+                    break
+                except json.decoder.JSONDecodeError as e:
+                    logging.warn("GSF: %s / sc: %d / step: %d..." % (game_state_file, step_count, step))
+                if counter == 5:
+                    raise
+
             self._game_state_step_start = step_count - step + 1
             with open(game_state_file, 'r') as f:
                 self.set_json_info(json.loads(f.read()))

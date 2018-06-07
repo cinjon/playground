@@ -138,6 +138,24 @@ def train():
         uniform_v_incr = 250
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformScheduleE':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 1500
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformScheduleF':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 2000
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformScheduleG':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 2500
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'uniformBoundsA':
         # (0, 32), (24, 64), (56, 128), (120, 256), (248, 512), ...
         uniform_v = 32
@@ -161,6 +179,12 @@ def train():
         uniform_v = 32
         uniform_v_factor = 2
         uniform_v_incr = 1500
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsE':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 2000
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
 
