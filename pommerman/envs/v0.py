@@ -294,8 +294,8 @@ class Pomme(gym.Env):
                 )
             elif self._game_state_distribution == 'genesis':
                 step = 0
-            elif self._game_state_distribution == 'forwardN':
-                step = random.choice(range(self._uniform_v))
+            elif self._game_state_distribution.startswith('uniformForward'):
+                step = random.choice(range(min(self._uniform_v, step_count - 1)))
             else:
                 raise
             return os.path.join(directory, '%d.json' % step), step
