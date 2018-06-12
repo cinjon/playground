@@ -1072,7 +1072,6 @@ def train():
             uniform_v_prior = num_epoch
             uniform_v_incrs.pop(0)
             uniform_v = uniform_v_vals.pop(0)
-            print(uniform_v_incrs, uniform_v_vals, uniform_v)
             envs.set_uniform_v(uniform_v)
 
     writer.close()
