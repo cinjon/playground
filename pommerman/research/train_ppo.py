@@ -219,7 +219,7 @@ def train():
         envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'setBoundsTst':
         uniform_v = 64
-        uniform_v_incrs = [10]
+        uniform_v_incrs = [2]
         uniform_v_vals = [128]
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
@@ -1066,11 +1066,9 @@ def train():
             uniform_v_prior = num_epoch
             uniform_v = int(uniform_v * uniform_v_factor)
             envs.set_uniform_v(uniform_v)
-        elif all([
-                args.state_directory_distribution.startswith('setBounds'),
-                len(uniform_v_incrs),
-                num_epoch - uniform_v_incrs[0] >= uniform_v_prior
-        ]):
+        elif args.state_directory_distribution.startswith('setBounds') and \
+             len(uniform_v_incrs) > 0 and \
+             num_epoch - uniform_v_incrs[0] >= uniform_v_prior:
             uniform_v_prior = num_epoch
             uniform_v_incrs.pop(0)
             uniform_v = uniform_v_vals.pop(0)
