@@ -1807,88 +1807,90 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 ### Similar to the above, but for 4. To be honest, this is basically the experiemnt right here.
 ### We are asking: Can we learn better from the back than from the front? 
-# job = {
-#     "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
-#     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
-#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
-#     "num-processes": 50, "gamma": 1.0,
-# }
-# counter = 0
-# for learning_rate in [1e-4, 6e-5, 3e-5]:
-#     for (name, distro) in [
-#             ("uSchC", "uniformScheduleC"), #500
-#             ("uSchB", "uniformScheduleB"), #1000
-#             ("uSchF", "uniformScheduleF"), #2000
-#             ("uBnF", "uniformBoundsF"), #500
-#             ("uBnB", "uniformBoundsB"), #1000
-#             ("uBnE", "uniformBoundsE"), #2000
-#             ("genesis", "genesis"),
-#             ("uFwdA", "uniformForwardA"), #250
-#             ("uFwdB", "uniformForwardB"), #500
-#             ("uFwdC", "uniformForwardC"), #1000
-#     ]:
-#         for numgames in [4]:
-#             if counter not in [18, 28]:
-#                 counter += 1
-#                 continue
-#             j = {k:v for k,v in job.items()}
-#             j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
-#             j["run-name"] = "cmplx3-%d-%s-%d" % (numgames, name, counter)
-#             j["state-directory-distribution"] = distro
-#             j["lr"] = learning_rate
-#             train_ppo_job(j, j["run-name"], is_fb=True)
-#             counter += 1
-
-
-### LSTM runs with distribution: 16
 job = {
-    "num-processes": 50, "how-train": "simple",
-    "log-interval": 2500, "save-interval": 250,
-    "log-dir": os.path.join(directory, "logs"),
-    "save-dir": os.path.join(directory, "models"),
-    "gamma": "1.0", "use-gae": "",
-    "model-str": "PommeCNNPolicySmall",
-    "recurrent-policy": "", "eval-mode": "ffa", "num-stack": 1,
-    "config": "PommeFFACompetition-v0"
+    "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
+    "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+    "num-processes": 50, "gamma": 1.0,
 }
 counter = 0
-for learning_rate in [1e-4, 3e-5]:
+for learning_rate in [1e-4, 6e-5, 3e-5]:
     for (name, distro) in [
-            ("exdistr", None),
-            ("genesis", "genesis"), # always starts at step 0 from replays.
             ("uSchC", "uniformScheduleC"), #500
             ("uSchB", "uniformScheduleB"), #1000
             ("uSchF", "uniformScheduleF"), #2000
             ("uBnF", "uniformBoundsF"), #500
             ("uBnB", "uniformBoundsB"), #1000
             ("uBnE", "uniformBoundsE"), #2000
+            ("genesis", "genesis"),
+            ("uFwdA", "uniformForwardA"), #250
+            ("uFwdB", "uniformForwardB"), #500
+            ("uFwdC", "uniformForwardC"), #1000
+            ("uAll", "uniform"), #all random.
+            ("ubtst", "uniformBoundsBTst"),
     ]:
-        if distro:
-            j["state-directory"] = os.path.join(directory, "ffacompetition4-s100-complex/train")
+        for numgames in [4]:
+            if name == "ubtst" and learning_rate in [1e-4, 6e-5]:
+                continue
+            
+            j = {k:v for k,v in job.items()}
+            j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+            j["run-name"] = "cmplxagn-%d-%s-%d" % (numgames, name, counter)
             j["state-directory-distribution"] = distro
-
-        j = {k:v for k,v in job.items()}
-        j["run-name"] = "lstm-%s-pman%d" % (name, counter)
-        j["lr"] = learning_rate
-        train_ppo_job(j, j["run-name"], is_fb=True)
-        counter += 1
+            j["lr"] = learning_rate
+            train_ppo_job(j, j["run-name"], is_fb=True)
+            counter += 1
 
 
-### LSTM with 8x8: 2
-job = {
-    "num-processes": 50, "how-train": "simple",
-    "log-interval": 2500, "save-interval": 250,
-    "log-dir": os.path.join(directory, "logs"),
-    "save-dir": os.path.join(directory, "models"),
-    "gamma": "1.0", "use-gae": "",
-    "model-str": "PommeCNNPolicySmall",
-    "recurrent-policy": "", "eval-mode": "ffa", "num-stack": 1,
-    "config": "PommeFFA8x8-v0", "board-size": 8,
-}
-counter = 0
-for learning_rate in [1e-4, 3e-5]:
-    j = {k:v for k,v in job.items()}
-    j["run-name"] = "lstm8x8-pman%d" % (counter)
-    j["lr"] = learning_rate
-    train_ppo_job(j, j["run-name"], is_fb=True)
-    counter += 1
+### LSTM runs with distribution: 16
+# job = {
+#     "num-processes": 50, "how-train": "simple",
+#     "log-interval": 2500, "save-interval": 250,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "gamma": "1.0", "use-gae": "",
+#     "model-str": "PommeCNNPolicySmall",
+#     "recurrent-policy": "", "eval-mode": "ffa", "num-stack": 1,
+#     "config": "PommeFFACompetition-v0"
+# }
+# counter = 0
+# for learning_rate in [1e-4, 3e-5]:
+#     for (name, distro) in [
+#             ("exdistr", None),
+#             ("genesis", "genesis"), # always starts at step 0 from replays.
+#             ("uSchC", "uniformScheduleC"), #500
+#             ("uSchB", "uniformScheduleB"), #1000
+#             ("uSchF", "uniformScheduleF"), #2000
+#             ("uBnF", "uniformBoundsF"), #500
+#             ("uBnB", "uniformBoundsB"), #1000
+#             ("uBnE", "uniformBoundsE"), #2000
+#     ]:
+#         if distro:
+#             j["state-directory"] = os.path.join(directory, "ffacompetition4-s100-complex/train")
+#             j["state-directory-distribution"] = distro
+
+#         j = {k:v for k,v in job.items()}
+#         j["run-name"] = "lstm-%s-pman%d" % (name, counter)
+#         j["lr"] = learning_rate
+#         train_ppo_job(j, j["run-name"], is_fb=True)
+#         counter += 1
+
+
+# ### LSTM with 8x8: 2
+# job = {
+#     "num-processes": 50, "how-train": "simple",
+#     "log-interval": 2500, "save-interval": 250,
+#     "log-dir": os.path.join(directory, "logs"),
+#     "save-dir": os.path.join(directory, "models"),
+#     "gamma": "1.0", "use-gae": "",
+#     "model-str": "PommeCNNPolicySmall",
+#     "recurrent-policy": "", "eval-mode": "ffa", "num-stack": 1,
+#     "config": "PommeFFA8x8-v0", "board-size": 8,
+# }
+# counter = 0
+# for learning_rate in [1e-4, 3e-5]:
+#     j = {k:v for k,v in job.items()}
+#     j["run-name"] = "lstm8x8-pman%d" % (counter)
+#     j["lr"] = learning_rate
+#     train_ppo_job(j, j["run-name"], is_fb=True)
+#     counter += 1
