@@ -295,25 +295,27 @@ class Pomme(gym.Env):
                 minrange = max(0, step_count - lb)
                 maxrange = max(minrange + 1, step_count - ub)
                 step = random.choice(range(minrange, maxrange))
-            elif self._game_state_distribution == 'setBoundsA':
-                # (0, 64), (50, 128), (100, 256), (200, 384), (300, 512), (400, 640), (600, 800)
-                lb = self._uniform_v
-                ub = {
-                    64: 1, 128: 50, 256: 100, 384: 200, 512: 300, 640: 400,
-                    800: 600
-                }.get(lb)
-                minrange = max(0, step_count - lb)
-                maxrange = max(minrange + 1, step_count - ub)
-                step = random.choice(range(minrange, maxrange))
-            elif self._game_state_distribution == 'setBoundsB':
+            elif self._game_state_distribution in [
+                    'setBoundsA', 'setBoundsB', 'setBoundsC'
+            ]:
                 # (0, 64), (50, 128), (100, 256), (200, 384), (300, 512), (400, 640), (600, 800), (800, 700)
                 lb = self._uniform_v
                 ub = {
                     64: 1, 128: 50, 256: 100, 384: 200, 512: 300, 640: 400,
-                    800: 600, 810: 700
+                    800: 600, 810: 700, 820: 650
                 }.get(lb)
-                if lb == 810:
-                    lb = 800
+                lb = min(lb, 800)
+                minrange = max(0, step_count - lb)
+                maxrange = max(minrange + 1, step_count - ub)
+                step = random.choice(range(minrange, maxrange))
+            elif self._game_state_distribution == 'setBoundsD':
+                # (0, 32), (28, 64), (50, 128), (100, 256), (200, 384), (300, 512), (400, 640), (600, 800)
+                lb = self._uniform_v
+                ub = {
+                    32: 1, 64: 28, 128: 50, 256: 100, 384: 200, 512: 300,
+                    640: 400, 800: 600, 810: 700, 820: 650
+                }.get(lb)
+                lb = min(lb, 800)
                 minrange = max(0, step_count - lb)
                 maxrange = max(minrange + 1, step_count - ub)
                 step = random.choice(range(minrange, maxrange))

@@ -1898,6 +1898,28 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 
 ### Doing the above (non-lstm jobs) but having honed in on the backend more.
+# job = {
+#     "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
+#     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 50, "gamma": 1.0,
+# }
+# counter = 0
+# for learning_rate in [1e-4, 6e-5, 3e-5]:
+#     for (name, distro) in [
+#             ("setBnA", "setBoundsA"),
+#             ("setBnB", "setBoundsB"),
+#     ]:
+#         for numgames in [4]:
+#             j = {k:v for k,v in job.items()}
+#             j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+#             j["run-name"] = "cmplxfstr-%d-%s-%d" % (numgames, name, counter)
+#             j["state-directory-distribution"] = distro
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
+#             counter += 1
+
+
 job = {
     "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
@@ -1907,8 +1929,8 @@ job = {
 counter = 0
 for learning_rate in [1e-4, 6e-5, 3e-5]:
     for (name, distro) in [
-            ("setBnA", "setBoundsA"),
-            ("setBnB", "setBoundsB"),
+            ("setBnC", "setBoundsC"),
+            ("setBnD", "setBoundsD"),
     ]:
         for numgames in [4]:
             j = {k:v for k,v in job.items()}
