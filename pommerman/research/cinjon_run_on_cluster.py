@@ -1806,40 +1806,41 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
                 
 
 ### Similar to the above, but for 4. To be honest, this is basically the experiemnt right here.
-### We are asking: Can we learn better from the back than from the front? 
-job = {
-    "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
-    "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "num-processes": 50, "gamma": 1.0,
-}
-counter = 0
-for learning_rate in [1e-4, 6e-5, 3e-5]:
-    for (name, distro) in [
-            ("uSchC", "uniformScheduleC"), #500
-            ("uSchB", "uniformScheduleB"), #1000
-            ("uSchF", "uniformScheduleF"), #2000
-            ("uBnF", "uniformBoundsF"), #500
-            ("uBnB", "uniformBoundsB"), #1000
-            ("uBnE", "uniformBoundsE"), #2000
-            ("genesis", "genesis"),
-            ("uFwdA", "uniformForwardA"), #250
-            ("uFwdB", "uniformForwardB"), #500
-            ("uFwdC", "uniformForwardC"), #1000
-            ("uAll", "uniform"), #all random.
-            ("ubtst", "uniformBoundsBTst"),
-    ]:
-        for numgames in [4]:
-            if name == "ubtst" and learning_rate in [1e-4, 6e-5]:
-                continue
+### We are asking: Can we learn better from the back than from the front?
+# These are still going. They are doing well but we want to go faster and hone in on the backend.
+# job = {
+#     "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
+#     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 50, "gamma": 1.0,
+# }
+# counter = 0
+# for learning_rate in [1e-4, 6e-5, 3e-5]:
+#     for (name, distro) in [
+#             ("uSchC", "uniformScheduleC"), #500
+#             ("uSchB", "uniformScheduleB"), #1000
+#             ("uSchF", "uniformScheduleF"), #2000
+#             ("uBnF", "uniformBoundsF"), #500
+#             ("uBnB", "uniformBoundsB"), #1000
+#             ("uBnE", "uniformBoundsE"), #2000
+#             ("genesis", "genesis"),
+#             ("uFwdA", "uniformForwardA"), #250
+#             ("uFwdB", "uniformForwardB"), #500
+#             ("uFwdC", "uniformForwardC"), #1000
+#             ("uAll", "uniform"), #all random.
+#             ("ubtst", "uniformBoundsBTst"),
+#     ]:
+#         for numgames in [4]:
+#             if name == "ubtst" and learning_rate in [1e-4, 6e-5]:
+#                 continue
             
-            j = {k:v for k,v in job.items()}
-            j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
-            j["run-name"] = "cmplxagn-%d-%s-%d" % (numgames, name, counter)
-            j["state-directory-distribution"] = distro
-            j["lr"] = learning_rate
-            train_ppo_job(j, j["run-name"], is_fb=True)
-            counter += 1
+#             j = {k:v for k,v in job.items()}
+#             j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+#             j["run-name"] = "cmplxagn-%d-%s-%d" % (numgames, name, counter)
+#             j["state-directory-distribution"] = distro
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
+#             counter += 1
 
 
 ### LSTM runs with distribution: 16
@@ -1894,3 +1895,26 @@ for learning_rate in [1e-4, 6e-5, 3e-5]:
 #     j["lr"] = learning_rate
 #     train_ppo_job(j, j["run-name"], is_fb=True)
 #     counter += 1
+
+
+### Doing the above (non-lstm jobs) but having honed in on the backend more.
+job = {
+    "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
+    "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+    "num-processes": 50, "gamma": 1.0,
+}
+counter = 0
+for learning_rate in [1e-4, 6e-5, 3e-5]:
+    for (name, distro) in [
+            ("setBnA", "setBoundsA"),
+            ("setBnB", "setBoundsB"),
+    ]:
+        for numgames in [4]:
+            j = {k:v for k,v in job.items()}
+            j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+            j["run-name"] = "cmplxfstr-%d-%s-%d" % (numgames, name, counter)
+            j["state-directory-distribution"] = distro
+            j["lr"] = learning_rate
+            train_ppo_job(j, j["run-name"], is_fb=True)
+            counter += 1
