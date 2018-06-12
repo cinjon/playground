@@ -169,6 +169,12 @@ def train():
         uniform_v_incr = 1000
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsBTst':
+        uniform_v = 512
+        uniform_v_factor = 2
+        uniform_v_incr = 100
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'uniformBoundsC':
         uniform_v = 32
         uniform_v_factor = 2
@@ -1037,7 +1043,8 @@ def train():
         if any([
                 args.state_directory_distribution.startswith('uniformSchedul'),
                 args.state_directory_distribution.startswith('uniformBounds'),
-                ]) and num_epoch - uniform_v_incr >= uniform_v_prior:
+                args.state_directory_distribution.startswith('uniformForward'),
+        ]) and num_epoch - uniform_v_incr >= uniform_v_prior:
             uniform_v_prior = num_epoch
             uniform_v = int(uniform_v * uniform_v_factor)
             envs.set_uniform_v(uniform_v)

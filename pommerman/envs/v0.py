@@ -304,20 +304,21 @@ class Pomme(gym.Env):
             directory, step_count = random.choice(self._applicable_games)
             counter = 0
             while True:
+                if counter == 5:
+                    raise
+                
                 game_state_file, step = get_game_state_file(directory, step_count)
                 counter += 1
                 try:
                     while not os.path.exists(game_state_file):
                         game_state_file, step = get_game_state_file(directory, step_count)
+                    self._game_state_step_start = step_count - step + 1
+                    with open(game_state_file, 'r') as f:
+                        self.set_json_info(json.loads(f.read()))
                     break
                 except json.decoder.JSONDecodeError as e:
-                    logging.warn("GSF: %s / sc: %d / step: %d..." % (game_state_file, step_count, step))
-                if counter == 5:
-                    raise
-
-            self._game_state_step_start = step_count - step + 1
-            with open(game_state_file, 'r') as f:
-                self.set_json_info(json.loads(f.read()))
+                    print("PR --> GSF: %s / sc: %d / step: %d..." % (game_state_file, step_count, step))
+                    logging.warn("LOG --> GSF: %s / sc: %d / step: %d..." % (game_state_file, step_count, step))
         elif self._init_game_state is not None:
             self.set_json_info()
         else:
