@@ -247,6 +247,30 @@ def train():
         uniform_v_vals = [64, 128, 256, 384, 512, 640, 800, 820]
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'setBoundsE':
+        uniform_v = 64
+        uniform_v_incrs = [500, 500, 500, 500, 1000, 1000, 1000]
+        uniform_v_vals = [128, 256, 384, 512, 640, 750, 830]
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'setBoundsF':
+        uniform_v = 32
+        uniform_v_incrs = [250, 250, 500, 500, 500, 1000, 1500, 1500]
+        uniform_v_vals = [64, 128, 256, 384, 512, 640, 800, 830]
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+
+    if args.saved_paths:
+        if args.state_directory_distribution.startswith('setBounds'):
+            while uniform_v < 640:
+                uniform_v = uniform_v_vals.pop(0)
+                uniform_v_incrs.pop(0)
+            uniform_v_prior = training_agents[0].num_epoch
+            envs.set_uniform_v(uniform_v)
+        elif args.state_directory_distribution.startswith('uniformBounds'):
+            uniform_v = 1024
+            uniform_v_prior = training_agents[0].num_epoch
+            envs.set_uniform_v(uniform_v)
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target

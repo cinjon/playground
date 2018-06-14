@@ -308,12 +308,12 @@ class Pomme(gym.Env):
                 minrange = max(0, step_count - lb)
                 maxrange = max(minrange + 1, step_count - ub)
                 step = random.choice(range(minrange, maxrange))
-            elif self._game_state_distribution == 'setBoundsD':
+            elif self._game_state_distribution in ['setBoundsD', 'setBoundsE', 'setBoundsF']:
                 # (0, 32), (28, 64), (50, 128), (100, 256), (200, 384), (300, 512), (400, 640), (600, 800)
                 lb = self._uniform_v
                 ub = {
                     32: 1, 64: 28, 128: 50, 256: 100, 384: 200, 512: 300,
-                    640: 400, 800: 600, 810: 700, 820: 650
+                    640: 400, 750: 550, 800: 600, 810: 700, 820: 650, 830: 620
                 }.get(lb)
                 lb = min(lb, 800)
                 minrange = max(0, step_count - lb)
