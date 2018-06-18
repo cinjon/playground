@@ -335,6 +335,8 @@ def train():
     start_epoch = training_agents[0].num_epoch
     total_steps = training_agents[0].total_steps
     num_episodes = training_agents[0].num_episodes
+    if training_agents[0].uniform_v is not None:
+        uniform_v = training_agents[0].uniform_v
 
     start_step_wins = defaultdict(int)
     start_step_all = defaultdict(int)
@@ -408,7 +410,7 @@ def train():
                 guy.cuda()
         saved_paths = utils.save_agents(
             "ppo-", 0, training_agents, total_steps,
-            num_episodes, args, suffix)
+            num_episodes, args, suffix, uniform_v)
         if args.homogenous_init == 'self':
             bad_guys_eval = [
                 utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,

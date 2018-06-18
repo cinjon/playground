@@ -105,7 +105,7 @@ def is_save_epoch(num_epoch, start_epoch, save_interval):
 
 
 def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
-                args, suffix=None):
+                args, suffix=None, uniform_v=None):
     """Save the model.
     Args:
       prefix: A prefix string to prepend to the run_name.
@@ -141,6 +141,7 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
             'optimizer' : optimizer.state_dict(),
             'total_steps': total_steps,
             'num_episodes': num_episodes,
+            'uniform_v': uniform_v
         }
         save_dict['args'] = vars(args)
         if not suffix:
