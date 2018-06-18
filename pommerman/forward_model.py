@@ -133,8 +133,7 @@ class ForwardModel(object):
             actions.append(a)
         return actions
 
-    @staticmethod
-    def step(actions, curr_board, curr_agents, curr_bombs, curr_items,
+    def step(self, actions, curr_board, curr_agents, curr_bombs, curr_items,
              curr_flames, max_blast_strength=10, selfbombing=True, do_print=False):
         self.step_info = {agent.agent_id: {} for agent in curr_agents}
 
