@@ -88,9 +88,9 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
     env.set_state_directory(state_directory,
                             state_directory_distribution)
 
-    if record_pngs_dir:
+    if record_pngs_dir and not os.path.exists(record_pngs_dir):
         os.makedirs(record_pngs_dir)
-    if record_json_dir:
+    if record_json_dir and not os.path.exists(record_json_dir):
         os.makedirs(record_json_dir)
 
     def _run(seed, acting_agent_ids, record_pngs_dir=None, record_json_dir=None):
