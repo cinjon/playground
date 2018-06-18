@@ -11,7 +11,6 @@ from . import utility
 
 class ForwardModel(object):
     """Class for helping with the [forward] modeling of the game state."""
-
     def run(self,
             num_times,
             board,
@@ -137,6 +136,8 @@ class ForwardModel(object):
     @staticmethod
     def step(actions, curr_board, curr_agents, curr_bombs, curr_items,
              curr_flames, max_blast_strength=10, selfbombing=True, do_print=False):
+        self.step_info = {agent.agent_id: {} for agent in curr_agents}
+
         board_size = len(curr_board)
         tmp_board = curr_board.copy()
 
@@ -419,6 +420,7 @@ class ForwardModel(object):
                     agent.pick_up(
                         constants.Item(curr_board[agent.position]),
                         max_blast_strength=max_blast_strength)
+                    self.step_info[agent.agent_id]['item'] = True
 
         # Explode bombs.
         exploded_map = np.zeros_like(curr_board)

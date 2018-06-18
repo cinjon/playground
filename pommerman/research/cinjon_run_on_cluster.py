@@ -44,7 +44,8 @@ abbr = {
     'init-kl-factor': 'ikl',
     'state-directory-distribution': 'sdd',
     'anneal-bomb-penalty-epochs': 'abpe',
-    'begin-selfbombing-epoch': 'bsbe'
+    'begin-selfbombing-epoch': 'bsbe',
+    'item-reward': 'itr',
 }
 
 def train_ppo_job(flags, jobname=None, is_fb=False):
@@ -1808,50 +1809,50 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 ### Similar to the above, but for 4. To be honest, this is basically the experiemnt right here.
 ### We are asking: Can we learn better from the back than from the front?
 # These are still going. They are doing well but we want to go faster and hone in on the backend.
-saved_paths = {
-    "cmplxagn-4-uBnB-4": "agent0-cmplxagn-4-uBnB-4.simple.FFACompetition-v0.Small.nc256.lr0.0001.bs5120.ns103.gam1.0.seed1.gae.uniformBoundsBepoch4750.steps24462500.pt",
-    "cmplxagn-4-uBnB-15": "agent0-cmplxagn-4-uBnB-15.simple.FFACompetition-v0.Small.nc256.lr6e-05.bs5120.ns103.gam1.0.seed1.gae.uniformBoundsBepoch4500.steps23175000.pt",
-}
-job = {
-    "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
-    "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "num-processes": 50, "gamma": 1.0,
-}
-counter = 0
-for learning_rate in [1e-4, 6e-5, 3e-5]:
-    for (name, distro) in [
-            ("uSchC", "uniformScheduleC"), #500
-            ("uSchB", "uniformScheduleB"), #1000
-            ("uSchF", "uniformScheduleF"), #2000
-            ("uBnF", "uniformBoundsF"), #500
-            ("uBnB", "uniformBoundsB"), #1000
-            ("uBnE", "uniformBoundsE"), #2000
-            ("genesis", "genesis"),
-            ("uFwdA", "uniformForwardA"), #250
-            ("uFwdB", "uniformForwardB"), #500
-            ("uFwdC", "uniformForwardC"), #1000
-            ("uAll", "uniform"), #all random.
-            # ("ubtst", "uniformBoundsBTst"),
-    ]:
-        for numgames in [4]:
-            if counter not in [4, 15]:
-                counter += 1
-                continue
-            j = {k:v for k,v in job.items()}
-            j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
-            j["run-name"] = "cmplxagn-%d-%s-%d" % (numgames, name, counter)
-            path = saved_paths.get(j["run-name"])
-            if not path:
-                counter += 1
-                continue
-            else:
-                j["saved-paths"] = "/checkpoint/cinjon/selfplayground/models/%s" % path
-                print("DOING SAVED PATH: ", j["saved-paths"])
-            j["state-directory-distribution"] = distro
-            j["lr"] = learning_rate
-            train_ppo_job(j, j["run-name"], is_fb=True)
-            counter += 1
+# saved_paths = {
+#     "cmplxagn-4-uBnB-4": "agent0-cmplxagn-4-uBnB-4.simple.FFACompetition-v0.Small.nc256.lr0.0001.bs5120.ns103.gam1.0.seed1.gae.uniformBoundsBepoch4750.steps24462500.pt",
+#     "cmplxagn-4-uBnB-15": "agent0-cmplxagn-4-uBnB-15.simple.FFACompetition-v0.Small.nc256.lr6e-05.bs5120.ns103.gam1.0.seed1.gae.uniformBoundsBepoch4500.steps23175000.pt",
+# }
+# job = {
+#     "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
+#     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 50, "gamma": 1.0,
+# }
+# counter = 0
+# for learning_rate in [1e-4, 6e-5, 3e-5]:
+#     for (name, distro) in [
+#             ("uSchC", "uniformScheduleC"), #500
+#             ("uSchB", "uniformScheduleB"), #1000
+#             ("uSchF", "uniformScheduleF"), #2000
+#             ("uBnF", "uniformBoundsF"), #500
+#             ("uBnB", "uniformBoundsB"), #1000
+#             ("uBnE", "uniformBoundsE"), #2000
+#             ("genesis", "genesis"),
+#             ("uFwdA", "uniformForwardA"), #250
+#             ("uFwdB", "uniformForwardB"), #500
+#             ("uFwdC", "uniformForwardC"), #1000
+#             ("uAll", "uniform"), #all random.
+#             # ("ubtst", "uniformBoundsBTst"),
+#     ]:
+#         for numgames in [4]:
+#             if counter not in [4, 15]:
+#                 counter += 1
+#                 continue
+#             j = {k:v for k,v in job.items()}
+#             j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+#             j["run-name"] = "cmplxagn-%d-%s-%d" % (numgames, name, counter)
+#             path = saved_paths.get(j["run-name"])
+#             if not path:
+#                 counter += 1
+#                 continue
+#             else:
+#                 j["saved-paths"] = "/checkpoint/cinjon/selfplayground/models/%s" % path
+#                 print("DOING SAVED PATH: ", j["saved-paths"])
+#             j["state-directory-distribution"] = distro
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
+#             counter += 1
 
 
 ### LSTM runs with distribution: 16
@@ -1931,16 +1932,82 @@ for learning_rate in [1e-4, 6e-5, 3e-5]:
 #             counter += 1
 
 
-saved_paths = {
-    "cmplxfstr-4-setBnC-4": "agent0-cmplxfstr-4-setBnC-4.simple.FFACompetition-v0.Small.nc256.lr3e-05.bs5120.ns103.gam1.0.seed1.gae.setBoundsCepoch1250.steps6437500.pt",
-    "cmplxfstr-4-setBnC-2": "agent0-cmplxfstr-4-setBnC-2.simple.FFACompetition-v0.Small.nc256.lr6e-05.bs5120.ns103.gam1.0.seed1.gae.setBoundsCepoch1250.steps6437500.pt",
-    "cmplxfstr-4-setBnD-1": "agent0-cmplxfstr-4-setBnD-1.simple.FFACompetition-v0.Small.nc256.lr0.0001.bs5120.ns103.gam1.0.seed1.gae.setBoundsDepoch1250.steps6437500.pt",
-    "cmplxfstr-4-setBnF-3": "agent0-cmplxfstr-4-setBnF-3.simple.FFACompetition-v0.Small.nc256.lr6e-05.bs5120.ns103.gam1.0.seed1.gae.setBoundsFepoch1250.steps6437500.pt",
-    "cmplxfstr-4-setBnE-4": "agent0-cmplxfstr-4-setBnE-4.simple.FFACompetition-v0.Small.nc256.lr3e-05.bs5120.ns103.gam1.0.seed1.gae.setBoundsEepoch1250.steps6437500.pt",
-    "cmplxfstr-4-setBnD-5": "agent0-cmplxfstr-4-setBnD-5.simple.FFACompetition-v0.Small.nc256.lr3e-05.bs5120.ns103.gam1.0.seed1.gae.setBoundsDepoch1250.steps6437500.pt",
-    "cmplxfstr-4-setBnE-0": "agent0-cmplxfstr-4-setBnE-0.simple.FFACompetition-v0.Small.nc256.lr0.0001.bs5120.ns103.gam1.0.seed1.gae.setBoundsEepoch1250.steps6437500.pt",
-    "cmplxfstr-4-setBnF-1": "agent0-cmplxfstr-4-setBnF-1.simple.FFACompetition-v0.Small.nc256.lr0.0001.bs5120.ns103.gam1.0.seed1.gae.setBoundsFepoch1250.steps6437500.pt",
-}
+# saved_paths = {
+#     "cmplxfstr-4-setBnC-4": "agent0-cmplxfstr-4-setBnC-4.simple.FFACompetition-v0.Small.nc256.lr3e-05.bs5120.ns103.gam1.0.seed1.gae.setBoundsCepoch1250.steps6437500.pt",
+#     "cmplxfstr-4-setBnC-2": "agent0-cmplxfstr-4-setBnC-2.simple.FFACompetition-v0.Small.nc256.lr6e-05.bs5120.ns103.gam1.0.seed1.gae.setBoundsCepoch1250.steps6437500.pt",
+#     "cmplxfstr-4-setBnD-1": "agent0-cmplxfstr-4-setBnD-1.simple.FFACompetition-v0.Small.nc256.lr0.0001.bs5120.ns103.gam1.0.seed1.gae.setBoundsDepoch1250.steps6437500.pt",
+#     "cmplxfstr-4-setBnF-3": "agent0-cmplxfstr-4-setBnF-3.simple.FFACompetition-v0.Small.nc256.lr6e-05.bs5120.ns103.gam1.0.seed1.gae.setBoundsFepoch1250.steps6437500.pt",
+#     "cmplxfstr-4-setBnE-4": "agent0-cmplxfstr-4-setBnE-4.simple.FFACompetition-v0.Small.nc256.lr3e-05.bs5120.ns103.gam1.0.seed1.gae.setBoundsEepoch1250.steps6437500.pt",
+#     "cmplxfstr-4-setBnD-5": "agent0-cmplxfstr-4-setBnD-5.simple.FFACompetition-v0.Small.nc256.lr3e-05.bs5120.ns103.gam1.0.seed1.gae.setBoundsDepoch1250.steps6437500.pt",
+#     "cmplxfstr-4-setBnE-0": "agent0-cmplxfstr-4-setBnE-0.simple.FFACompetition-v0.Small.nc256.lr0.0001.bs5120.ns103.gam1.0.seed1.gae.setBoundsEepoch1250.steps6437500.pt",
+#     "cmplxfstr-4-setBnF-1": "agent0-cmplxfstr-4-setBnF-1.simple.FFACompetition-v0.Small.nc256.lr0.0001.bs5120.ns103.gam1.0.seed1.gae.setBoundsFepoch1250.steps6437500.pt",
+# }
+# job = {
+#     "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
+#     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 50, "gamma": 1.0,
+# }
+# counter = 0
+# for learning_rate in [1e-4, 6e-5, 3e-5]:
+#     for (name, distro) in [
+#             ("setBnC", "setBoundsC"),
+#             ("setBnD", "setBoundsD"),
+#     ]:
+#         for numgames in [4]:
+#             if counter not in [1, 2, 4, 5]:
+#                 counter += 1
+#                 continue
+#             j = {k:v for k,v in job.items()}
+#             j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+#             j["run-name"] = "cmplxfstr-%d-%s-%d" % (numgames, name, counter)
+#             path = saved_paths.get(j["run-name"])
+#             if not path:
+#                 counter += 1
+#                 continue
+#             else:
+#                 j["saved-paths"] = "/checkpoint/cinjon/selfplayground/models/%s" % path
+#                 print("DOING SAVED PATH: ", j["saved-paths"])
+#             j["state-directory-distribution"] = distro
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
+#             counter += 1
+
+
+# job = {
+#     "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
+#     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 50, "gamma": 1.0,
+# }
+# counter = 0
+# for learning_rate in [1e-4, 6e-5, 3e-5]:
+#     for (name, distro) in [
+#             # ("setBnC", "setBoundsC"),
+#             # ("setBnD", "setBoundsD"),
+#             ("setBnE", "setBoundsE"),
+#             ("setBnF", "setBoundsF"),
+#     ]:
+#         for numgames in [4]:
+#             if counter not in [0, 1, 3, 4]:
+#                 counter += 1
+#                 continue
+#             j = {k:v for k,v in job.items()}
+#             j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+#             j["run-name"] = "cmplxfstr-%d-%s-%d" % (numgames, name, counter)
+#             path = saved_paths.get(j["run-name"])
+#             if not path:
+#                 counter += 1
+#                 continue
+#             else:
+#                 j["saved-paths"] = "/checkpoint/cinjon/selfplayground/models/%s" % path
+#                 print("DOING SAVED PATH: ", j["saved-paths"])
+#             j["state-directory-distribution"] = distro
+#             j["lr"] = learning_rate
+#             train_ppo_job(j, j["run-name"], is_fb=True)
+#             counter += 1
+            
+
 job = {
     "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
@@ -1948,61 +2015,24 @@ job = {
     "num-processes": 50, "gamma": 1.0,
 }
 counter = 0
-for learning_rate in [1e-4, 6e-5, 3e-5]:
+for learning_rate in [1e-4, 6e-5]:
     for (name, distro) in [
-            ("setBnC", "setBoundsC"),
-            ("setBnD", "setBoundsD"),
-    ]:
-        for numgames in [4]:
-            if counter not in [1, 2, 4, 5]:
-                counter += 1
-                continue
-            j = {k:v for k,v in job.items()}
-            j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
-            j["run-name"] = "cmplxfstr-%d-%s-%d" % (numgames, name, counter)
-            path = saved_paths.get(j["run-name"])
-            if not path:
-                counter += 1
-                continue
-            else:
-                j["saved-paths"] = "/checkpoint/cinjon/selfplayground/models/%s" % path
-                print("DOING SAVED PATH: ", j["saved-paths"])
-            j["state-directory-distribution"] = distro
-            j["lr"] = learning_rate
-            train_ppo_job(j, j["run-name"], is_fb=True)
-            counter += 1
-
-
-job = {
-    "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
-    "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "num-processes": 50, "gamma": 1.0,
-}
-counter = 0
-for learning_rate in [1e-4, 6e-5, 3e-5]:
-    for (name, distro) in [
-            # ("setBnC", "setBoundsC"),
-            # ("setBnD", "setBoundsD"),
-            ("setBnE", "setBoundsE"),
             ("setBnF", "setBoundsF"),
+            ("setBnD", "setBoundsD"),
+            ("uBnF", "uniformBoundsF"), #500
+            ("uBnB", "uniformBoundsB"), #1000
     ]:
-        for numgames in [4]:
-            if counter not in [0, 1, 3, 4]:
+        for numgames in [4, 100]:
+            for itemreward in [0, .03, .1]:
+                if itemreward == 0 and numgames == 4:
+                    continue
+                j = {k:v for k,v in job.items()}
+                j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+                j["run-name"] = "cmplxitm%d-%s-%d" % (numgames, name, counter)
+                if itemreward:
+                    j["item-reward"] = itemreward
+                j["state-directory-distribution"] = distro
+                j["lr"] = learning_rate
+                train_ppo_job(j, j["run-name"], is_fb=True)
                 counter += 1
-                continue
-            j = {k:v for k,v in job.items()}
-            j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
-            j["run-name"] = "cmplxfstr-%d-%s-%d" % (numgames, name, counter)
-            path = saved_paths.get(j["run-name"])
-            if not path:
-                counter += 1
-                continue
-            else:
-                j["saved-paths"] = "/checkpoint/cinjon/selfplayground/models/%s" % path
-                print("DOING SAVED PATH: ", j["saved-paths"])
-            j["state-directory-distribution"] = distro
-            j["lr"] = learning_rate
-            train_ppo_job(j, j["run-name"], is_fb=True)
-            counter += 1
             

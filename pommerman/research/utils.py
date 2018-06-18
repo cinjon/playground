@@ -37,14 +37,20 @@ def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
                 num_episodes = 0
                 total_steps = 0
                 num_epoch = 0
+                uniform_v = None
+                uniform_v_prior = None
             else:
                 num_episodes = loaded_model['num_episodes']
                 total_steps = loaded_model['total_steps']
                 num_epoch = loaded_model['num_epoch']
+                uniform_v = loaded_model.get('uniform_v')
+                uniform_v_prior = loaded_model.get('uniform_v_prior')
         else:
             num_episodes = 0
             total_steps = 0
             num_epoch = 0
+            uniform_v = None
+            uniform_v_prior = None
             optimizer_state_dict = None
             model = net(None)
 
@@ -53,7 +59,8 @@ def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
                            recurrent_policy = args.recurrent_policy)
         agent.initialize(args, obs_shape, action_space,
                          num_training_per_episode, num_episodes, total_steps,
-                         num_epoch, optimizer_state_dict, num_steps)
+                         num_epoch, optimizer_state_dict, num_steps, uniform_v,
+                         uniform_v_prior)
         training_agents.append(agent)
 
     return training_agents
@@ -105,7 +112,7 @@ def is_save_epoch(num_epoch, start_epoch, save_interval):
 
 
 def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
-                args, suffix=None, uniform_v=None):
+                args, suffix=None, uniform_v=None, uniform_v_prior=None):
     """Save the model.
     Args:
       prefix: A prefix string to prepend to the run_name.
@@ -141,7 +148,8 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
             'optimizer' : optimizer.state_dict(),
             'total_steps': total_steps,
             'num_episodes': num_episodes,
-            'uniform_v': uniform_v
+            'uniform_v': uniform_v,
+            'uniform_v_prior': uniform_v_prior,
         }
         save_dict['args'] = vars(args)
         if not suffix:

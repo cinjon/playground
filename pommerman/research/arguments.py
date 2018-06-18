@@ -132,6 +132,8 @@ def get_args():
     parser.add_argument('--bomb-reward', type=float, default=0.0,
                         help='the reward to apply per-step for using the bomb '
                         'action. this should be positive if used. default=0.')
+    parser.add_argument('--item-reward', type=float, default=0.0,
+                        help='the per-step reward for picking up an item.')
     parser.add_argument('--num-channels', type=int, default=256,
                         help='number of channels in the convolutional layers')
     parser.add_argument('--render', default=False, action='store_true',

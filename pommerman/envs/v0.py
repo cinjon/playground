@@ -87,9 +87,10 @@ class Pomme(gym.Env):
     def enable_selfbombing(self):
         self._selfbombing = True
 
-    def set_reward_shaping(self, step_loss, bomb_reward):
+    def set_reward_shaping(self, step_loss, bomb_reward, item_reward):
         self._step_loss = step_loss
         self._bomb_reward = bomb_reward
+        self._item_reward = item_reward
 
     def _set_observation_space(self):
         """The Observation Space for each agent.
@@ -394,12 +395,15 @@ class Pomme(gym.Env):
         reward = self._get_rewards()
         info = self._get_info(done, reward)
 
+        step_info = self.model.step_info
         for agent in self._agents:
             if not agent.is_alive:
                 continue
             reward[agent.agent_id] -= self._step_loss
             if actions[agent.agent_id] == 5:
                 reward[agent.agent_id] += self._bomb_reward
+            if step_info[agent.agent_id].get('item'):
+                reward[agent.agent_id] += self._item_reward
 
         return obs, reward, done, info
 

@@ -98,12 +98,15 @@ def train():
         suffix += ".%s" % args.state_directory_distribution
     if args.anneal_bomb_penalty_epochs:
         suffix += ".abpe%d" % args.anneal_bomb_penalty_epochs
+    if args.item_reward:
+        suffix += ".itemrew%.3f" % args.item_reward
 
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
         num_stack, num_processes, state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution,
-        step_loss=args.step_loss, bomb_reward=args.bomb_reward
+        step_loss=args.step_loss, bomb_reward=args.bomb_reward,
+        item_reward=args.item_reward
     )
 
     uniform_v = None
@@ -260,18 +263,6 @@ def train():
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
 
-    if args.saved_paths:
-        if args.state_directory_distribution.startswith('setBounds'):
-            while uniform_v < 640:
-                uniform_v = uniform_v_vals.pop(0)
-                uniform_v_incrs.pop(0)
-            uniform_v_prior = training_agents[0].num_epoch
-            envs.set_uniform_v(uniform_v)
-        elif args.state_directory_distribution.startswith('uniformBounds'):
-            uniform_v = 1024
-            uniform_v_prior = training_agents[0].num_epoch
-            envs.set_uniform_v(uniform_v)
-
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
     distill_epochs = args.distill_epochs
@@ -336,7 +327,9 @@ def train():
     total_steps = training_agents[0].total_steps
     num_episodes = training_agents[0].num_episodes
     if training_agents[0].uniform_v is not None:
+        print("UNFIROM V IS NOT NONE")
         uniform_v = training_agents[0].uniform_v
+        uniform_v_prior = training_agents[0].uniform_v_prior
 
     start_step_wins = defaultdict(int)
     start_step_all = defaultdict(int)
@@ -410,7 +403,7 @@ def train():
                 guy.cuda()
         saved_paths = utils.save_agents(
             "ppo-", 0, training_agents, total_steps,
-            num_episodes, args, suffix, uniform_v)
+            num_episodes, args, suffix, uniform_v, uniform_v_prior)
         if args.homogenous_init == 'self':
             bad_guys_eval = [
                 utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
