@@ -330,7 +330,16 @@ def train():
         print("UNFIROM V IS NOT NONE")
         uniform_v = training_agents[0].uniform_v
         uniform_v_prior = training_agents[0].uniform_v_prior
-
+        envs.set_uniform_v(uniform_v)
+        if args.state_directory_distribution.startswith('setBounds'):
+            print("Len of incrs bef: ", len(uniform_v_vals), uniform_v, uniform_v_vals, uniform_v_incrs)
+            while uniform_v_vals and uniform_v_vals[0] < uniform_v:
+                uniform_v_vals.pop(0)
+                uniform_v_incrs.pop(0)
+            print("Len of incrs aft: ", len(uniform_v_vals), uniform_v, uniform_v_vals, uniform_v_incrs)
+    else:
+        print("UNFV IS NONE")
+            
     start_step_wins = defaultdict(int)
     start_step_all = defaultdict(int)
 
