@@ -1,13 +1,23 @@
-"""Environment used in training that inherits from PommeV0.
+"""Environment used in training the Djikstra approach.
 
-The differences here are that this environment:
-1. Uses a get_done that is agent aware.
-2. Uses dense rewards:
-  a. Killing another agent: 0.2
-  b. Laying a bomb in proximity to an enemy: 0.1 / distance
-  c. Picking up a good item: 0.1
-  d. When another agent dies (that this agent didn't kill) 0.1
-  e. Picking up a bad item: -0.1
+This simple environment is very different from the Pomme environments.
+
+1. It's an NxN grid - a single agent starts at A and has to reach a target B.
+2. Both A and B are generated randomly. There should be an option to include
+   M rigid walls as well (positioned randomly) into which the agent can't move.
+3. The "expert" will be Djikstra.
+4. The agent gets +1 for reaching the goal within max timesteps (dependent on
+   N, the grid size) and -1 for not reaching the goal.
+
+Observations should be:
+1. The agent's position.
+2. The goal's position.
+3. The positions of the rigid walls.
+
+As input, this can be three feature maps and num_stack = 1. The agent will not
+need to have an LSTM.
+
+Output should be a single discrete action representing [Up, Down, Left, Right].
 """
 from .v0 import Pomme as PommeV0
 
