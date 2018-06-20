@@ -1030,8 +1030,6 @@ def train():
 
             start_step_ratios = {k:1.0 * start_step_wins.get(k, 0) / v
                                  for k, v in start_step_all.items()}
-            start_step_all = defaultdict(int)
-            start_step_wins = defaultdict(int)
 
             utils.log_to_console(num_epoch, num_episodes, total_steps,
                                  steps_per_sec, epochs_per_sec, final_rewards,
@@ -1055,12 +1053,16 @@ def train():
                                      running_num_episodes, mean_total_loss,
                                      mean_kl_loss, mean_pg_loss, lr,
                                      distill_factor, args.reinforce_only,
-                                     start_step_ratios, bomb_penalty_lambda,
+                                     start_step_ratios, start_step_all,
+                                     bomb_penalty_lambda,
                                      np.array(action_choices),
                                      np.array(action_probs), uniform_v,
                                      np.mean(running_success_rate),
                                      running_total_game_step_counts)
 
+            start_step_all = defaultdict(int)
+            start_step_wins = defaultdict(int)
+            
             if args.state_directory_distribution == 'uniformAdapt':
                 rate_ = 1.0 * success_rate / running_num_episodes
                 running_success_rate.append(rate_)
