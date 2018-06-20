@@ -278,8 +278,9 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        running_num_episodes, mean_total_loss,
                        mean_kl_loss=None, mean_pg_loss=None, lr=None,
                        distill_factor=0, reinforce_only=False,
-                       start_step_ratios=None, bomb_penalty_lambda=None,
-                       action_choices=None, action_probs=None, uniform_v=None,
+                       start_step_ratios=None, start_step_all=None,
+                       bomb_penalty_lambda=None, action_choices=None,
+                       action_probs=None, uniform_v=None,
                        mean_running_success_rate=None,
                        running_total_game_step_counts=[]):
     # writer.add_scalar('entropy', {
@@ -391,10 +392,13 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     for start_step, ratio in start_step_ratios.items():
         writer.add_scalar("win_startstep_epoch/%d" % start_step, ratio,
                           num_epoch)
-        writer.add_scalar("win_startstep_step/%d" % start_step, ratio,
-                          total_steps)
+        # writer.add_scalar("win_startstep_step/%d" % start_step, ratio,
+        #                   total_steps)
         # writer.add_scalar("win_startstep_epi/%d" % start_step, ratio,
         #                   num_episodes)
+
+    for start_step, count in start_step_all.items():
+        writer.add_scalar("all_startstep_epoch/%d" % start_step, count, num_epoch)
 
     # for title, count in count_stats.items():
     #     if title.startswith('bomb:'):

@@ -271,7 +271,9 @@ class Pomme(gym.Env):
                     range(max(0, step_count - self._uniform_v), step_count - 1)
                 )
             elif self._game_state_distribution.startswith('uniformBounds'):
-                # (0, 32), (24, 64), (56, 128), (120, 256), ...
+                # (0, 32), (24, 64), (56, 128), (120, 256), (248, 512), (504, 1024), (1016, 2048)
+                # --> (504, 1024) --> (0, step_count - 504)
+                # --> (1016, 2048) --> (0, 1)
                 lb = self._uniform_v
                 if self._uniform_v < 40:
                     ub = 1

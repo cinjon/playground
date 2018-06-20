@@ -79,8 +79,6 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 
         env.set_training_agents(training_agent_ids)
         env.set_state_directory(state_directory, state_directory_distribution)
-        # if how_train != 'dummy':
-        #     print("REWARD SHAPING: ", step_loss, bomb_reward, item_reward)
         env.set_reward_shaping(step_loss, bomb_reward, item_reward)
 
         env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
