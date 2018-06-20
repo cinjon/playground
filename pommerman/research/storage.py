@@ -103,8 +103,9 @@ class RolloutStorage(object):
         state_size = self.states.size(3)
 
         total_steps = num_training_per_episode * num_processes * num_steps
+        mini_batch_size = batch_size // num_mini_batch
         sampler = BatchSampler(SubsetRandomSampler(range(total_steps)),
-                               batch_size, drop_last=True)
+                               mini_batch_size, drop_last=True)
 
         # Reshape so that trajectories per agent look like new processes.
         observations = self.observations.view([
@@ -116,7 +117,6 @@ class RolloutStorage(object):
         actions = self.actions.view([num_steps, num_total, *action_shape])
         action_log_probs = self.action_log_probs.view([
             num_steps, num_total, 1])
-
         masks = self.masks.view([num_steps+1, num_total, 1])
 
         if kl_factor > 0:
@@ -126,7 +126,12 @@ class RolloutStorage(object):
             action_log_probs_distr = self.action_log_probs_distr.view(
                 [num_steps, num_total, *distr_shape])
 
+        counter = 0
         for indices in sampler:
+            if counter > 5:
+                break
+            counter += 1
+            
             indices = torch.LongTensor(indices)
 
             if advantages.is_cuda:
