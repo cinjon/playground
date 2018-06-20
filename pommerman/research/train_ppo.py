@@ -84,7 +84,7 @@ def train():
             args, ppo_agent.PPOAgent)
 
     model_str = args.model_str.replace('PommeCNNPolicy', '')
-    config_str = config.strip('Pomme').replace('Short', 'Sh')
+    config_str = config.strip('Pomme').replace('Short', 'Sh').replace('FFACompetition-v0', 'FFACmp')
     suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ns{}.gam{}.seed{}".format(
         args.run_name, how_train, config_str, model_str, args.num_channels,
         args.lr, args.batch_size, num_steps, args.gamma, args.seed)

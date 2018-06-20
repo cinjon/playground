@@ -43,9 +43,9 @@ def orthogonal(tensor, gain=1):
 def get_actor_critic(model):
     """Gets an actor critic from this """
     actor_critics = ['PommeCNNPolicySmall', \
-                    'PommeCNNPolicySmaller', \
-                    'PommeCNNPolicySmallNonlinCritic', \
-                    'PommeCNNPolicySmallerNonlinCritic']
+                     'PommeCNNPolicySmaller', \
+                     'PommeCNNPolicySmallNonlinCritic', \
+                     'PommeCNNPolicySmallerNonlinCritic']
 
     for name, obj in inspect.getmembers(sys.modules[__name__]):
         if name not in actor_critics:
