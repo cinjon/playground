@@ -48,7 +48,7 @@ abbr = {
     'item-reward': 'itr',
 }
 
-def train_ppo_job(flags, jobname=None, is_fb=False):
+def train_ppo_job(flags, jobname=None, is_fb=False, partition="uninterrupted"):
     num_processes = flags["num-processes"]
     jobname = jobname or 'pman'
     jobnameattrs = '%s.%s' % (
@@ -66,7 +66,7 @@ def train_ppo_job(flags, jobname=None, is_fb=False):
         f.write("#SBATCH --output=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".out"))
         f.write("#SBATCH --error=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".err"))
         if is_fb:
-            f.write("#SBATCH --partition=learnfair\n")
+            f.write("#SBATCH --partition=%s\n" % partition)
         else:
             f.write("#SBATCH --qos=batch\n")
         f.write("#SBATCH --mail-type=END,FAIL\n")
@@ -2009,38 +2009,38 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
             
 
 ### Test adding an item reward in.
-job = {
-    "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
-    "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "num-processes": 50, "gamma": 1.0,
-}
-counter = 0
-for learning_rate in [1e-4, 6e-5]:
-    for (name, distro) in [
-            ("setBnF", "setBoundsF"),
-            ("setBnD", "setBoundsD"),
-            ("uBnF", "uniformBoundsF"), #500
-            ("uBnB", "uniformBoundsB"), #1000
-    ]:
-        for numgames in [4, 100]:
-            for itemreward in [0, .03, .1]:
-                if itemreward == 0 and numgames == 4:
-                    continue
+# job = {
+#     "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
+#     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 50, "gamma": 1.0,
+# }
+# counter = 0
+# for learning_rate in [1e-4, 6e-5]:
+#     for (name, distro) in [
+#             ("setBnF", "setBoundsF"),
+#             ("setBnD", "setBoundsD"),
+#             ("uBnF", "uniformBoundsF"), #500
+#             ("uBnB", "uniformBoundsB"), #1000
+#     ]:
+#         for numgames in [4, 100]:
+#             for itemreward in [0, .03, .1]:
+#                 if itemreward == 0 and numgames == 4:
+#                     continue
 
-                if counter not in [0, 36, 30, 10, 25]:
-                    counter += 1
-                    continue
+#                 if counter not in [0, 36, 30, 10, 25]:
+#                     counter += 1
+#                     continue
                 
-                j = {k:v for k,v in job.items()}
-                j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
-                j["run-name"] = "cmplxitm%d-%s-%d" % (numgames, name, counter)
-                if itemreward:
-                    j["item-reward"] = itemreward
-                j["state-directory-distribution"] = distro
-                j["lr"] = learning_rate
-                train_ppo_job(j, j["run-name"], is_fb=True)
-                counter += 1
+#                 j = {k:v for k,v in job.items()}
+#                 j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+#                 j["run-name"] = "cmplxitm%d-%s-%d" % (numgames, name, counter)
+#                 if itemreward:
+#                     j["item-reward"] = itemreward
+#                 j["state-directory-distribution"] = distro
+#                 j["lr"] = learning_rate
+#                 train_ppo_job(j, j["run-name"], is_fb=True)
+#                 counter += 1
             
 
 ### Same as aobve but including some other runs.
@@ -2074,3 +2074,31 @@ for learning_rate in [1e-4, 6e-5]:
 #                 counter += 1
 
 
+### Uninterrupted version of the above :/.
+job = {
+    "how-train": "simple",  "log-interval": 2500, "save-interval": 250,
+    "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
+    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+    "num-processes": 50, "gamma": 1.0,
+}
+counter = 0
+for learning_rate in [1e-4, 6e-5]:
+    for (name, distro) in [
+            ("setBnF", "setBoundsF"),
+            ("setBnD", "setBoundsD"),
+            ("uBnF", "uniformBoundsF"), #500
+            ("uBnB", "uniformBoundsB"), #1000
+    ]:
+        for numgames in [4]:
+            for itemreward in [0, .01, .03, .1]:
+                for seed in [2, 3]:
+                    j = {k:v for k,v in job.items()}
+                    j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+                    j["run-name"] = "unint-cmplxitm%d-%s-%d" % (numgames, name, counter)
+                    if itemreward:
+                        j["item-reward"] = itemreward
+                    j["seed"] = seed
+                    j["state-directory-distribution"] = distro
+                    j["lr"] = learning_rate
+                    train_ppo_job(j, j["run-name"], is_fb=True)
+                    counter += 1
