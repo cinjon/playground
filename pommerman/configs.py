@@ -27,7 +27,7 @@ def grid_env():
         'max_steps': constants.GRID_MAX_STEPS,
         'render_fps': 1000,
     }
-    agent = characters.Bomber
+    agent = characters.Walker
     return locals()
     
 def grid_walls_env():
@@ -44,7 +44,7 @@ def grid_walls_env():
         'max_steps': constants.GRID_MAX_STEPS,
         'render_fps': 1000,
     }
-    agent = characters.Bomber
+    agent = characters.Walker
     return locals()
    
 def ffa_competition_env():

@@ -5,7 +5,6 @@ import random
 from . import constants
 from . import utility
 
-
 class Bomber(object):
     """Container to keep the agent state."""
 
@@ -70,9 +69,6 @@ class Bomber(object):
     def set_start_position(self, start_position):
         self.start_position = start_position
 
-    def set_goal_position(self, goal_position):
-        self.goal_position = goal_position
-
     def reset(self, ammo=1, is_alive=True, blast_strength=None, can_kick=False):
         self.position = self.start_position
         self.ammo = ammo
@@ -98,6 +94,35 @@ class Bomber(object):
             "blast_strength": self.blast_strength,
             "can_kick": self.can_kick,
             "bomb_life": self.bomb_life,
+        }
+
+class Walker(Bomber):
+    """Container to keep the agent state."""
+
+    def __init__(self, *args, **kwargs):
+        super(Walker, self).__init__(*args, **kwargs)
+
+        self._game_type = game_type
+        if agent_id is not None:
+            self.set_agent_id(agent_id)
+
+    def set_agent_id(self, agent_id):
+        self.agent_id = agent_id
+
+    def set_start_position(self, start_position):
+        self.start_position = start_position
+
+    def set_goal_position(self, goal_position):
+        self.goal_position = goal_position
+
+    def reset(self, ammo=1, is_alive=True, blast_strength=None, can_kick=False):
+        self.position = self.start_position
+        
+    def to_json(self):
+        # TODO: should we include goal_position here or not?
+        return {
+            "agent_id": self.agent_id,
+            "position": self.position,
         }
 
 
