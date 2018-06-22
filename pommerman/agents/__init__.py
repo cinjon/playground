@@ -7,3 +7,4 @@ from . import complex_agent_game_nodes
 from .complex_agent import ComplexAgent
 from .tensorforce_agent import TensorForceAgent
 from .dummy_agent import DummyAgent
+from .astar_agent import AstarAgent
