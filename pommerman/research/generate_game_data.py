@@ -1,8 +1,8 @@
 """Generate data script.
 
 On Cpu:
-python generate_game_data.py --agents=simple::null,simple::null,simple::null,simple::null \
-  --config=PommeFFAEasy-v0 --num-episodes=10 --num-processes=12 \
+python generate_game_data.py --agents=complex::null,complex::null,complex::null,complex::null \
+  --config=PommeFFACompetition-v0 --num-episodes=10 --num-processes=12 \
   --record-json-dir=/path/to/json/dir --seed=<insert seed>
 """
 import json

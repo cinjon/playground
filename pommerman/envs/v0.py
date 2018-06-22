@@ -57,6 +57,7 @@ class Pomme(gym.Env):
         self._bomb_penalty_lambda = 1.0
         self._step_loss = 0.0
         self._bomb_reward = 0.0
+        self._item_reward = 0.0
         self._selfbombing = False
 
         self.training_agents = []
@@ -475,7 +476,7 @@ class Pomme(gym.Env):
         time.sleep(1.0 / self.render_fps)
 
     def record_json(self, directory):
-        self.save_json(record_json_dir)
+        self.save_json(directory)
 
     def close(self):
         if self._viewer is not None:
