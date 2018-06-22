@@ -14,7 +14,39 @@ from . import constants
 from . import envs
 from . import characters
 
-
+def grid_env():
+    """Start up an empty grid with an agent and a goal."""
+    env = envs.v4.Grid
+    game_type = constants.GameType.Grid
+    env_entry_point = 'pommerman.envs.v4:Grid'
+    env_id = 'Grid-v4'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.GRID_BOARD_SIZE,
+        'num_rigid': constants.GRID_NUM_RIGID,
+        'max_steps': constants.GRID_MAX_STEPS,
+        'render_fps': 1000,
+    }
+    agent = characters.Bomber
+    return locals()
+    
+def grid_walls_env():
+    """Start up a grid with an agent and a goal,
+    plus some rigid walls."""
+    env = envs.v4.Grid
+    game_type = constants.GameType.Grid
+    env_entry_point = 'pommerman.envs.v4:Grid'
+    env_id = 'GridWalls-v4'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.GRID_BOARD_SIZE,
+        'num_rigid': constants.GRID_NUM_RIGID_WALLS,
+        'max_steps': constants.GRID_MAX_STEPS,
+        'render_fps': 1000,
+    }
+    agent = characters.Bomber
+    return locals()
+   
 def ffa_competition_env():
     """Start up a FFA config with the competition settings."""
     env = envs.v0.Pomme
@@ -70,24 +102,6 @@ def ffa_competition_fast_env():
     }
     agent = characters.Bomber
     return locals()
-
-
-# def grid_env():
-#     """Start up a FFA config with the competition settings."""
-#     env = envs.v4.Grid
-#     game_type = constants.GameType.Grid
-#     env_entry_point = 'pommerman.envs.v4:Grid'
-#     env_id = 'Grid-v4'
-#     env_kwargs = {
-#         'game_type': game_type,
-#         'board_size': constants.GRID_BOARD_SIZE,
-#         'num_rigid': constants.GRID_NUM_RIGID,
-#         'max_steps': constants.GRID_MAX_STEPS,
-#         'render_fps': 1000,
-#     }
-#     agent = characters.Bomber
-#     return locals()
-
 
 def team_competition_env():
     """Start up a Team config with the competition settings."""

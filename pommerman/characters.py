@@ -21,7 +21,7 @@ class Bomber(object):
         self.bomb_life = bomb_life
         if agent_id is not None:
             self.set_agent_id(agent_id)
-
+       
     def set_agent_id(self, agent_id):
         self.agent_id = agent_id
         if self._game_type == constants.GameType.FFA:
@@ -69,6 +69,9 @@ class Bomber(object):
 
     def set_start_position(self, start_position):
         self.start_position = start_position
+
+    def set_goal_position(self, goal_position):
+        self.goal_position = goal_position
 
     def reset(self, ammo=1, is_alive=True, blast_strength=None, can_kick=False):
         self.position = self.start_position

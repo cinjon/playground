@@ -21,6 +21,7 @@ from .. import graphics
 from .. import utility
 from ..agents import SimpleAgent
 from ..agents import ComplexAgent
+from ..agents import AstarAgent
 
 
 class Pomme(gym.Env):
@@ -74,6 +75,7 @@ class Pomme(gym.Env):
         self._set_observation_space()
         self.simple_expert = SimpleAgent()
         self.complex_expert = ComplexAgent(board_size=board_size)
+        self.astar_expert = AstarAgent()
 
     def _set_action_space(self):
         self.action_space = spaces.Discrete(6)
@@ -202,6 +204,10 @@ class Pomme(gym.Env):
                                          self.action_space)
         elif expert == 'ComplexAgent':
             return self.model.expert_act(self.complex_expert, obs,
+                                         self.action_space)
+        
+        elif expert == 'AstarAgent':
+            return self.model.expert_act(self.astar_expert, obs,
                                          self.action_space)
 
     def get_observations(self):

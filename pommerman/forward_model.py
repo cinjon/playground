@@ -22,7 +22,9 @@ class ForwardModel(object):
             agent_view_size,
             action_space,
             training_agent=None,
-            is_communicative=False):
+            is_communicative=False,
+            single_agent_goal=False,
+            goal=None):
         """Run the forward model.
         Args:
           num_times: The number of times to run it for. This is a maximum and
@@ -40,6 +42,9 @@ class ForwardModel(object):
           training_agent: The training agent to pass to done.
           is_communicative: Whether the action depends on communication
             observations as well.
+          single_agent_goal: Whether this is the environment with a
+            simple grid with a single agent and single goal.
+          goal: Whether the environment contains a goal location. 
 
         Returns:
           steps: The list of step results, which are each a dict of "obs",
@@ -51,6 +56,7 @@ class ForwardModel(object):
           flames: Updated flames.
           done: Whether we completed the game in these steps.
           info: The result of the game if it's completed.
+          goal: Updated goal (optional -- only if single_agent_goal is True).
         """
         steps = []
         for _ in num_times:
@@ -499,7 +505,7 @@ class ForwardModel(object):
 
     def get_observations(self, curr_board, agents, bombs,
                          is_partially_observable, agent_view_size,
-                         max_steps, step_count=None):
+                         max_steps, step_count=None, single_agent_goal=False):
         """Gets the observations as an np.array of the visible squares.
 
         The agent gets to choose whether it keeps the fogged part in memory.
@@ -525,10 +531,14 @@ class ForwardModel(object):
                 col >= vcol - agent_view_size, col <= vcol + agent_view_size
             ])
 
-        attrs = [
-            'position', 'blast_strength', 'can_kick', 'teammate', 'ammo',
-            'enemies', 'is_alive'
-        ]
+        if not single_agent_goal:
+            attrs = [
+                'position', 'blast_strength', 'can_kick', 'teammate', 'ammo',
+                'enemies', 'is_alive'
+            ]
+        else:
+            attrs = ['position', 'goal_position']
+
         alive_agents = [utility.agent_value(agent.agent_id)
                         for agent in agents if agent.is_alive]
 
@@ -538,16 +548,19 @@ class ForwardModel(object):
             board = curr_board
             if is_partially_observable:
                 board = board.copy()
-                for row in range(board_size):
-                    for col in range(board_size):
-                        if not in_view_range(agent.position, row, col):
-                            board[row, col] = constants.Item.Fog.value
+                if not single_agent_goal:
+                    for row in range(board_size):
+                        for col in range(board_size):
+                            if not in_view_range(agent.position, row, col):
+                                board[row, col] = constants.Item.Fog.value
+
             agent_obs['board'] = board
-            bomb_blast_strengths, bomb_life = make_bomb_maps(agent.position)
-            agent_obs['bomb_blast_strength'] = bomb_blast_strengths
-            agent_obs['bomb_life'] = bomb_life
-            if step_count is not None:
-                agent_obs['step'] = 1.0 * step_count / max_steps
+            if not single_agent_goal:
+                bomb_blast_strengths, bomb_life = make_bomb_maps(agent.position)
+                agent_obs['bomb_blast_strength'] = bomb_blast_strengths
+                agent_obs['bomb_life'] = bomb_life
+                if step_count is not None:
+                    agent_obs['step'] = 1.0 * step_count / max_steps
 
             for attr in attrs:
                 assert hasattr(agent, attr)
@@ -558,130 +571,164 @@ class ForwardModel(object):
 
     @staticmethod
     def get_done(agents, step_count, max_steps, game_type, training_agents,
-                 all_agents=False):
-        alive = [agent for agent in agents if agent.is_alive]
-        alive_ids = sorted([agent.agent_id for agent in alive])
+                 all_agents=False, agent_pos=None, goal_pos=None):
 
-        if step_count >= max_steps:
-            # The game is done. Return True.
-            return [True]*4 if all_agents else True
-        elif game_type == constants.GameType.FFA:
-            training_agents_dead = all([agent not in alive_ids
-                                        for agent in training_agents])
-            if training_agents and training_agents_dead:
-                # We have training_agents and they are all dead.
-                return [True]*4 if all_agents else True
+        if game_type == constants.GameType.Grid:
+            if agent_pos == goal_pos or step_count >= max_steps:
+                # the agent reached the goal
+                return True
             else:
-                if len(alive) <= 1:
-                    # We have one or fewer agents left. The game is over.
-                    return [True]*4 if all_agents else True
-                elif all_agents:
-                    # The game isn't over but we want data on all agents.
-                    return [not agent.is_alive for agent in agents]
-                else:
-                    # The game isn't over and we only want True or False.
-                    return False
+                # the agent has not yet reached the goal
+                return False
         else:
-            if any([
-                    len(alive_ids) <= 1,
-                    alive_ids == [0, 2],
-                    alive_ids == [1, 3],
-            ]):
-                # The game is done.
+            alive = [agent for agent in agents if agent.is_alive]
+            alive_ids = sorted([agent.agent_id for agent in alive])
+
+            if step_count >= max_steps:
+                # The game is done. Return True.
                 return [True]*4 if all_agents else True
-            else:
-                # The game is not done. Return which are alive.
-                if all_agents:
-                    return [not agent.is_alive for agent in agents]
+            elif game_type == constants.GameType.FFA:
+                training_agents_dead = all([agent not in alive_ids
+                                            for agent in training_agents])
+                if training_agents and training_agents_dead:
+                    # We have training_agents and they are all dead.
+                    return [True]*4 if all_agents else True
                 else:
-                    return False
+                    if len(alive) <= 1:
+                        # We have one or fewer agents left. The game is over.
+                        return [True]*4 if all_agents else True
+                    elif all_agents:
+                        # The game isn't over but we want data on all agents.
+                        return [not agent.is_alive for agent in agents]
+                    else:
+                        # The game isn't over and we only want True or False.
+                        return False
+            else:
+                if any([
+                        len(alive_ids) <= 1,
+                        alive_ids == [0, 2],
+                        alive_ids == [1, 3],
+                ]):
+                    # The game is done.
+                    return [True]*4 if all_agents else True
+                else:
+                    # The game is not done. Return which are alive.
+                    if all_agents:
+                        return [not agent.is_alive for agent in agents]
+                    else:
+                        return False
 
     @staticmethod
-    def get_info(done, rewards, game_type, agents, training_agents=None):
+    def get_info(done, rewards, game_type, agents, training_agents=None,
+                agent_pos=None, goal_pos=None):
         if type(done) == list:
             done = all(done)
 
-        alive = [agent for agent in agents if agent.is_alive]
-        if game_type == constants.GameType.FFA:
-            alive = [agent for agent in agents if agent.is_alive]
+        if game_type == constants.GameType.Grid:
             if done:
-                if len(alive) == 0:
+                if agent_loc == goal_loc:
                     return {
-                        'result': constants.Result.Tie,
-                        'alive': [agent.agent_id for agent in alive]
+                        'result': constants.Result.Win
                     }
-                elif len(alive) > 1:
-                    if training_agents is not None and not any([
-                        agent.agent_id in training_agents
-                        for agent in alive
-                    ]):
-                        return {
-                            'result': constants.Result.Loss,
-                            'alive': [agent.agent_id for agent in alive]
-                        }
-                    else:
+                else:
+                    return {
+                        'result': constants.Result.Loss
+                    }
+            else:
+                return {
+                    'result': constants.Result.Incomplete
+                }
+        else:
+            alive = [agent for agent in agents if agent.is_alive]
+            if game_type == constants.GameType.FFA:
+                alive = [agent for agent in agents if agent.is_alive]
+                if done:
+                    if len(alive) == 0:
                         return {
                             'result': constants.Result.Tie,
                             'alive': [agent.agent_id for agent in alive]
                         }
+                    elif len(alive) > 1:
+                        if training_agents is not None and not any([
+                            agent.agent_id in training_agents
+                            for agent in alive
+                        ]):
+                            return {
+                                'result': constants.Result.Loss,
+                                'alive': [agent.agent_id for agent in alive]
+                            }
+                        else:
+                            return {
+                                'result': constants.Result.Tie,
+                                'alive': [agent.agent_id for agent in alive]
+                            }
+                    else:
+                        return {
+                            'result': constants.Result.Win,
+                            'winners': [num for num, reward in enumerate(rewards) \
+                                        if reward == 1]
+                        }
+                else:
+                    return {
+                        'result': constants.Result.Incomplete,
+                    }
+            elif done:
+                # We are playing a team game.
+                if rewards == [-1] * 4:
+                    return {
+                        'result': constants.Result.Tie,
+                        'alive': [agent.agent_id for agent in alive]
+                    }
                 else:
                     return {
                         'result': constants.Result.Win,
                         'winners': [num for num, reward in enumerate(rewards) \
-                                    if reward == 1]
+                                    if reward == 1],
+                        'alive': [agent.agent_id for agent in alive]
                     }
             else:
                 return {
                     'result': constants.Result.Incomplete,
                 }
-        elif done:
-            # We are playing a team game.
-            if rewards == [-1] * 4:
-                return {
-                    'result': constants.Result.Tie,
-                    'alive': [agent.agent_id for agent in alive]
-                }
-            else:
-                return {
-                    'result': constants.Result.Win,
-                    'winners': [num for num, reward in enumerate(rewards) \
-                                if reward == 1],
-                    'alive': [agent.agent_id for agent in alive]
-                }
-        else:
-            return {
-                'result': constants.Result.Incomplete,
-            }
 
     @staticmethod
-    def get_rewards(agents, game_type, step_count, max_steps):
+    def get_rewards(agents, game_type, step_count, max_steps, 
+                    agent_pos=None, goal_pos=None):
 
         def any_lst_equal(lst, values):
             return any([lst == v for v in values])
-
-        alive_agents = [num for num, agent in enumerate(agents) \
-                        if agent.is_alive]
-        if game_type == constants.GameType.FFA:
-            if len(alive_agents) == 1:
-                # An agent won. Give them +1, others -1.
-                return [2 * int(agent.is_alive) - 1 for agent in agents]
-            elif step_count >= max_steps:
-                # Game is over from time. Everyone gets -1.
-                return [-1] * 4
+        if game_type == constants.GameType.Grid:
+            if agent_pos == goal_pos:
+                # the agent reached the goal
+                return [1]
             else:
-                # Game running: 0 for alive, -1 for dead.
-                return [int(agent.is_alive) - 1 for agent in agents]
-        else:
-            # We are playing a team game.
-            if any_lst_equal(alive_agents, [[0, 2], [0], [2]]):
-                # Team [0, 2] wins.
-                return [1, -1, 1, -1]
-            elif any_lst_equal(alive_agents, [[1, 3], [1], [3]]):
-                # Team [1, 3] wins.
-                return [-1, 1, -1, 1]
-            elif step_count >= max_steps:
-                # Game is over by max_steps. All agents tie.
-                return [-1] * 4
+                # the agent has not yet reached the goal
+                return [-0.1]
+        else:            
+            alive_agents = [num for num, agent in enumerate(agents) \
+                            if agent.is_alive]
+            if game_type == constants.GameType.FFA:
+                if len(alive_agents) == 1:
+                    # An agent won. Give them +1, others -1.
+                    return [2 * int(agent.is_alive) - 1 for agent in agents]
+                elif step_count >= max_steps:
+                    # Game is over from time. Everyone gets -1.
+                    return [-1] * 4
+                else:
+                    # Game running: 0 for alive, -1 for dead.
+                    return [int(agent.is_alive) - 1 for agent in agents]
+        
             else:
-                # No team has yet won or lost.
-                return [0] * 4
+                # We are playing a team game.
+                if any_lst_equal(alive_agents, [[0, 2], [0], [2]]):
+                    # Team [0, 2] wins.
+                    return [1, -1, 1, -1]
+                elif any_lst_equal(alive_agents, [[1, 3], [1], [3]]):
+                    # Team [1, 3] wins.
+                    return [-1, 1, -1, 1]
+                elif step_count >= max_steps:
+                    # Game is over by max_steps. All agents tie.
+                    return [-1] * 4
+                else:
+                    # No team has yet won or lost.
+                    return [0] * 4

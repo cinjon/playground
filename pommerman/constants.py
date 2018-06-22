@@ -73,6 +73,12 @@ MAX_STEPS_8 = 500
 NUM_ITEMS_8 = 12
 DEFAULT_BLAST_STRENGTH_8 = 2
 
+# Constants for the Grid with single agent and goal.
+GRID_BOARD_SIZE = 8
+GRID_MAX_STEPS = 20
+GRID_NUM_RIGID = 0         # no walls
+GRID_NUM_RIGID_WALLS = 10  # some rigid walls
+
 
 class Item(Enum):
     """The Items in the game.
@@ -99,6 +105,7 @@ class Item(Enum):
     Agent1 = 11
     Agent2 = 12
     Agent3 = 13
+    Goal = 14
 
 
 class GameType(Enum):
@@ -113,6 +120,7 @@ class GameType(Enum):
     FFA = 1
     Team = 2
     TeamRadio = 3
+    Grid = 4
 
 
 class Action(Enum):
