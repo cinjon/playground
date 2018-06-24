@@ -14,6 +14,7 @@ from . import constants
 from . import envs
 from . import characters
 
+
 def grid_env():
     """Start up an empty grid with an agent and a goal."""
     env = envs.v4.Grid
@@ -46,7 +47,8 @@ def grid_walls_env():
     }
     agent = characters.Walker
     return locals()
-   
+
+
 def ffa_competition_env():
     """Start up a FFA config with the competition settings."""
     env = envs.v0.Pomme

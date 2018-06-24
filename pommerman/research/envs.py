@@ -43,7 +43,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
     # NOTE: Changed this from SimpleAgent.
     simple_agent = pommerman.agents.SimpleAgent
     complex_agent = pommerman.agents.ComplexAgent
-    astar_agent = pommerman.agents.AstarAgent
+    # astar_agent = pommerman.agents.AstarAgent
 
     def _thunk():
         if how_train == 'dummy':

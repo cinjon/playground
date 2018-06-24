@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 
@@ -112,7 +113,7 @@ def is_save_epoch(num_epoch, start_epoch, save_interval):
 
 
 def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
-                args, suffix=None, uniform_v=None, uniform_v_prior=None):
+                args, suffix=None, uniform_v=None, uniform_v_prior=None, clear_saved=False):
     """Save the model.
     Args:
       prefix: A prefix string to prepend to the run_name.
@@ -166,7 +167,7 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
                                  args.num_steps, args.gamma, args.use_gae,
                                  num_epoch, total_steps, seed)
         else:
-            suffix += "epoch{}.steps{}".format(num_epoch, total_steps)
+            suffix += ".epoch{}.steps{}".format(num_epoch, total_steps)
 
         if not suffix.endswith('.pt'):
             suffix += '.pt'

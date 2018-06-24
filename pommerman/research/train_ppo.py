@@ -202,6 +202,18 @@ def train():
         uniform_v_incr = 500
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsG':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 50
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsH':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 100
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'uniformForwardA':
         uniform_v = 32
         uniform_v_factor = 2
@@ -326,6 +338,7 @@ def train():
     start_epoch = training_agents[0].num_epoch
     total_steps = training_agents[0].total_steps
     num_episodes = training_agents[0].num_episodes
+    print("STAR: ", start_epoch, total_steps, num_episodes)
     if training_agents[0].uniform_v is not None:
         print("UNFIROM V IS NOT NONE")
         uniform_v = training_agents[0].uniform_v
@@ -428,23 +441,23 @@ def train():
             ]
         eval_round = 0
 
-    elif how_train == 'simple':
-        good_guys = [
-            ppo_agent.PPOAgent(training_agents[0].model,
-                               num_stack=args.num_stack, cuda=args.cuda,
-                               num_processes=args.num_processes,
-                               recurrent_policy=args.recurrent_policy)
-        ]
-        if args.cuda:
-            for guy in good_guys:
-                guy.cuda()
-        saved_paths = utils.save_agents(
-            "ppo-", 0, training_agents, total_steps,
-            num_episodes, args, suffix)
-        bad_guys = [
-            SimpleAgent() for _ in range(3)
-        ]
-        eval_round = 0
+    # elif how_train == 'simple':
+    #     good_guys = [
+    #         ppo_agent.PPOAgent(training_agents[0].model,
+    #                            num_stack=args.num_stack, cuda=args.cuda,
+    #                            num_processes=args.num_processes,
+    #                            recurrent_policy=args.recurrent_policy)
+    #     ]
+    #     if args.cuda:
+    #         for guy in good_guys:
+    #             guy.cuda()
+    #     saved_paths = utils.save_agents(
+    #         "ppo-", 0, training_agents, total_steps,
+    #         num_episodes, args, suffix)
+    #     bad_guys = [
+    #         SimpleAgent() for _ in range(3)
+    #     ]
+    #     eval_round = 0
 
     # NOTE: only works for how_train simple because we assume training_ids
     # has a single element
@@ -549,7 +562,7 @@ def train():
             # Only save at regular epochs if using "simple". The others save
             # upon successful evaluation.
             utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
-                              num_episodes, args, suffix)
+                              num_episodes, args, suffix, clear_saved=True)
 
         for agent in training_agents:
             agent.set_eval()
