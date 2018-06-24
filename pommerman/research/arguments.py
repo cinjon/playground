@@ -138,7 +138,7 @@ def get_args():
                         help='number of channels in the convolutional layers')
     parser.add_argument('--render', default=False, action='store_true',
                         help='whether to render the first process.')
-    parser.add_argument('--render_mode',
+    parser.add_argument('--render-mode',
                         default='rgb_pixel',
                         help="What mode to render. Options are human, "
                         "rgb_pixel, and rgb_array.")

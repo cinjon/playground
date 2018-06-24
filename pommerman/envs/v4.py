@@ -74,7 +74,7 @@ class Grid(PommeV0):
         return self.model.get_done(self._agents, self._step_count,
                                    self._max_steps, self._game_type,
                                    self.training_agents, all_agents=True,
-                                   agent_pos, goal_pos)
+                                   agent_pos=agent_pos, goal_pos=goal_pos)
 
     def _get_info(self, done, rewards):
         agent_pos = self.observations['position']

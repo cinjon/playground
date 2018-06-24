@@ -173,7 +173,8 @@ class SubprocVecEnv(_VecEnv):
         from gym.envs.classic_control import rendering
         human_factor = 32
         board_size = 13
-        img = resize(frame, (board_size*human_factor, board_size*human_factor), interp='nearest')
+        img = resize(frame, (board_size*human_factor, board_size*human_factor),
+                     interp='nearest')
         if self._viewer is None:
             self._viewer = rendering.SimpleImageViewer()
         self._viewer.imshow(img)

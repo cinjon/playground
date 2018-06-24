@@ -173,7 +173,8 @@ class PixelViewer(Viewer):
             for col in range(board_size):
                 value = board[row][col]
                 if utility.position_is_agent(board, (row, col)):
-                    num_agent = value - num_items
+                    # 10 --> 0, 11 --> 1, 12 --> 2, 13 --> 3
+                    num_agent = value - 10
                     if agents[num_agent].is_alive:
                         all_frame[row][col] = constants.AGENT_COLORS[num_agent]
                 else:

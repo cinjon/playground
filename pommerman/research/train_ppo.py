@@ -350,8 +350,6 @@ def train():
                 uniform_v_vals.pop(0)
                 uniform_v_incrs.pop(0)
             print("Len of incrs aft: ", len(uniform_v_vals), uniform_v, uniform_v_vals, uniform_v_incrs)
-    else:
-        print("UNFV IS NONE")
             
     start_step_wins = defaultdict(int)
     start_step_all = defaultdict(int)
