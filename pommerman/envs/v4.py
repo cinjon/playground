@@ -20,6 +20,10 @@ need to have an LSTM.
 Output should be a single discrete action representing [Up, Down, Left, Right].
 """
 from .v0 import Pomme as PommeV0
+from gym import spaces
+from .. import constants
+import numpy as np
+from .. import utility
 
 
 class Grid(PommeV0):
@@ -34,19 +38,22 @@ class Grid(PommeV0):
         - agent's position (2)
         """
         bss = self._board_size**2
-        min_obs = [0] * bss + [0] * 2 
+        min_obs = [0] * bss + [0] * 2
         max_obs = [len(constants.Item)] * bss + [self._board_size] * 2
         self.observation_space = spaces.Box(
             np.array(min_obs), np.array(max_obs))
 
     def make_board(self):
-        self._board = utility.make_grid(self._board_size, self._num_rigid,
+        # TODO: this requires some changes in make_board
+        # use the single_agent_goal flag to create the simple grid (v4)
+        # as opposed to single_agent_goal = False for pomme v0 etc.ss
+        self._board = utility.make_board(self._board_size, self._num_rigid,
                                         0, single_agent_goal=True)
 
     def make_items():
         return
 
-    def make_goal():
+    def make_goal(self):
         self._goal = utility.make_goal(self._board)
 
     def get_observations(self):
@@ -59,7 +66,7 @@ class Grid(PommeV0):
     def _get_rewards(self):
         """
         The agent receives reward +1 for reaching the goal and
-        penalty -0.1 for each step it takes in the environment. 
+        penalty -0.1 for each step it takes in the environment.
         """
         agent_pos = self.observations['position']
         goal_pos = self.observations['goal_position']
@@ -90,7 +97,7 @@ class Grid(PommeV0):
         assert (self._agents is not None)
 
         def get_game_state_file(directory, step_count):
-            # TODO: the game_state_distribution types will need 
+            # TODO: the game_state_distribution types will need
             # some adjustment to the simple grid env
             if self._game_state_distribution == 'uniform':
                 # Pick a random game state to start from.
@@ -152,8 +159,8 @@ class Grid(PommeV0):
                                  (game_state_file, step_count, step))
         elif self._init_game_state is not None:
             self.set_json_info()
-        
-        else: # TODO: where and how 
+
+        else: # TODO: where and how
             # to set the initial position of the goal??
             self._step_count = 0
             self.make_board()
@@ -192,10 +199,5 @@ class Grid(PommeV0):
         board = obs["board"].reshape(-1).astype(np.float32)
         position = utility.make_np_float(obs["position"])
         goal_position = utility.make_np_float(obs["goal_position"])
-       
+
         return np.concatenate(board, agent_position, goal_position)
-       
-    
-
-   
-

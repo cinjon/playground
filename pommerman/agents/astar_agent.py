@@ -40,25 +40,25 @@ class AstarAgent(BaseAgent):
         return action
 
     def _get_path(self):
-        ''' 
+        '''
         Returns shortest path to goal from
         the agent's initial position to its goal.
         '''
         # Astar implementation
-        _, came_from = self._astar(self._agent_move_func, 
+        _, came_from = self._astar(self._agent_move_func,
                                    self._agent_pos, self._goal_pos)
 
         # Path to goal
-        path = self._reconstruct_path(came_from, self._agent_pos, 
+        path = self._reconstruct_path(came_from, self._agent_pos,
                                       self._goal_pos)
 
         return path
 
     # TODO: this should be changed; check what each action does
     def _action_to_loc(next_loc):
-        ''' 
-        Returns the action the agent 
-        must take to get to next_loc. 
+        '''
+        Returns the action the agent
+        must take to get to next_loc.
         '''
         current_loc = self._agent_pos
         if not self._within_bounds(current_loc) or \
@@ -78,14 +78,14 @@ class AstarAgent(BaseAgent):
         elif dx == - 1:
             return 3 # left
         elif dy == 1:
-            return 1 # up     
+            return 1 # up
         elif dy == - 1:
             return 2 # down
         else:
             return 0 # stop
 
     def _agent_move_func(loc):
-        ''' 
+        '''
         Returns all the locations the agent can move to
         from its current position: up, down, east, west.
 
@@ -109,12 +109,12 @@ class AstarAgent(BaseAgent):
             start_loc -- (x, y) tuple of start location
             end_loc -- (x, y) tuple of end location -- optional
 
-        Returns: 
+        Returns:
             visited -- dictionary of {location: distance} pairs
             path -- dictionary of {location: previous_location} pairs
 
         Notes:
-            - if end_loc is None, then returns visited and path for all the 
+            - if end_loc is None, then returns visited and path for all the
         nodes in the graph (all locations in the maze)
             - if end_loc is not None, stop searching after finding path to end_loc
         and return the current visited and path (including for end_loc)
@@ -149,7 +149,7 @@ class AstarAgent(BaseAgent):
 
     def _astar(move_func, start, goal):
         '''
-        Implements the Astar algorithm which finds the 
+        Implements the Astar algorithm which finds the
         shortest path between start and goal, in gridworld env.
 
         Args:
@@ -198,9 +198,9 @@ class AstarAgent(BaseAgent):
         return path
 
     def _within_bounds(self, location):
-        ''' 
-        Checks whether a location is 
-        in the maze (i.e. within its bounds). 
+        '''
+        Checks whether a location is
+        in the maze (i.e. within its bounds).
         '''
         x, y = location
         return 0 <= x < self._board_size and 0 <= y < self._board_size
@@ -217,5 +217,3 @@ class PriorityQueue:
 
     def get(self):
         return heapq.heappop(self.elements)[1]
-
-    

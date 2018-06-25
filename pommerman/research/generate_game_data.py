@@ -36,6 +36,8 @@ def _get_info(inp, args):
         return pommerman.agents.SimpleAgent, None
     elif model_type == 'complex':
         return pommerman.agents.ComplexAgent, None
+    elif model_type == 'astar':
+        return pommerman.agents.AstarAgent, None
 
 
 def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
@@ -89,7 +91,7 @@ def generate(args, agents, action_space, acting_agent_ids):
       num_episodes: The number of episodes to save.
       agents: What agents to use. If not, we will make them from the args.
       action_space: The action space for an environment. Likely Discrete(6).
-      acting_agent_ids: Which ids are the acting agents.    
+      acting_agent_ids: Which ids are the acting agents.
     """
     config = args.config
     seed = args.seed
@@ -132,7 +134,7 @@ def generate(args, agents, action_space, acting_agent_ids):
             agent_actions = agents[acting_agent_id].act(agent_obs, action_space)
             for num_process in range(num_processes):
                 actions[num_process][num_action] = agent_actions[num_process]
-                    
+
         obs, reward, done, info = envs.step(actions)
         for process_dir in process_dirs:
             directory = os.path.join(record_json_dir, '%d' % process_dir)
