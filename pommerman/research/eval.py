@@ -185,11 +185,10 @@ def eval(args=None, targets=None, opponents=None):
                         info['result'] == pommerman.constants.Result.Tie,
                         not info.get('step_info')]):
                     ties[position] += 1
-                if 'winners' in info:
-                    if info['winners'] == [position]:
-                        wins[position] += 1
-                    else:
-                        loses[position] += 1
+                if 'winners' in info and info['winners'] == [position]:
+                    wins[position] += 1
+                else:
+                    loses[position] += 1
                 if 'step_info' in info and position in info['step_info']:
                     agent_step_info = info['step_info'][position]
                     for kv in agent_step_info:
