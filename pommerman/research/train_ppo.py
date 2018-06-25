@@ -720,7 +720,7 @@ def train():
                 info_.get('game_state_step_start') for info_ in info])
 
             if args.render:
-                envs.render()
+                envs.render(args.record_pngs_dir, game_step_counts[0])
 
             if how_train == 'simple':
                 # NOTE: The masking for simple should be such that:
@@ -779,6 +779,18 @@ def train():
                 success_rate += sum([int(s) for s in \
                                      ((game_ended == True) &
                                       (win == True))])
+                if any([done_ for done_ in done]):
+                    print("Num completed %d --> %d success." % (
+                        running_num_episodes, success_rate))
+
+                ### NOTE: Use the below if you want to make a game video of just
+                ### the first successful game.
+                # if game_ended[0] and win[0]:
+                #     print("WE DONE YO")
+                #     raise
+                # elif game_ended[0]:
+                #     print("DEL THAT SHIT")
+                #     os.rmdir(args.record_pngs_dir)
 
                 for e, w, ss in zip(game_ended, win, game_state_start_steps):
                     if not e or ss is None:

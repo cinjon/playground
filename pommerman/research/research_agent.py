@@ -74,6 +74,7 @@ class ResearchAgent(BaseAgent):
             stacked_obs = stacked_obs.cuda()
             self._states = self._states.cuda()
 
+        # NOTE: Eval uses this --> deterministic = True.
         _, action, _, states, _, _ = self._actor_critic.act(
             Variable(stacked_obs, volatile=True),
             Variable(self._states, volatile=True),

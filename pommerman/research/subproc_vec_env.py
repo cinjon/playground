@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from multiprocessing import Process, Pipe
 
 import numpy as np
+import os
 from scipy.misc import imresize as resize
 import time
 
@@ -166,7 +167,7 @@ class SubprocVecEnv(_VecEnv):
         self.remotes[0].send(('get_render_fps', None))
         self._render_fps = self.remotes[0].recv()
 
-    def render(self):
+    def render(self, record_pngs_dir=None, step=None):
         self.remotes[0].send(('render', None))
         frame = self.remotes[0].recv()
         from PIL import Image
@@ -178,6 +179,11 @@ class SubprocVecEnv(_VecEnv):
         if self._viewer is None:
             self._viewer = rendering.SimpleImageViewer()
         self._viewer.imshow(img)
+        if record_pngs_dir and step is not None:
+            if not os.path.exists(record_pngs_dir):
+                os.makedirs(record_pngs_dir)
+            im = Image.fromarray(img)
+            im.save(os.path.join(record_pngs_dir, '%d.png' % step))
         time.sleep(1.0 / self._render_fps)
 
     def reset(self, acting_agent_ids=None):

@@ -65,6 +65,7 @@ class PPOAgent(ResearchAgent):
         Returns:
           See the actor_critic's act function in model.py.
         """
+        # NOTE: Training uses this --> it uses act(..., deterministic=False).
         return self._actor_critic.act(*self.get_rollout_data(step, num_agent))
 
     def get_rollout_data(self, step, num_agent, num_agent_end=None):
