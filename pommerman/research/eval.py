@@ -187,12 +187,12 @@ def eval(args=None, targets=None, opponents=None):
                     wins[position] += 1
                 else:
                     loses[position] += 1
-        print("Wins: ", wins)
-        print("Loses: ", loses)
-        print("Dead: ", deads)
-        print("Ranks: ", ranks)
-        print("Ties: ", ties)
-        print("\n")
+            print("Wins: ", wins)
+            print("Loses: ", loses)
+            print("Dead: ", deads)
+            print("Ranks: ", ranks)
+            print("Ties: ", ties)
+            print("\n")
         return wins, deads, ties, ranks
     elif mode == 'ffa-curriculum':
         print('Starting Curriculum FFA Battles.')
