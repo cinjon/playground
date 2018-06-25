@@ -79,10 +79,10 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
     env.seed(seed)
     np.random.seed(seed)
     random.seed(seed)
-    if hasattr(args, 'state_directory'):
+    try:
         state_directory = args.state_directory
         state_directory_distribution = args.state_directory_distribution
-    else:
+    except Exception as e:
         state_directory = None
         state_directory_distribution = None
     env.set_state_directory(state_directory,
@@ -110,7 +110,6 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
                 agent_obs = obs[agent_id]
                 action = agents[agent_id].act(agent_obs, env.action_space)
                 actions.insert(agent_id, action)
-                
             obs, reward, done, info = env.step(actions)
             if type(done) == list:
                 done = all(done)

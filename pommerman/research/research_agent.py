@@ -17,13 +17,10 @@ class ResearchAgent(BaseAgent):
         super(ResearchAgent, self).__init__(character)
         # NOTE: This is assuming that our num_stack size is 2.
         self._recurrent_policy = kwargs.get('recurrent_policy')
-        print("self recurrent policy: ", self._recurrent_policy)
         if self._recurrent_policy:
             self._num_stack = kwargs.get('num_stack', 1)
         else:
             self._num_stack = kwargs.get('num_stack', 2)
-        print("self num stack ", self._num_stack)
-        print("")
         # NOTE: This doesn't work in eval simple with more than one process
         # because it's getting passed args.num_processes.
         self._num_processes = kwargs.get('num_processes', 1)

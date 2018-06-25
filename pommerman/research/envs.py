@@ -51,6 +51,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             training_agent_ids = []
         elif how_train == 'simple' or how_train == 'dagger':
             training_agent_ids = [rank % 4]
+            # training_agent_ids = [2]
             # agents = [simple_agent() for _ in range(3)]
             board_size = 8 if '8' in config else 11
             agents = [complex_agent(board_size=board_size) for _ in range(3)]
@@ -175,13 +176,11 @@ class WrapPommeEval(gym.ObservationWrapper):
             obs = self.env.get_observations()
             all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
             training_agents = self.env.training_agents
-            if training_agents and hasattr(training_agents[0], 'is_simple_agent'):
-                if type(actions) == list:
-                    if len(actions) > 1:
-                        raise ValueError
-                    else:
-                        actions = actions[0]
-                all_actions.insert(training_agents[0], actions)
+            if training_agents:
+                # print("ALL ACTS BEF: ", all_actions, actions, training_agents)
+                for training_agent, action in zip(training_agents, actions):
+                    all_actions.insert(training_agent, action)
+                # print("ALL ACTS AFT: ", all_actions)
         elif self._how_train == 'homogenous':
             all_actions = actions
         elif self._how_train == 'qmix':
@@ -210,6 +209,9 @@ class WrapPommeEval(gym.ObservationWrapper):
 
     def observation(self, observation):
         return self._filter(observation)
+
+    def enable_selfbombing(self):
+        self.env.enable_selfbombing()
 
     def reset(self):
         return self.observation(self.env.reset())

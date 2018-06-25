@@ -161,10 +161,9 @@ def eval(args=None, targets=None, opponents=None):
         loses = defaultdict(int)
         deads = defaultdict(list)
         ranks = defaultdict(list)
+        print("num battles eval ", args.num_battles_eval)
         for position in range(4):
-            # TODO: Change this to use the parallel run_battle below.
             print("Running Battle Position %d..." % position)
-            print("num battles eval ", args.num_battles_eval)
             num_times = args.num_battles_eval // 4
             agents = [o for o in opponents]
             agents.insert(position, targets[0])
@@ -173,33 +172,19 @@ def eval(args=None, targets=None, opponents=None):
                 training_agent_ids.append(position)
             acting_agent_ids = [num for num, agent in enumerate(agents)
                                 if not agent.is_simple_agent]
-            infos, _ = run_battle.run(
-                args, num_times=num_times, seed=args.seed, agents=agents,
-                training_agent_ids=training_agent_ids,
-                acting_agent_ids=acting_agent_ids)
-            print("infos: ", infos)
-            print("acting agent ids: ", acting_agent_ids)
+            print(position, agents, training_agent_ids, acting_agent_ids)
+            infos = run_battles(args, num_times, agents, action_space,
+                                acting_agent_ids, training_agent_ids)
             for info in infos:
                 print("info ", info)
                 if all(['result' in info,
                         info['result'] == pommerman.constants.Result.Tie,
                         not info.get('step_info')]):
                     ties[position] += 1
-                if 'winners' in info and info['winners'] == [position]:
+                elif 'winners' in info and info['winners'] == [position]:
                     wins[position] += 1
                 else:
                     loses[position] += 1
-                if 'step_info' in info and position in info['step_info']:
-                    agent_step_info = info['step_info'][position]
-                    for kv in agent_step_info:
-                        if ':' not in kv:
-                            continue
-                        k, v = kv.split(':')
-                        if k == 'dead':
-                            deads[position].append(int(v))
-                        elif k == 'rank':
-                            ranks[position].append(int(v))
-
         print("Wins: ", wins)
         print("Loses: ", loses)
         print("Dead: ", deads)
@@ -207,7 +192,6 @@ def eval(args=None, targets=None, opponents=None):
         print("Ties: ", ties)
         print("\n")
         return wins, deads, ties, ranks
-
     elif mode == 'ffa-curriculum':
         print('Starting Curriculum FFA Battles.')
         wins = []
@@ -385,8 +369,7 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
     """
     config = args.config
     seed = args.seed
-    # TODO: Why are we getting too many open file errors? They are closing...
-    num_processes = args.num_processes // 2
+    num_processes = args.num_processes
     assert(num_processes > 1)
 
     if seed is None:
