@@ -25,6 +25,7 @@ from .. import constants
 import numpy as np
 from .. import utility
 import random
+import json
 
 
 class Grid(PommeV0):
@@ -67,21 +68,21 @@ class Grid(PommeV0):
         The agent receives reward +1 for reaching the goal and
         penalty -0.1 for each step it takes in the environment.
         """
-        agent_pos = self.observations['position']
-        goal_pos = self.observations['goal_position']
+        agent_pos = self.observations[0]['position']
+        goal_pos = self.observations[0]['goal_position']
         rewards = self.model.get_rewards_grid(agent_pos, goal_pos)
 
         return rewards
 
     def _get_done(self):
-        agent_pos = self.observations['position']
-        goal_pos = self.observations['goal_position']
+        agent_pos = self.observations[0]['position']
+        goal_pos = self.observations[0]['goal_position']
         return self.model.get_done_grid(agent_pos, goal_pos,
                                         self._step_count, self._max_steps)
 
     def _get_info(self, done, rewards):
-        agent_pos = self.observations['position']
-        goal_pos = self.observations['goal_position']
+        agent_pos = self.observations[0]['position']
+        goal_pos = self.observations[0]['goal_position']
         ret = self.model.get_info_grid(done, agent_pos, goal_pos)
         ret['step_count'] = self._step_count
         if hasattr(self, '_game_state_step_start'):
@@ -155,30 +156,38 @@ class Grid(PommeV0):
         elif self._init_game_state is not None:
             self.set_json_info()
 
-        else: # TODO: where and how
-            # to set the initial position of the goal??
+        else:
             self._step_count = 0
-            # goal_position = self.make_goal()
-            # self._agents[0].set_goal_position(goal_position)
             self.make_board()
             for agent_id, agent in enumerate(self._agents):
                 pos_agent = np.where(self._board == constants.GridItem.Agent.value)
-                row_agent = pos_agent[1][0]
-                col_agent = pos_agent[0][0]
+                row_agent = pos_agent[0][0]
+                col_agent = pos_agent[1][0]
                 agent.set_start_position((row_agent, col_agent))
 
                 pos_goal = np.where(self._board == constants.GridItem.Goal.value)
-                row_goal = pos_goal[1][0]
-                col_goal = pos_goal[0][0]
+                row_goal = pos_goal[0][0]
+                col_goal = pos_goal[1][0]
                 agent.set_goal_position((row_goal, col_goal))
 
                 agent.reset()
 
         return self.get_observations()
 
+    def act(self, obs, acting_agent_ids=[], ex_agent_ids=None):
+        if ex_agent_ids is not None:
+            agents = [agent for agent in self._agents \
+                      if agent.agent_id not in ex_agent_ids]
+        else:
+            agents = [agent for agent in self._agents \
+                      if agent.agent_id not in self.training_agents]
+            # TODO: Replace this hack with something more reasonable.
+            agents = [agent for agent in agents if \
+                      agent.agent_id not in acting_agent_ids]
+        return self.model.act_grid(agents, obs, self.action_space)
+
     def step(self, actions):
-        result = self.model.step_grid(actions, self._board, self._agents,
-                                      do_print=self.rank == 0)
+        result = self.model.step_grid(actions, self._board, self._agents)
 
         self._board = result
         # NOTE: this should be above calling the below functions since they
@@ -191,18 +200,30 @@ class Grid(PommeV0):
         reward = self._get_rewards()
         info = self._get_info(done, reward)
 
-        print("done ", done)
-        print("obs ", obs)
-        print("reward ", reward)
-        print("info ", info)
+        # print("done ", done)
+        # print("obs ", obs)
+        # print("reward ", reward)
+        # print("info ", info)
 
         return obs, reward, done, info
 
     @staticmethod
     def featurize(obs):
-        print("FEATURIZE")
+        # print("FEATURIZE")
         board = obs["board"].reshape(-1).astype(np.float32)
         position = utility.make_np_float(obs["position"])
         goal_position = utility.make_np_float(obs["goal_position"])
 
         return np.concatenate(board, agent_position, goal_position)
+
+    def get_json_info(self):
+        """Returns a json snapshot of the current game state."""
+        ret = {
+            'board_size': self._board_size,
+            'step_count': self._step_count,
+            'board': self._board,
+            'agents': self._agents,
+        }
+        for key, value in ret.items():
+            ret[key] = json.dumps(value, cls=utility.PommermanJSONEncoder)
+        return ret

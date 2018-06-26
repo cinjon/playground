@@ -166,6 +166,9 @@ def make_board_grid(size, num_rigid=0):
       num_rigid: The number of rigid walls on the board.
     Returns:
       board: The resulting random board.
+     OBS: pos = (x, y) where
+        x increases downwards and
+        y increases rightwards
     """
     def lay_wall_grid(value, num_left, coordinates, board):
         x, y = random.sample(coordinates, 1)[0]
@@ -187,14 +190,14 @@ def make_board_grid(size, num_rigid=0):
         # Randomly pick the agent location. Exclude it from coordinates.
         x = random.randint(0, size - 1)
         y = random.randint(0, size - 1)
-        board[x, y] = constants.GridItem.Agent.value
         agent_pos = (x, y)
+        board[x, y] = constants.GridItem.Agent.value
         coordinates.remove(agent_pos)
 
         # Randomly pick the goal location. Exclude it from coordinates
         x_g, y_g = random.sample(coordinates, 1)[0]
+        goal_pos = (y_g, x_g)
         board[x_g, y_g] = constants.GridItem.Goal.value
-        goal_pos = (x_g, y_g)
         coordinates.remove(goal_pos)
 
         # Lay down the rigid walls.

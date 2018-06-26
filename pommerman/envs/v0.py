@@ -3,7 +3,6 @@ This evironment acts as game manager for Pommerman. Further environments,
 such as in v1.py, will inherit from this.
 """
 from collections import defaultdict
-import json
 import logging
 import os
 import random
@@ -22,6 +21,7 @@ from .. import utility
 from ..agents import SimpleAgent
 from ..agents import ComplexAgent
 from ..agents import AstarAgent
+import json
 
 
 class Pomme(gym.Env):

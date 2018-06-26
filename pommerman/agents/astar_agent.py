@@ -26,6 +26,7 @@ class AstarAgent(BaseAgent):
 
     def act(self, obs, action_space):
         self.obs = obs  # single agent
+        print("##### obs #### \n", obs)
 
         # TODO: check these work as expected
         self._agent_pos = tuple(self.obs['position'])
@@ -78,15 +79,15 @@ class AstarAgent(BaseAgent):
         dy = next_loc[1] - current_loc[1]
 
         if dx == 1:
-            return 4 # right
+            return 2      # down
         elif dx == - 1:
-            return 3 # left
+            return 1      # up
         elif dy == 1:
-            return 1 # up
+            return 4      # right
         elif dy == - 1:
-            return 2 # down
+            return 3      # left
         else:
-            return 0 # stop
+            return 0      # stop
 
     def _agent_move_func(self, loc):
         '''

@@ -144,7 +144,6 @@ def generate(args, agents, action_space, acting_agent_ids):
                 actions[num_procress][num_action] = agent_actions[num_process]
 
         # TODO: check that this works as expected for grid
-        # import pdb; pdb.set_trace()
         obs, reward, done, info = envs.step(actions)
         for process_dir in process_dirs:
             directory = os.path.join(record_json_dir, '%d' % process_dir)

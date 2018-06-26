@@ -55,6 +55,9 @@ class ComplexAgent(BaseAgent):
         self._mcts = MCTSAgentExploit(board_size=self._board_size)
 
     def act(self, obs, action_space):
+        print("##### obs #### \n", obs)
+        print("pos ", tuple(obs['position']))
+        print("\n\n\n")
 
         def convert_bombs(strength_map, life_map):
             ret = []

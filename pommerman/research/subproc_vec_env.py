@@ -14,10 +14,12 @@ def worker(remote, parent_remote, env_fn_wrapper):
         cmd, data = remote.recv()
         if cmd == 'step':
             ob, reward, done, info = env.step(data)
-            # NOTE: added .all() to work with multi-agent scenarios.
+            # NOTE: handles both multi-agent and single-aget
             if type(done) == list:
                 done = np.array(done)
-            if done.all():
+                if done.all():
+                    ob = env.reset()
+            elif done:
                 ob = env.reset()
             remote.send((ob, reward, done, info))
         elif cmd == 'reset':
