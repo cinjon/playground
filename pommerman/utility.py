@@ -33,54 +33,6 @@ class PommermanJSONEncoder(json.JSONEncoder):
             return [space.n for space in obj.spaces]
         return json.JSONEncoder.default(self, obj)
 
-def make_board_grid(size, num_rigid=0):
-    # TODO: when num_walls > 0 make sure the agent can reach the goal
-    """Make a random board with an agent, a goal and
-    a few rigid walls (optional).
-    The numbers refer to the GridItem enum in constants. This is:
-     0 - passage
-     1 - rigid wall
-     2 - goal
-     3 - agent
-    Args:
-      size: The dimension of the board, i.e. it's sizeXsize.
-      num_rigid: The number of rigid walls on the board.
-    Returns:
-      board: The resulting random board.
-    """
-    def lay_wall_grid(value, num_left, coordinates, board):
-        x, y = random.sample(coordinates, 1)[0]
-        coordinates.remove((x, y))
-        board[x, y] = value
-        num_left -= 1
-        return num_left
-
-    def make_grid(size, num_rigid):
-        # Initialize everything as a passage.
-        board = np.ones(
-            (size, size)).astype(np.uint8) * constants.GridItem.Passage.value
-
-        # Gather all the possible coordinates to use for walls.
-        coordinates = set([
-            (x, y) for x, y in \
-            itertools.product(range(size), range(size))])
-
-        # Randomly pick the agent location. Exclude it from coordinates.
-        x = random.randint(0, size - 1)
-        y = random.randint(0, size - 1)
-        board[x, y] = constants.GridItem.Agent.value
-        agent_pos = (x, y)
-        coordinates.remove(agent_pos)
-
-        # Lay down the rigid walls.
-        while num_rigid > 0:
-            num_rigid = lay_wall_grid(constants.GridItem.Wall.value, num_rigid,
-                                 coordinates, board)
-        return board, agent_pos
-
-    board, agent_pos = make_grid(size, num_rigid)
-    return board
-
 
 def make_board(size, num_rigid=0, num_wood=0):
     """Make the random but symmetric board.
@@ -200,16 +152,59 @@ def make_items(board, num_items):
         num_items -= 1
     return item_positions
 
-def make_goal(board):
-    # TODO: add condition to not overlap with agent pos
-    while True:
-        row = random.randint(0, len(board) - 1)
-        col = random.randint(0, len(board[0]) - 1)
-        if board[row, col] != constants.GridItem.Agent.value \
-            and board[row, col] != constants.GridItem.Wall.value:
-            return (row, col)
+def make_board_grid(size, num_rigid=0):
+    # TODO: when num_walls > 0 make sure the agent can reach the goal
+    """Make a random board with an agent, a goal and
+    a few rigid walls (optional).
+    The numbers refer to the GridItem enum in constants. This is:
+     0 - passage
+     1 - rigid wall
+     2 - goal
+     3 - agent
+    Args:
+      size: The dimension of the board, i.e. it's sizeXsize.
+      num_rigid: The number of rigid walls on the board.
+    Returns:
+      board: The resulting random board.
+    """
+    def lay_wall_grid(value, num_left, coordinates, board):
+        x, y = random.sample(coordinates, 1)[0]
+        coordinates.remove((x, y))
+        board[x, y] = value
+        num_left -= 1
+        return num_left
 
-    return (row, col)
+    def make_grid(size, num_rigid):
+        # Initialize everything as a passage.
+        board = np.ones(
+            (size, size)).astype(np.uint8) * constants.GridItem.Passage.value
+
+        # Gather all the possible coordinates to use for walls.
+        coordinates = set([
+            (x, y) for x, y in \
+            itertools.product(range(size), range(size))])
+
+        # Randomly pick the agent location. Exclude it from coordinates.
+        x = random.randint(0, size - 1)
+        y = random.randint(0, size - 1)
+        board[x, y] = constants.GridItem.Agent.value
+        agent_pos = (x, y)
+        coordinates.remove(agent_pos)
+
+        # Randomly pick the goal location. Exclude it from coordinates
+        x_g, y_g = random.sample(coordinates, 1)[0]
+        board[x_g, y_g] = constants.GridItem.Goal.value
+        goal_pos = (x_g, y_g)
+        coordinates.remove(goal_pos)
+
+        # Lay down the rigid walls.
+        while num_rigid > 0:
+            num_rigid = lay_wall_grid(constants.GridItem.Wall.value, num_rigid,
+                                 coordinates, board)
+        return board, agent_pos, goal_pos
+
+    board, agent_pos, goal_pos = make_grid(size, num_rigid)
+    return board
 
 def inaccessible_passages(board, agent_positions):
     """Return inaccessible passages on this board."""
@@ -344,7 +339,6 @@ def position_is_fog(board, position):
 
 def agent_value(id_):
     return getattr(constants.Item, 'Agent%d' % id_).value
-
 
 def position_in_items(board, position, items):
     return any([_position_is_item(board, position, item) for item in items])

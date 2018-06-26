@@ -530,8 +530,6 @@ class ForwardModel(object):
             'position', 'blast_strength', 'can_kick', 'teammate', 'ammo',
             'enemies', 'is_alive'
         ]
-        # XXX: attrs = ['position', 'goal_position']
-
         alive_agents = [utility.agent_value(agent.agent_id)
                         for agent in agents if agent.is_alive]
 
@@ -557,6 +555,25 @@ class ForwardModel(object):
                 assert hasattr(agent, attr)
                 agent_obs[attr] = getattr(agent, attr)
             observations.append(agent_obs)
+
+        return observations
+
+    def get_observations_grid(self, curr_board, agents,
+                              max_steps, step_count=None):
+        # TODO: do we want the step in the obs or not?
+        """Gets the observations as an np.array of the visible squares."""
+
+        board_size = len(curr_board)
+        attrs = ['position', 'goal_position', 'step']
+
+        board = curr_board
+        observations = []
+        agent_obs = {'board': board}
+
+        for attr in attrs:
+            assert hasattr(agents[0], attr)
+            agent_obs[attr] = getattr(agents[0], attr)
+        observations.append(agent_obs)
 
         return observations
 

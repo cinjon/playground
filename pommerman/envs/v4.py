@@ -48,13 +48,7 @@ class Grid(PommeV0):
             np.array(min_obs), np.array(max_obs))
 
     def make_board(self):
-        # TODO: this requires some changes in make_board
-        # use the single_agent_goal flag to create the simple grid (v4)
-        # as opposed to single_agent_goal = False for pomme v0 etc.
-        # print("board size ", self._board_size)
-        # print(self._num_rigid)
         self._board = utility.make_board_grid(self._board_size, self._num_rigid)
-        # print("board ", self._board)
 
     def make_items(self):
         return
@@ -63,10 +57,9 @@ class Grid(PommeV0):
         self._goal = utility.make_goal(self._board)
 
     def get_observations(self):
-        self.observations = self.model.get_observations(
-            self._board, self._agents, self._bombs,
-            self._is_partially_observable, self._agent_view_size,
-            self._max_steps, step_count=self._step_count)
+        self.observations = self.model.get_observations_grid(
+            self._board, self._agents, self._max_steps,
+            step_count=self._step_count)
         return self.observations
 
     def _get_rewards(self):
@@ -166,19 +159,25 @@ class Grid(PommeV0):
         elif self._init_game_state is not None:
             self.set_json_info()
 
+
+
         else: # TODO: where and how
             # to set the initial position of the goal??
             self._step_count = 0
+            # goal_position = self.make_goal()
+            # self._agents[0].set_goal_position(goal_position)
             self.make_board()
-            # self.make_items()
-            goal_position = self.make_goal()
-            print(" goal pos ", goal_position)
-            print("agent ", self._agents, self._agents[0])
-            self._agents[0].set_goal_position(goal_position)
             for agent_id, agent in enumerate(self._agents):
-                row = random.randint(0, self._board_size - 1)
-                col = random.randint(0, self._board_size - 1)
-                agent.set_start_position((row, col))
+                pos_agent = np.where(self._board == constants.GridItem.Agent.value)
+                row_agent = pos_agent[1][0]
+                col_agent = pos_agent[0][0]
+                agent.set_start_position((row_agent, col_agent))
+
+                pos_goal = np.where(self._board == constants.GridItem.Goal.value)
+                row_goal = pos_goal[1][0]
+                col_goal = pos_goal[0][0]
+                agent.set_goal_position((row_goal, col_goal))
+
                 agent.reset()
 
         return self.get_observations()

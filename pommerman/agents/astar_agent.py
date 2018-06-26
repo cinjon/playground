@@ -20,13 +20,14 @@ class AstarAgent(BaseAgent):
         super(AstarAgent, self).__init__(character) #, *args, **kwargs)
 
     def act(self, obs, action_space):
-        self.obs = obs
+        # import pdb; pdb.set_trace()
+        self.obs = obs[0]  # single agent
+
         # TODO: check these work as expected
-        # add obs['goal_position'] for v4 env
-        self._agent_pos = tuple(obs['position'])
-        self._goal_pos = tuple(obs['goal_position'])
-        self._step = obs['step']
-        self._board_size = len(obs['board'])
+        self._agent_pos = tuple(self.obs['position'])
+        self._goal_pos = tuple(self.obs['goal_position'])
+        self._step = self.obs['step']
+        self._board_size = len(self.obs['board'])
 
         # TODO: check this works as expected
         if self._step == 0:

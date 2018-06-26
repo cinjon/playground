@@ -99,10 +99,10 @@ class Bomber(object):
 class Walker(Bomber):
     """Container to keep the agent state."""
     # TODO: should we add a goal as argument?
+    # TODO: do we need an agent id in this case?
     def __init__(self, agent_id=None, game_type=None):
         super(Walker, self).__init__(agent_id, game_type)
 
-        print("characters game type ", game_type)
         self._game_type = game_type
         if agent_id is not None:
             self.set_agent_id(agent_id)
@@ -116,14 +116,21 @@ class Walker(Bomber):
     def set_goal_position(self, goal_position):
         self.goal_position = goal_position
 
-    def reset(self, ammo=1, is_alive=True, blast_strength=None, can_kick=False):
+    def reset(self):
+        self.step = 0
         self.position = self.start_position
+        self.goal_position = self.goal_position
+
+    def increment_step(self):
+        self.step += 1
 
     def to_json(self):
         # TODO: should we include goal_position here or not?
         return {
             "agent_id": self.agent_id,
             "position": self.position,
+            "goal_position": self.goal_position,
+            "step": self.step,
         }
 
 
