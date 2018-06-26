@@ -525,30 +525,30 @@ class ForwardModel(object):
         position = agent.position
         x, y = position
 
-        print("\n\n ************")
-        print("curr board ", curr_board)
-        print("pos ", position)
+        # print("\n\n ************")
+        # print("curr board ", curr_board)
+        # print("pos ", position)
         if not actions:
             action = agent.act()[0]
         else:
             action = actions[0]
-        print("action after ", action)
+        # print("action after ", action)
 
         # Take a step with the agent in the env
         # accroding to given action or that from A*
         if action == constants.Action.Stop.value:
-            print("pass ")
+            # print("pass ")
             pass
         elif utility.is_valid_direction(curr_board, position, action):
-            print("is valid direction")
+            # print("is valid direction")
             direction = constants.Action(action)
-            print("direction ", direction)
+            # print("direction ", direction)
             curr_board[x, y] = constants.GridItem.Passage.value
             x_next, y_next = utility.get_next_position(position, direction)
-            print("next pos ", x_next, y_next)
+            # print("next pos ", x_next, y_next)
             curr_board[x_next, y_next] = constants.GridItem.Agent.value
 
-        print("board after ", curr_board)
+        # print("board after ", curr_board)
         return curr_board, curr_agents
 
     def get_observations(self, curr_board, agents, bombs,

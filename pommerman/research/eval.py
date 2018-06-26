@@ -163,8 +163,6 @@ def eval(args=None, targets=None, opponents=None):
         ranks = defaultdict(list)
         print("num battles eval ", args.num_battles_eval)
         for position in range(4):
-            # if position < 3:
-            #     continue
             print("Running Battle Position %d..." % position)
             num_times = args.num_battles_eval // 4
             agents = [o for o in opponents]

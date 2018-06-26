@@ -114,7 +114,7 @@ def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
         env.rank = rank
         env.set_training_agents(training_agent_ids)
         env.set_state_directory(state_directory, state_directory_distribution)
-        env = WrapPommeEval(env, how_train, acting_agent_ids=acting_agent_ids)
+        env = WrapPomme(env, how_train, acting_agent_ids=acting_agent_ids)
         env = MultiAgentFrameStack(env, 2)
         return env
     return _thunk
@@ -309,7 +309,11 @@ class WrapPomme(gym.ObservationWrapper):
             self._how_train == 'astar':
             obs = self.env.get_observations()
             all_actions = self.env.act(obs)
-            all_actions.insert(self.env.training_agents[0], actions)
+            if type(actions) == list:
+                for agent_id, action in zip(self.env.training_agents, actions):
+                    all_actions.insert(agent_id, action)
+            else:
+                all_actions.insert(self.env.training_agents[0], actions)
         elif self._how_train == 'homogenous':
             all_actions = actions
         elif self._how_train == 'qmix':

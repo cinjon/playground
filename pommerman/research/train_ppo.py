@@ -714,6 +714,8 @@ def train():
                     running_total_game_step_counts.append(
                         game_step_counts[num_process])
                     game_step_counts[num_process] = 0
+                    if args.eval_only:
+                        print("TPPO FINI: ", num_process, info[num_process])
 
             win, alive_win = get_win_alive(info, envs)
             game_state_start_steps = np.array([
@@ -901,7 +903,7 @@ def train():
                     action_log_prob_distr, dagger_prob_distr)
 
         # Compute the advantage values.
-        if how_train == 'simple' or how_train == 'homogenous':
+        if not args.eval_only and (how_train == 'simple' or how_train == 'homogenous'):
             training_agent = training_agents[0]
             next_value_agents = [
                 training_agent.actor_critic_call(step=-1, num_agent=num_agent)
@@ -913,7 +915,9 @@ def train():
             ]
 
         # Run PPO Optimization.
-        if args.reinforce_only:
+        if args.eval_only:
+            pass
+        elif args.reinforce_only:
             for num_agent, agent in enumerate(training_agents):
                 agent.set_train()
                 with utility.Timer() as t:
@@ -959,7 +963,9 @@ def train():
 
         total_steps += num_processes * num_steps
 
-        if running_num_episodes > args.log_interval:
+        if args.eval_only:
+            pass
+        elif running_num_episodes > args.log_interval:
             end = time.time()
             num_steps_sec = (end - start)
             num_episodes += running_num_episodes
@@ -1123,7 +1129,9 @@ def train():
             action_choices = []
             action_probs = [[] for _ in range(6)]
 
-        if any([
+        if args.eval_only:
+            pass
+        elif any([
                 args.state_directory_distribution.startswith('uniformSchedul'),
                 args.state_directory_distribution.startswith('uniformBounds'),
                 args.state_directory_distribution.startswith('uniformForward'),
