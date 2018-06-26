@@ -182,10 +182,8 @@ class WrapPommeEval(gym.ObservationWrapper):
             all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
             training_agents = self.env.training_agents
             if training_agents:
-                # print("ALL ACTS BEF: ", all_actions, actions, training_agents)
                 for training_agent, action in zip(training_agents, actions):
                     all_actions.insert(training_agent, action)
-                # print("ALL ACTS AFT: ", all_actions)
 
         elif self._how_train == 'homogenous':
             all_actions = actions
