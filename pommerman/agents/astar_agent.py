@@ -7,6 +7,9 @@ from scipy.spatial.distance import cityblock
 from .. import characters
 
 class AstarAgent(BaseAgent):
+    # TODO: decide whether we want to keep all these functions understand
+    # the AstarAgent class (since they are not used by any other class at the moment)
+    # however they are quite general so maybe move them to a uitls file in agents?
     """This agent uses the A* algorithm to
     find the shortest path to an assigned goal
     and takes actions along that path.
@@ -20,7 +23,6 @@ class AstarAgent(BaseAgent):
         super(AstarAgent, self).__init__(character) #, *args, **kwargs)
 
     def act(self, obs, action_space):
-        # import pdb; pdb.set_trace()
         self.obs = obs[0]  # single agent
 
         # TODO: check these work as expected
@@ -44,7 +46,7 @@ class AstarAgent(BaseAgent):
         Returns shortest path to goal from
         the agent's initial position to its goal.
         '''
-        # Astar implementation
+        # Find shortest path to goal using A* alg
         _, came_from = self._astar(self._agent_move_func,
                                    self._agent_pos, self._goal_pos)
 
@@ -55,7 +57,7 @@ class AstarAgent(BaseAgent):
         return path
 
     # TODO: this should be changed; check what each action does
-    def _action_to_loc(next_loc):
+    def _action_to_loc(self, next_loc):
         '''
         Returns the action the agent
         must take to get to next_loc.
@@ -84,7 +86,7 @@ class AstarAgent(BaseAgent):
         else:
             return 0 # stop
 
-    def _agent_move_func(loc):
+    def _agent_move_func(self, loc):
         '''
         Returns all the locations the agent can move to
         from its current position: up, down, east, west.
@@ -101,7 +103,7 @@ class AstarAgent(BaseAgent):
             res.append((nx, ny))
         return res
 
-    def _dijkstra(move_func, start_loc, end_loc=None):
+    def _dijkstra(self, move_func, start_loc, end_loc=None):
         '''
         Args:
             env -- the environment
@@ -147,7 +149,7 @@ class AstarAgent(BaseAgent):
         return visited, path
 
 
-    def _astar(move_func, start, goal):
+    def _astar(self, move_func, start, goal):
         '''
         Implements the Astar algorithm which finds the
         shortest path between start and goal, in gridworld env.
@@ -188,7 +190,7 @@ class AstarAgent(BaseAgent):
         return cost_so_far, came_from
 
 
-    def _reconstruct_path(came_from, start, goal):
+    def _reconstruct_path(self, came_from, start, goal):
         current = goal
         path = []
         while current != start:
