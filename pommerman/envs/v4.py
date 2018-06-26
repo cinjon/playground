@@ -184,15 +184,8 @@ class Grid(PommeV0):
         return self.model.act_grid(agents, obs, self.action_space)
 
     def step(self, actions):
-        # print("\n\n \n\n\n ######################## ")
-        # print("BEFORE board \n ", self._board)
-        # print("actions \n", actions)
         results = self.model.step_grid(actions, self._board, self._agents)
-
-        print("results ", results)
         self._board, self._agents = results[:2]
-        print("AFTER board \n", self._board)
-        print("AFTER agetsn \n", self._agents)
 
         # NOTE: this should be above calling the below functions since they
         # take the step_count to change obs etc., so step_count should be
@@ -202,22 +195,20 @@ class Grid(PommeV0):
         # NOTE: get_observations needs to be called before
         # the others to change obs state!!
         obs = self.get_observations()
-        # print("obs ", obs)
         done = self._get_done()
         reward = self._get_rewards()
         info = self._get_info(done, reward)
 
-        # print("\n\n\n################")
-        # print("done ", done)
-        # print("obs ", obs)
-        # print("reward ", reward)
-        # print("info ", info)
+        print("\n\n\n################")
+        print("done ", done)
+        print("obs ", obs)
+        print("reward ", reward)
+        print("info ", info)
 
         return obs, reward, done, info
 
     @staticmethod
     def featurize(obs):
-        # print("FEATURIZE")
         board = obs["board"].reshape(-1).astype(np.float32)
         position = utility.make_np_float(obs["position"])
         goal_position = utility.make_np_float(obs["goal_position"])

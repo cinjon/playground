@@ -521,34 +521,29 @@ class ForwardModel(object):
         return curr_board, curr_agents, curr_bombs, curr_items, curr_flames
 
     def step_grid(self, actions, curr_board, curr_agents):
+        # TODO: make sure it works for GridWalls
         agent = curr_agents[0]
-        position = agent.position
+
+        pos_agent = np.where(curr_board == constants.GridItem.Agent.value)
+        row_agent = pos_agent[0][0]
+        col_agent = pos_agent[1][0]
+        position = (row_agent, col_agent)
         x, y = position
 
-        print("\n\n ************")
-        print("curr board ", curr_board)
-        print("pos ", position)
         if not actions:
             action = agent.act()[0]
         else:
             action = actions[0]
-        print("action after ", action)
 
         # Take a step with the agent in the env
         # accroding to given action or that from A*
-        if action == constants.Action.Stop.value:
-            print("pass ")
-            pass
-        elif utility.is_valid_direction(curr_board, position, action):
-            print("is valid direction")
+        if utility.is_valid_direction_grid(curr_board, position, action):
             direction = constants.Action(action)
-            print("direction ", direction)
-            curr_board[x, y] = constants.GridItem.Passage.value
             x_next, y_next = utility.get_next_position(position, direction)
-            print("next pos ", x_next, y_next)
             curr_board[x_next, y_next] = constants.GridItem.Agent.value
+            curr_board[x, y] = constants.GridItem.Passage.value
+            agent.position = (x_next, y_next)
 
-        print("board after ", curr_board)
         return curr_board, curr_agents
 
     def get_observations(self, curr_board, agents, bombs,
@@ -626,7 +621,7 @@ class ForwardModel(object):
 
         pos_goal = np.where(curr_board == constants.GridItem.Goal.value)
         # TODO: find something less hacky
-        if pos_goal:
+        if len(pos_goal[0]) > 0:
             row_goal = pos_goal[0][0]
             col_goal = pos_goal[1][0]
             agent_obs['goal_position'] = (row_goal, col_goal)

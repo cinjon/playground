@@ -34,11 +34,16 @@ class AstarAgent(BaseAgent):
         self._board_size = len(self.obs['board'])
 
         # TODO: check this works as expected
-        if self._step == 0:
-            self._path = self._get_path()
+        # this gives an error not sure why TODO: FIX
+        # if self._step == 0:
+        #     self._path = self._get_path()
+        # # Picking next action from precalculated path to goal
+        # next_loc = self._path[self._step]
 
-        # Picking next action from precalculated path to goal
-        next_loc = self._path[self._step]
+        # NOTE: alternative -- less efficient: computes path at each step
+        self._path = self._get_path()
+        next_loc = self._path[0]
+
         action = self._action_to_loc(next_loc)
 
         return action
@@ -89,6 +94,8 @@ class AstarAgent(BaseAgent):
             return 0      # stop
 
     def _agent_move_func(self, loc):
+        # TODO: add constraint that the agent cannot
+        # move on location with wall
         '''
         Returns all the locations the agent can move to
         from its current position: up, down, east, west.

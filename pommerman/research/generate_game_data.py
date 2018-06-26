@@ -7,8 +7,8 @@ python generate_game_data.py --agents=complex::null,complex::null,complex::null,
 
 For Grid envs:
 python generate_game_data.py --agents=astar::null --config=Grid-v4 --num-episodes=10 \
---num-processes=2 --num-stack=1   --record-json-dir=/path/to/json/dir --seed=<insert seed>
---how-train astar
+--num-processes=12 --num-stack=1 --how-train astar --seed=<insert seed> \
+--record-json-dir=/path/to/json/dir 
 """
 import json
 import os
