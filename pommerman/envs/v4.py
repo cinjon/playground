@@ -55,11 +55,9 @@ class Grid(PommeV0):
         return
 
     def get_observations(self):
-        print("step count ", self._step_count)
         self.observations = self.model.get_observations_grid(
             self._board, self._agents, self._max_steps,
             step_count=self._step_count)
-        print("*****\n\n\n")
         return self.observations
 
     def _get_rewards(self):
