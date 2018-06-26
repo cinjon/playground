@@ -163,6 +163,8 @@ def eval(args=None, targets=None, opponents=None):
         ranks = defaultdict(list)
         print("num battles eval ", args.num_battles_eval)
         for position in range(4):
+            # if position < 3:
+            #     continue
             print("Running Battle Position %d..." % position)
             num_times = args.num_battles_eval // 4
             agents = [o for o in opponents]
@@ -185,12 +187,12 @@ def eval(args=None, targets=None, opponents=None):
                     wins[position] += 1
                 else:
                     loses[position] += 1
-        print("Wins: ", wins)
-        print("Loses: ", loses)
-        print("Dead: ", deads)
-        print("Ranks: ", ranks)
-        print("Ties: ", ties)
-        print("\n")
+            print("Wins: ", wins)
+            print("Loses: ", loses)
+            print("Dead: ", deads)
+            print("Ranks: ", ranks)
+            print("Ties: ", ties)
+            print("\n")
         return wins, deads, ties, ranks
     elif mode == 'ffa-curriculum':
         print('Starting Curriculum FFA Battles.')
@@ -392,8 +394,12 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
     while len(infos) < num_times:
         actions = [[None]*len(acting_agent_ids) for _ in range(num_processes)]
         for num_action, acting_agent_id in enumerate(acting_agent_ids):
-            agent_obs = [o[num_action] for o in obs]
-            agent_actions = agents[acting_agent_id].act(agent_obs, action_space)
+            # agent_actions = agents[acting_agent_id].act(agent_obs, action_space)
+            agent_obs = obs[:, 0, :, :, :]
+            agent_obs = torch.from_numpy(agent_obs).float()
+            _, agent_actions, _, _, probs, _ = agents[acting_agent_id].act_on_data(
+                agent_obs, deterministic=True)
+            agent_actions = agent_actions.data.squeeze(1).cpu().numpy()
             for num_process in range(num_processes):
                 actions[num_process][num_action] = agent_actions[num_process]
 

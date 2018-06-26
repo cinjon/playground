@@ -86,6 +86,15 @@ class ResearchAgent(BaseAgent):
             action = action[0]
         return action
 
-    def act_on_data(self, observations, states, masks, deterministic=False):
-        return self._actor_critic.act(observations, states, masks,
-                                      deterministic)
+    def act_on_data(self, observations, states=None, masks=None, deterministic=False):
+        states = states or self._states
+        masks = masks or self._masks
+        if self._cuda:
+            states = states.cuda()
+            masks = masks.cuda()
+            observations = observations.cuda()
+        return self._actor_critic.act(
+            Variable(observations, volatile=True),
+            Variable(states, volatile=True),
+            Variable(masks, volatile=True),
+            deterministic)

@@ -720,7 +720,7 @@ def train():
                 info_.get('game_state_step_start') for info_ in info])
 
             if args.render:
-                envs.render(args.record_pngs_dir, game_step_counts, 1)
+                envs.render(args.record_pngs_dir, game_step_counts, num_env=3)
 
             if how_train == 'simple':
                 # NOTE: The masking for simple should be such that:

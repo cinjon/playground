@@ -115,6 +115,7 @@ def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
         env.set_training_agents(training_agent_ids)
         env.set_state_directory(state_directory, state_directory_distribution)
         env = WrapPommeEval(env, how_train, acting_agent_ids=acting_agent_ids)
+        env = MultiAgentFrameStack(env, 2)
         return env
     return _thunk
 
@@ -174,6 +175,16 @@ class WrapPommeEval(gym.ObservationWrapper):
         self._how_train = how_train
         self._acting_agent_ids = acting_agent_ids or self.env.training_agents
         self.render_fps = env.render_fps
+        board_size = env.spec._kwargs['board_size']
+        obs_shape = (19, board_size, board_size)
+        extended_shape = [len(self.env.training_agents), obs_shape[0],
+                          obs_shape[1], obs_shape[2]]
+        self.observation_space = spaces.Box(
+            self.observation_space.low[0],
+            self.observation_space.high[0],
+            extended_shape,
+            dtype=np.float32
+        )
 
     def step(self, actions):
         if self._how_train == 'simple' or self._how_train == 'dagger' \
@@ -182,10 +193,8 @@ class WrapPommeEval(gym.ObservationWrapper):
             all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
             training_agents = self.env.training_agents
             if training_agents:
-                # print("ALL ACTS BEF: ", all_actions, actions, training_agents)
                 for training_agent, action in zip(training_agents, actions):
                     all_actions.insert(training_agent, action)
-                # print("ALL ACTS AFT: ", all_actions)
 
         elif self._how_train == 'homogenous':
             all_actions = actions
@@ -217,7 +226,8 @@ class WrapPommeEval(gym.ObservationWrapper):
         return np.array([arr[acting_id], arr[teammate_id]])
 
     def observation(self, observation):
-        return self._filter(observation)
+        filtered = self._filter(observation)
+        return np.array([networks.featurize3D(obs) for obs in filtered])
 
     def enable_selfbombing(self):
         self.env.enable_selfbombing()
