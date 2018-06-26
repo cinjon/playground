@@ -24,13 +24,17 @@ from gym import spaces
 from .. import constants
 import numpy as np
 from .. import utility
+import random
 
 
 class Grid(PommeV0):
+
     def _set_action_space(self):
         self.action_space = spaces.Discrete(5)
 
     def _set_observation_space(self):
+        # TODO: do we need to explicitly have the agent's posiiton?
+        # what about the goal's position
         """The Observation Space for the single agent.
 
         There are a total of board_size^2 + 2 observations:
@@ -39,18 +43,20 @@ class Grid(PommeV0):
         """
         bss = self._board_size**2
         min_obs = [0] * bss + [0] * 2
-        max_obs = [len(constants.Item)] * bss + [self._board_size] * 2
+        max_obs = [len(constants.GridItem)] * bss + [self._board_size] * 2
         self.observation_space = spaces.Box(
             np.array(min_obs), np.array(max_obs))
 
     def make_board(self):
         # TODO: this requires some changes in make_board
         # use the single_agent_goal flag to create the simple grid (v4)
-        # as opposed to single_agent_goal = False for pomme v0 etc.ss
-        self._board = utility.make_board(self._board_size, self._num_rigid,
-                                        0, single_agent_goal=True)
+        # as opposed to single_agent_goal = False for pomme v0 etc.
+        # print("board size ", self._board_size)
+        # print(self._num_rigid)
+        self._board = utility.make_board_grid(self._board_size, self._num_rigid)
+        # print("board ", self._board)
 
-    def make_items():
+    def make_items(self):
         return
 
     def make_goal(self):
@@ -166,10 +172,12 @@ class Grid(PommeV0):
             self.make_board()
             # self.make_items()
             goal_position = self.make_goal()
-            agent.set_goal_position(goal_position)
+            print(" goal pos ", goal_position)
+            print("agent ", self._agents, self._agents[0])
+            self._agents[0].set_goal_position(goal_position)
             for agent_id, agent in enumerate(self._agents):
-                row = random.randint(range(self._board_size))
-                col = random.randint(range(self._board_size))
+                row = random.randint(0, self._board_size - 1)
+                col = random.randint(0, self._board_size - 1)
                 agent.set_start_position((row, col))
                 agent.reset()
 

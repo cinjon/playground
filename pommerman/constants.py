@@ -60,7 +60,7 @@ NUM_WOOD_EASY = 36
 DEFAULT_BOMB_LIFE_EASY = 10
 MAX_STEPS_EASY = 800
 # NOTE: Should we get rid of can_kick? That's a hard one to use as well...
-NUM_ITEMS_EASY = int(NUM_WOOD_EASY/2) 
+NUM_ITEMS_EASY = int(NUM_WOOD_EASY/2)
 DEFAULT_BLAST_STRENGTH_EASY = 2
 
 
@@ -77,7 +77,7 @@ DEFAULT_BLAST_STRENGTH_8 = 2
 GRID_BOARD_SIZE = 8
 GRID_MAX_STEPS = 20
 GRID_NUM_RIGID = 0         # no walls
-GRID_NUM_RIGID_WALLS = 10  # some rigid walls
+GRIDWALLS_NUM_RIGID = 10  # some rigid walls
 
 
 class Item(Enum):
@@ -107,6 +107,12 @@ class Item(Enum):
     Agent3 = 13
     Goal = 14
 
+class GridItem(Enum):
+    """The Items for the Grid env."""
+    Passage = 0
+    Wall = 1
+    Goal = 2
+    Agent = 3
 
 class GameType(Enum):
     """The Game Types.
@@ -121,7 +127,6 @@ class GameType(Enum):
     Team = 2
     TeamRadio = 3
     Grid = 4
-
 
 class Action(Enum):
     Stop = 0

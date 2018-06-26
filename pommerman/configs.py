@@ -30,7 +30,7 @@ def grid_env():
     }
     agent = characters.Walker
     return locals()
-    
+
 def grid_walls_env():
     """Start up a grid with an agent and a goal,
     plus some rigid walls."""
@@ -41,7 +41,7 @@ def grid_walls_env():
     env_kwargs = {
         'game_type': game_type,
         'board_size': constants.GRID_BOARD_SIZE,
-        'num_rigid': constants.GRID_NUM_RIGID_WALLS,
+        'num_rigid': constants.GRIDWALLS_NUM_RIGID,
         'max_steps': constants.GRID_MAX_STEPS,
         'render_fps': 1000,
     }

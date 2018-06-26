@@ -4,6 +4,7 @@ import itertools
 import heapq
 import itertools
 from scipy.spatial.distance import cityblock
+from .. import characters
 
 class AstarAgent(BaseAgent):
     """This agent uses the A* algorithm to
@@ -14,11 +15,9 @@ class AstarAgent(BaseAgent):
     shouldn't be any difference other than Dijkstra
     could be a bit slower."""
 
-    def __init__(self, *args, **kwargs):
-        super(AstarAgent, self).__init__(*args, **kwargs)
-
-        # Keep track of recently visited uninteresting positions so that we
-        # don't keep visiting the same places.
+    def __init__(self, character=characters.Walker, *args, **kwargs):
+        #TODO: do we need args kwargs below?
+        super(AstarAgent, self).__init__(character) #, *args, **kwargs)
 
     def act(self, obs, action_space):
         self.obs = obs

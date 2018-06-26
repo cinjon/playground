@@ -23,7 +23,6 @@ class ForwardModel(object):
             action_space,
             training_agent=None,
             is_communicative=False,
-            single_agent_goal=False,
             goal=None):
         """Run the forward model.
         Args:
@@ -42,9 +41,6 @@ class ForwardModel(object):
           training_agent: The training agent to pass to done.
           is_communicative: Whether the action depends on communication
             observations as well.
-          single_agent_goal: Whether this is the environment with a
-            simple grid with a single agent and single goal.
-          goal: Whether the environment contains a goal location. 
 
         Returns:
           steps: The list of step results, which are each a dict of "obs",
@@ -56,7 +52,6 @@ class ForwardModel(object):
           flames: Updated flames.
           done: Whether we completed the game in these steps.
           info: The result of the game if it's completed.
-          goal: Updated goal (optional -- only if single_agent_goal is True).
         """
         steps = []
         for _ in num_times:
@@ -322,7 +317,7 @@ class ForwardModel(object):
                 sys.stdout.write(str(tmp_board))
                 sys.stdout.write(str(curr_board))
                 sys.stdout.write(", ".join([(a.position, actions[a.agent_id]) for a in alive_agents]))
-            assert (len(agent_list) == 1)    
+            assert (len(agent_list) == 1)
             num_agent, agent = agent_list[0]
 
             if desired_position == agent.position:
@@ -505,7 +500,7 @@ class ForwardModel(object):
 
     def get_observations(self, curr_board, agents, bombs,
                          is_partially_observable, agent_view_size,
-                         max_steps, step_count=None, single_agent_goal=False):
+                         max_steps, step_count=None):
         """Gets the observations as an np.array of the visible squares.
 
         The agent gets to choose whether it keeps the fogged part in memory.
@@ -531,13 +526,11 @@ class ForwardModel(object):
                 col >= vcol - agent_view_size, col <= vcol + agent_view_size
             ])
 
-        if not single_agent_goal:
-            attrs = [
-                'position', 'blast_strength', 'can_kick', 'teammate', 'ammo',
-                'enemies', 'is_alive'
-            ]
-        else:
-            attrs = ['position', 'goal_position']
+        attrs = [
+            'position', 'blast_strength', 'can_kick', 'teammate', 'ammo',
+            'enemies', 'is_alive'
+        ]
+        # XXX: attrs = ['position', 'goal_position']
 
         alive_agents = [utility.agent_value(agent.agent_id)
                         for agent in agents if agent.is_alive]
@@ -548,19 +541,17 @@ class ForwardModel(object):
             board = curr_board
             if is_partially_observable:
                 board = board.copy()
-                if not single_agent_goal:
-                    for row in range(board_size):
-                        for col in range(board_size):
-                            if not in_view_range(agent.position, row, col):
-                                board[row, col] = constants.Item.Fog.value
+                for row in range(board_size):
+                    for col in range(board_size):
+                        if not in_view_range(agent.position, row, col):
+                            board[row, col] = constants.Item.Fog.value
 
             agent_obs['board'] = board
-            if not single_agent_goal:
-                bomb_blast_strengths, bomb_life = make_bomb_maps(agent.position)
-                agent_obs['bomb_blast_strength'] = bomb_blast_strengths
-                agent_obs['bomb_life'] = bomb_life
-                if step_count is not None:
-                    agent_obs['step'] = 1.0 * step_count / max_steps
+            bomb_blast_strengths, bomb_life = make_bomb_maps(agent.position)
+            agent_obs['bomb_blast_strength'] = bomb_blast_strengths
+            agent_obs['bomb_life'] = bomb_life
+            if step_count is not None:
+                agent_obs['step'] = 1.0 * step_count / max_steps
 
             for attr in attrs:
                 assert hasattr(agent, attr)
@@ -692,7 +683,7 @@ class ForwardModel(object):
                 }
 
     @staticmethod
-    def get_rewards(agents, game_type, step_count, max_steps, 
+    def get_rewards(agents, game_type, step_count, max_steps,
                     agent_pos=None, goal_pos=None):
 
         def any_lst_equal(lst, values):
@@ -704,7 +695,7 @@ class ForwardModel(object):
             else:
                 # the agent has not yet reached the goal
                 return [-0.1]
-        else:            
+        else:
             alive_agents = [num for num, agent in enumerate(agents) \
                             if agent.is_alive]
             if game_type == constants.GameType.FFA:
@@ -717,7 +708,7 @@ class ForwardModel(object):
                 else:
                     # Game running: 0 for alive, -1 for dead.
                     return [int(agent.is_alive) - 1 for agent in agents]
-        
+
             else:
                 # We are playing a team game.
                 if any_lst_equal(alive_agents, [[0, 2], [0], [2]]):

@@ -27,7 +27,7 @@ class BaseAgent:
     def init_agent(self, id, game_type):
         if self._is_initialized:
             self._character.set_agent_id(id)
-        else:        
+        else:
             self._character = self._character(id, game_type)
             self._is_initialized = True
 

@@ -33,9 +33,56 @@ class PommermanJSONEncoder(json.JSONEncoder):
             return [space.n for space in obj.spaces]
         return json.JSONEncoder.default(self, obj)
 
+def make_board_grid(size, num_rigid=0):
+    # TODO: when num_walls > 0 make sure the agent can reach the goal
+    """Make a random board with an agent, a goal and
+    a few rigid walls (optional).
+    The numbers refer to the GridItem enum in constants. This is:
+     0 - passage
+     1 - rigid wall
+     2 - goal
+     3 - agent
+    Args:
+      size: The dimension of the board, i.e. it's sizeXsize.
+      num_rigid: The number of rigid walls on the board.
+    Returns:
+      board: The resulting random board.
+    """
+    def lay_wall_grid(value, num_left, coordinates, board):
+        x, y = random.sample(coordinates, 1)[0]
+        coordinates.remove((x, y))
+        board[x, y] = value
+        num_left -= 1
+        return num_left
 
-def make_board(size, num_rigid=0, num_wood=0, single_agent_goal=False):
-    # TODO: create the board for single_agent_goal=True -- v4
+    def make_grid(size, num_rigid):
+        # Initialize everything as a passage.
+        board = np.ones(
+            (size, size)).astype(np.uint8) * constants.GridItem.Passage.value
+
+        # Gather all the possible coordinates to use for walls.
+        coordinates = set([
+            (x, y) for x, y in \
+            itertools.product(range(size), range(size))])
+
+        # Randomly pick the agent location. Exclude it from coordinates.
+        x = random.randint(0, size - 1)
+        y = random.randint(0, size - 1)
+        board[x, y] = constants.GridItem.Agent.value
+        agent_pos = (x, y)
+        coordinates.remove(agent_pos)
+
+        # Lay down the rigid walls.
+        while num_rigid > 0:
+            num_rigid = lay_wall_grid(constants.GridItem.Wall.value, num_rigid,
+                                 coordinates, board)
+        return board, agent_pos
+
+    board, agent_pos = make_grid(size, num_rigid)
+    return board
+
+
+def make_board(size, num_rigid=0, num_wood=0):
     """Make the random but symmetric board.
     The numbers refer to the Item enum in constants. This is:
      0 - passage
@@ -66,7 +113,7 @@ def make_board(size, num_rigid=0, num_wood=0, single_agent_goal=False):
         num_left -= 2
         return num_left
 
-    def make(size, num_rigid, num_wood, single_agent_goal):
+    def make(size, num_rigid, num_wood):
         # Initialize everything as a passage.
         board = np.ones(
             (size, size)).astype(np.uint8) * constants.Item.Passage.value
@@ -80,72 +127,58 @@ def make_board(size, num_rigid=0, num_wood=0, single_agent_goal=False):
         # Set the players down. Exclude them from coordinates.
         # Agent0 is in top left. Agent1 is in bottom left.
         # Agent2 is in bottom right. Agent 3 is in top right.
-        if not single_agent_goal:
-            board[1, 1] = constants.Item.Agent0.value
-            board[size - 2, 1] = constants.Item.Agent1.value
-            board[size - 2, size - 2] = constants.Item.Agent2.value
-            board[1, size - 2] = constants.Item.Agent3.value
-            agents = [(1, 1), (size - 2, 1), (1, size - 2), (size - 2, size - 2)]
-        else:
-            x = random.randint(0, size - 1)
-            y = random.randint(0, size - 1)
-            board[x, y] = constants.Item.Agent0.value
-            agents = [(x, y)]
+        board[1, 1] = constants.Item.Agent0.value
+        board[size - 2, 1] = constants.Item.Agent1.value
+        board[size - 2, size - 2] = constants.Item.Agent2.value
+        board[1, size - 2] = constants.Item.Agent3.value
+        agents = [(1, 1), (size - 2, 1), (1, size - 2), (size - 2, size - 2)]
         for position in agents:
             if position in coordinates:
                 coordinates.remove(position)
 
-        if not single_agent_goal:
-            # Exclude breathing room on either side of the agents.
-            for i in range(2, 4):
-                coordinates.remove((1, i))
-                coordinates.remove((i, 1))
-                coordinates.remove((1, size - i - 1))
-                coordinates.remove((size - i - 1, 1))
-                coordinates.remove((size - 2, size - i - 1))
-                coordinates.remove((size - i - 1, size - 2))
-                coordinates.remove((i, size - 2))
-                coordinates.remove((size - 2, i))
-        else:
-            # TODO: make sure there is a path from the agent to the goal
-            pass
+        # Exclude breathing room on either side of the agents.
+        for i in range(2, 4):
+            coordinates.remove((1, i))
+            coordinates.remove((i, 1))
+            coordinates.remove((1, size - i - 1))
+            coordinates.remove((size - i - 1, 1))
+            coordinates.remove((size - 2, size - i - 1))
+            coordinates.remove((size - i - 1, size - 2))
+            coordinates.remove((i, size - 2))
+            coordinates.remove((size - 2, i))
 
         # Lay down wooden walls providing guaranteed passage to other agents.
-        if not single_agent_goal:
-            wood = constants.Item.Wood.value
-            for i in range(4, size - 4):
-                board[1, i] = wood
-                board[size - i - 1, 1] = wood
-                board[size - 2, size - i - 1] = wood
-                board[size - i - 1, size - 2] = wood
-                coordinates.remove((1, i))
-                coordinates.remove((size - i - 1, 1))
-                coordinates.remove((size - 2, size - i - 1))
-                coordinates.remove((size - i - 1, size - 2))
-                num_wood -= 4
+        wood = constants.Item.Wood.value
+        for i in range(4, size - 4):
+            board[1, i] = wood
+            board[size - i - 1, 1] = wood
+            board[size - 2, size - i - 1] = wood
+            board[size - i - 1, size - 2] = wood
+            coordinates.remove((1, i))
+            coordinates.remove((size - i - 1, 1))
+            coordinates.remove((size - 2, size - i - 1))
+            coordinates.remove((size - i - 1, size - 2))
+            num_wood -= 4
 
         # Lay down the rigid walls.
         while num_rigid > 0:
             num_rigid = lay_wall(constants.Item.Rigid.value, num_rigid,
                                  coordinates, board)
 
-        if not single_agent_goal:
-            # Lay down the wooden walls.
-            while num_wood > 0:
-                num_wood = lay_wall(constants.Item.Wood.value, num_wood,
-                                    coordinates, board)
+        # Lay down the wooden walls.
+        while num_wood > 0:
+            num_wood = lay_wall(constants.Item.Wood.value, num_wood,
+                                coordinates, board)
 
         return board, agents
 
-    if not single_agent_goal: # TODO: do we need this for grid-v4 as well?
-        assert (num_rigid % 2 == 0)
-        assert (num_wood % 2 == 0)
-    board, agents = make(size, num_rigid, num_wood, single_agent_goal)
+    assert (num_rigid % 2 == 0)
+    assert (num_wood % 2 == 0)
+    board, agents = make(size, num_rigid, num_wood)
 
-    # TODO: should we keep this for v4 or not?
     # Make sure it's possible to reach most of the passages.
     while len(inaccessible_passages(board, agents)) > 4:
-        board, agents = make(size, num_rigid, num_wood, single_agent_goal)
+        board, agents = make(size, num_rigid, num_wood)
 
     return board
 
@@ -172,23 +205,11 @@ def make_goal(board):
     while True:
         row = random.randint(0, len(board) - 1)
         col = random.randint(0, len(board[0]) - 1)
-        if board[row, col] != constants.Item.Wood.value:
+        if board[row, col] != constants.GridItem.Agent.value \
+            and board[row, col] != constants.GridItem.Wall.value:
             return (row, col)
 
-    while num_items > 0:
-        row = random.randint(0, len(board) - 1)
-        col = random.randint(0, len(board[0]) - 1)
-        if board[row, col] != constants.Item.Wood.value:
-            continue
-        if (row, col) in item_positions:
-            continue
-
-        item_positions[(row, col)] = random.choice([
-            constants.Item.ExtraBomb, constants.Item.IncrRange,
-            constants.Item.Kick
-        ]).value
-        num_items -= 1
-    return item_positions
+    return (row, col)
 
 def inaccessible_passages(board, agent_positions):
     """Return inaccessible passages on this board."""

@@ -20,7 +20,7 @@ class Bomber(object):
         self.bomb_life = bomb_life
         if agent_id is not None:
             self.set_agent_id(agent_id)
-       
+
     def set_agent_id(self, agent_id):
         self.agent_id = agent_id
         if self._game_type == constants.GameType.FFA:
@@ -98,10 +98,11 @@ class Bomber(object):
 
 class Walker(Bomber):
     """Container to keep the agent state."""
+    # TODO: should we add a goal as argument?
+    def __init__(self, agent_id=None, game_type=None):
+        super(Walker, self).__init__(agent_id, game_type)
 
-    def __init__(self, *args, **kwargs):
-        super(Walker, self).__init__(*args, **kwargs)
-
+        print("characters game type ", game_type)
         self._game_type = game_type
         if agent_id is not None:
             self.set_agent_id(agent_id)
@@ -117,7 +118,7 @@ class Walker(Bomber):
 
     def reset(self, ammo=1, is_alive=True, blast_strength=None, can_kick=False):
         self.position = self.start_position
-        
+
     def to_json(self):
         # TODO: should we include goal_position here or not?
         return {

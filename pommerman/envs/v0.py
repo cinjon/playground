@@ -206,7 +206,7 @@ class Pomme(gym.Env):
         elif expert == 'ComplexAgent':
             return self.model.expert_act(self.complex_expert, obs,
                                          self.action_space)
-        
+
         elif expert == 'AstarAgent':
             return self.model.expert_act(self.astar_expert, obs,
                                          self.action_space)
@@ -300,7 +300,7 @@ class Pomme(gym.Env):
                 # (0, 64), (50, 128)
                 lb = self._uniform_v
                 ub = {
-                    64: 1, 128: 50, 
+                    64: 1, 128: 50,
                 }.get(lb)
                 minrange = max(0, step_count - lb)
                 maxrange = max(minrange + 1, step_count - ub)
@@ -349,7 +349,7 @@ class Pomme(gym.Env):
             while True:
                 if counter == 5:
                     raise
-                
+
                 game_state_file, step = get_game_state_file(directory, step_count)
                 counter += 1
                 try:
