@@ -167,9 +167,9 @@ class SubprocVecEnv(_VecEnv):
         self.remotes[0].send(('get_render_fps', None))
         self._render_fps = self.remotes[0].recv()
 
-    def render(self, record_pngs_dir=None, step=None):
-        self.remotes[0].send(('render', None))
-        frame = self.remotes[0].recv()
+    def render(self, record_pngs_dir=None, game_step_counts=None, num_env=0):
+        self.remotes[num_env].send(('render', None))
+        frame = self.remotes[num_env].recv()
         from PIL import Image
         from gym.envs.classic_control import rendering
         human_factor = 32
@@ -179,7 +179,8 @@ class SubprocVecEnv(_VecEnv):
         if self._viewer is None:
             self._viewer = rendering.SimpleImageViewer()
         self._viewer.imshow(img)
-        if record_pngs_dir and step is not None:
+        if record_pngs_dir and game_step_counts is not None:
+            step = game_step_counts[num_env]
             if not os.path.exists(record_pngs_dir):
                 os.makedirs(record_pngs_dir)
             im = Image.fromarray(img)

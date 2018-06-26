@@ -480,7 +480,6 @@ class ForwardModel(object):
 
         # Kill agents on flames. Otherwise, update position on curr_board.
         # if do_print:
-        # print("SELFBOMBING: ", selfbombing)c
         # print(exploded_causes)
         for agent in alive_agents:
             position = agent.position

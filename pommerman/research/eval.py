@@ -402,7 +402,7 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
             if done[0].all():
                 time.sleep(2)
             else:
-                envs.render()
+                envs.render(num_env=3)
 
         for num, done_ in enumerate(done):
             if done_.all():
