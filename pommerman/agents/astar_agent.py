@@ -26,7 +26,6 @@ class AstarAgent(BaseAgent):
 
     def act(self, obs, action_space):
         self.obs = obs  # single agent
-        print("##### obs #### \n", obs)
 
         # TODO: check these work as expected
         self._agent_pos = tuple(self.obs['position'])

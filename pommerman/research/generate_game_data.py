@@ -204,7 +204,6 @@ def save_endgame_info(directory, info):
 
 if __name__ == "__main__":
     args = get_args()
-    print("\n ###### args ######## \n ", args)
     obs_shape, action_space = env_helpers.get_env_shapes(args.config,
                                                          args.num_stack)
     agents, acting_agent_ids = build_agents(args.agents, obs_shape,

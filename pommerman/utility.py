@@ -196,7 +196,7 @@ def make_board_grid(size, num_rigid=0):
 
         # Randomly pick the goal location. Exclude it from coordinates
         x_g, y_g = random.sample(coordinates, 1)[0]
-        goal_pos = (y_g, x_g)
+        goal_pos = (x_g, y_g)
         board[x_g, y_g] = constants.GridItem.Goal.value
         coordinates.remove(goal_pos)
 
@@ -243,6 +243,32 @@ def is_valid_direction(board, position, direction, invalid_values=None):
     if invalid_values is None:
         invalid_values = [item.value for item in \
                           [constants.Item.Rigid, constants.Item.Wood]]
+
+    if constants.Action(direction) == constants.Action.Stop:
+        return True
+
+    if constants.Action(direction) == constants.Action.Up:
+        return row - 1 >= 0 and board[row - 1][col] not in invalid_values
+
+    if constants.Action(direction) == constants.Action.Down:
+        return row + 1 < len(board) and board[row +
+                                              1][col] not in invalid_values
+
+    if constants.Action(direction) == constants.Action.Left:
+        return col - 1 >= 0 and board[row][col - 1] not in invalid_values
+
+    if constants.Action(direction) == constants.Action.Right:
+        return col + 1 < len(board[0]) and \
+            board[row][col+1] not in invalid_values
+
+    raise constants.InvalidAction("We did not receive a valid direction: ",
+                                  direction)
+
+def is_valid_direction_grid(board, position, direction, invalid_values=None):
+    row, col = position
+    if invalid_values is None:
+        invalid_values = [item.value for item in \
+                          [constants.GridItem.Wall]]
 
     if constants.Action(direction) == constants.Action.Stop:
         return True
@@ -389,7 +415,8 @@ def get_next_position(position, direction):
         return (x - 1, y)
     elif direction == constants.Action.Stop:
         return (x, y)
-    raise constants.InvalidAction("We did not receive a valid direction: ", position, direction)
+    raise constants.InvalidAction("We did not receive a valid direction: ",
+                                   position, direction)
 
 
 def make_np_float(feature):

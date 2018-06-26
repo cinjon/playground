@@ -54,13 +54,12 @@ class Grid(PommeV0):
     def make_items(self):
         return
 
-    # def make_goal(self):
-    #     self._goal = utility.make_goal(self._board)
-
     def get_observations(self):
+        print("step count ", self._step_count)
         self.observations = self.model.get_observations_grid(
             self._board, self._agents, self._max_steps,
             step_count=self._step_count)
+        print("*****\n\n\n")
         return self.observations
 
     def _get_rewards(self):
@@ -187,19 +186,27 @@ class Grid(PommeV0):
         return self.model.act_grid(agents, obs, self.action_space)
 
     def step(self, actions):
-        result = self.model.step_grid(actions, self._board, self._agents)
+        # print("\n\n \n\n\n ######################## ")
+        # print("BEFORE board \n ", self._board)
+        # print("actions \n", actions)
+        results = self.model.step_grid(actions, self._board, self._agents)
+        self._board, self._agents = results[:2]
+        # print("AFTER board \n", self._board)
 
-        self._board = result
         # NOTE: this should be above calling the below functions since they
         # take the step_count to change obs etc., so step_count should be
         # updated before
         self._step_count += 1
 
-        done = self._get_done()
+        # NOTE: get_observations needs to be called before
+        # the others to change obs state!!
         obs = self.get_observations()
+        # print("obs ", obs)
+        done = self._get_done()
         reward = self._get_rewards()
         info = self._get_info(done, reward)
 
+        # print("\n\n\n################")
         # print("done ", done)
         # print("obs ", obs)
         # print("reward ", reward)

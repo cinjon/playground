@@ -197,16 +197,6 @@ class WrapPommeEval(gym.ObservationWrapper):
                 all_actions.insert(id, action)
 
         observation, reward, done, info = self.env.step(all_actions)
-        # print("\n")
-        # print("\n")
-        # print("########################")
-        # print("obs ", obs)
-        # print("all actions ", all_actions)
-        # print("obs after ", observation)
-        # print("reward ", reward)
-        # print("done ", done)
-        # print("info ", info)
-
         if self._how_train == 'astar' and done:
             self.env.clear_agent_obs()
         elif self._how_train != 'astar' and all(done):
