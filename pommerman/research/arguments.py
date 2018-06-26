@@ -82,6 +82,8 @@ def get_args():
                         help='added suffix for the model to use.')
     parser.add_argument('--reinforce-only', action='store_true', default=False,
                         help='train only with reinforce')
+    parser.add_argument('--eval-only', action='store_true', default=False,
+                        help='run train script but only do eval.')
     parser.add_argument('--add-nonlin-valhead', action='store_true', default=False,
                         help='add nonlinearity to value head')
     parser.add_argument('--batch-size', type=int, default=5120,

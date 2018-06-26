@@ -95,7 +95,7 @@ class AstarAgent(BaseAgent):
 
     def _agent_move_func(self, loc):
         # TODO: add constraint that the agent cannot
-        # move on location with wall
+        # move on location with wal
         '''
         Returns all the locations the agent can move to
         from its current position: up, down, east, west.

@@ -313,7 +313,11 @@ class WrapPomme(gym.ObservationWrapper):
             self._how_train == 'astar':
             obs = self.env.get_observations()
             all_actions = self.env.act(obs)
-            all_actions.insert(self.env.training_agents[0], actions)
+            if type(actions) == list:
+                for agent_id, action in zip(self.env.training_agents, actions):
+                    all_actions.insert(agent_id, action)
+            else:
+                all_actions.insert(self.env.training_agents[0], actions)
         elif self._how_train == 'homogenous':
             all_actions = actions
         elif self._how_train == 'qmix':

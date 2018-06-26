@@ -55,9 +55,9 @@ class ComplexAgent(BaseAgent):
         self._mcts = MCTSAgentExploit(board_size=self._board_size)
 
     def act(self, obs, action_space):
-        print("##### obs #### \n", obs)
-        print("pos ", tuple(obs['position']))
-        print("\n\n\n")
+        # print("##### obs #### \n", obs)
+        # print("pos ", tuple(obs['position']))
+        # print("\n\n\n")
 
         def convert_bombs(strength_map, life_map):
             ret = []
@@ -183,8 +183,8 @@ class ComplexAgent(BaseAgent):
                 self._prev_position = self.my_position
                 # print(self.board)
                 # print("Safe prev direction", direction)
-                if verbose:
-                    print("146", direction.value)
+                # if verbose:
+                    # print("146", direction.value)
                 return direction.value
             else:
                 self._closest_safe_positions = ()
@@ -197,8 +197,8 @@ class ComplexAgent(BaseAgent):
             Evd = self.EvaderAction()
         elif self.AttackerCondition():
             Att = self.AttackerAction()
-            if verbose:
-                print("ATTACK ACTION", Att)
+            # if verbose:
+            #     print("ATTACK ACTION", Att)
             if Att == 5 and not self._maybe_bomb(
                     self.ammo, self.blast_strength, self.items, self.dist,
                     self.my_position, self.board, self.prev, self.enemies,
