@@ -20,10 +20,12 @@ class AstarAgent(BaseAgent):
 
     def __init__(self, character=characters.Walker, *args, **kwargs):
         #TODO: do we need args kwargs below?
-        super(AstarAgent, self).__init__(character) #, *args, **kwargs)
+        super(AstarAgent, self).__init__(character, *args, **kwargs)
+
+        self.is_simple_agent = True
 
     def act(self, obs, action_space):
-        self.obs = obs[0]  # single agent
+        self.obs = obs  # single agent
 
         # TODO: check these work as expected
         self._agent_pos = tuple(self.obs['position'])

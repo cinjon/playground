@@ -53,8 +53,8 @@ class Grid(PommeV0):
     def make_items(self):
         return
 
-    def make_goal(self):
-        self._goal = utility.make_goal(self._board)
+    # def make_goal(self):
+    #     self._goal = utility.make_goal(self._board)
 
     def get_observations(self):
         self.observations = self.model.get_observations_grid(
@@ -69,24 +69,20 @@ class Grid(PommeV0):
         """
         agent_pos = self.observations['position']
         goal_pos = self.observations['goal_position']
-        rewards = self.model.get_rewards(self._agents, self._game_type,
-                                         self._step_count, self._max_steps,
-                                         agent_pos, goal_pos)
+        rewards = self.model.get_rewards_grid(agent_pos, goal_pos)
+
         return rewards
 
     def _get_done(self):
         agent_pos = self.observations['position']
         goal_pos = self.observations['goal_position']
-        return self.model.get_done(self._agents, self._step_count,
-                                   self._max_steps, self._game_type,
-                                   self.training_agents, all_agents=True,
-                                   agent_pos=agent_pos, goal_pos=goal_pos)
+        return self.model.get_done_grid(agent_pos, goal_pos,
+                                        self._step_count, self._max_steps)
 
     def _get_info(self, done, rewards):
         agent_pos = self.observations['position']
         goal_pos = self.observations['goal_position']
-        ret = self.model.get_info(done, rewards, self._game_type, self._agents,
-                                  self.training_agents, agent_pos, goal_pos)
+        ret = self.model.get_info_grid(done, agent_pos, goal_pos)
         ret['step_count'] = self._step_count
         if hasattr(self, '_game_state_step_start'):
             ret['game_state_step_start'] = self._game_state_step_start
@@ -159,8 +155,6 @@ class Grid(PommeV0):
         elif self._init_game_state is not None:
             self.set_json_info()
 
-
-
         else: # TODO: where and how
             # to set the initial position of the goal??
             self._step_count = 0
@@ -183,12 +177,10 @@ class Grid(PommeV0):
         return self.get_observations()
 
     def step(self, actions):
-        result = self.model.step(actions, self._board, self._agents,
-                                 self._bombs, self._items, self._flames,
-                                 max_blast_strength=max_blast_strength,
-                                 selfbombing=self._selfbombing, do_print=self.rank == 0)
-        self._board, self._agents, self._bombs = result[:2]
-        self._goal = result[-1]
+        result = self.model.step_grid(actions, self._board, self._agents,
+                                      do_print=self.rank == 0)
+
+        self._board = result
         # NOTE: this should be above calling the below functions since they
         # take the step_count to change obs etc., so step_count should be
         # updated before
@@ -199,10 +191,16 @@ class Grid(PommeV0):
         reward = self._get_rewards()
         info = self._get_info(done, reward)
 
+        print("done ", done)
+        print("obs ", obs)
+        print("reward ", reward)
+        print("info ", info)
+
         return obs, reward, done, info
 
     @staticmethod
     def featurize(obs):
+        print("FEATURIZE")
         board = obs["board"].reshape(-1).astype(np.float32)
         position = utility.make_np_float(obs["position"])
         goal_position = utility.make_np_float(obs["goal_position"])

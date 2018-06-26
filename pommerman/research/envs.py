@@ -40,10 +40,9 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
     Returns a callable to instantiate an environment fit for our PPO training
       purposes.
     """
-    # NOTE: Changed this from SimpleAgent.
     simple_agent = pommerman.agents.SimpleAgent
     complex_agent = pommerman.agents.ComplexAgent
-    # astar_agent = pommerman.agents.AstarAgent
+    astar_agent = pommerman.agents.AstarAgent
 
     def _thunk():
         if how_train == 'dummy':
@@ -69,7 +68,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             agents.insert(training_agent_ids[0], training_agents[0])
             agents.insert(training_agent_ids[1], training_agents[1])
         elif how_train == 'astar':
-            agents = astar_agent()
+            agents = [astar_agent()]
             training_agent_ids = []
         else:
             raise
@@ -140,7 +139,7 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
 
 def make_eval_envs(config, how_train, seed, agents, training_agent_ids,
                    acting_agent_ids, num_stack, num_processes,
-                   state_directory=None, state_directory_distribution=None):     
+                   state_directory=None, state_directory_distribution=None):
     envs = [
         _make_eval_env(
             config=config, how_train=how_train, seed=seed, rank=rank,
@@ -155,9 +154,14 @@ def make_eval_envs(config, how_train, seed, agents, training_agent_ids,
 
 
 def get_env_shapes(config, num_stack):
-    dummy_env = _make_train_env(config=config, how_train='dummy', seed=None,
-                                rank=-1, game_state_file=None,
-                                training_agents=[], num_stack=num_stack)()
+    if config == GameType.Grid:
+        dummy_env = _make_train_env(config=config, how_train='astar', seed=None,
+                                    rank=-1, game_state_file=None,
+                                    training_agents=[], num_stack=num_stack)()
+    else:
+        dummy_env = _make_train_env(config=config, how_train='dummy', seed=None,
+                                    rank=-1, game_state_file=None,
+                                    training_agents=[], num_stack=num_stack)()
     envs_shape = dummy_env.observation_space.shape[1:]
     obs_shape = (envs_shape[0], *envs_shape[1:])
     action_space = dummy_env.action_space
@@ -172,7 +176,14 @@ class WrapPommeEval(gym.ObservationWrapper):
         self.render_fps = env.render_fps
 
     def step(self, actions):
-        if self._how_train == 'simple' or self._how_train == 'dagger':
+        if self._how_train == 'simple' or self._how_train == 'dagger' \
+            or self._how_train == 'astar':
+
+            print("\n ###### STEP ###### \n")
+            print("how train ", self._how_train)
+            print("acting agent ids ", self._acting_agent_ids)
+            print("training agents ", self.env.training_agents)
+
             obs = self.env.get_observations()
             all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
             training_agents = self.env.training_agents
@@ -181,6 +192,7 @@ class WrapPommeEval(gym.ObservationWrapper):
                 for training_agent, action in zip(training_agents, actions):
                     all_actions.insert(training_agent, action)
                 # print("ALL ACTS AFT: ", all_actions)
+
         elif self._how_train == 'homogenous':
             all_actions = actions
         elif self._how_train == 'qmix':
@@ -286,7 +298,8 @@ class WrapPomme(gym.ObservationWrapper):
         return self.env._game_type
 
     def step(self, actions):
-        if self._how_train == 'simple' or self._how_train == 'dagger':
+        if self._how_train == 'simple' or self._how_train == 'dagger' or \
+            self._how_train == 'astar':
             obs = self.env.get_observations()
             all_actions = self.env.act(obs)
             all_actions.insert(self.env.training_agents[0], actions)

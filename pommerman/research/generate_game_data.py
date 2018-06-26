@@ -4,6 +4,11 @@ On Cpu:
 python generate_game_data.py --agents=complex::null,complex::null,complex::null,complex::null \
   --config=PommeFFACompetition-v0 --num-episodes=10 --num-processes=12 \
   --record-json-dir=/path/to/json/dir --seed=<insert seed>
+
+For Grid envs:
+python generate_game_data.py --agents=astar::null --config=Grid-v4 --num-episodes=10 \
+--num-processes=2 --num-stack=1   --record-json-dir=/path/to/json/dir --seed=<insert seed>
+--how-train astar
 """
 import json
 import os
@@ -71,11 +76,13 @@ def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
 
 def build_agents(agents, obs_shape, action_space, args):
     agents = agents.split(',')
+
     agents = [_build(_get_info(agent, args), obs_shape, action_space,
                      args.cuda, args.cuda_device, args.model_str)
                for agent in agents]
     acting_agent_ids = [num for num, agent in enumerate(agents) \
                         if not agent.is_simple_agent]
+
     return agents, acting_agent_ids
 
 
@@ -99,6 +106,7 @@ def generate(args, agents, action_space, acting_agent_ids):
     record_json_dir = args.record_json_dir
     num_episodes = args.num_episodes
     init_num_episodes = args.num_episodes
+
 
     if record_json_dir and not os.path.exists(record_json_dir):
         os.makedirs(record_json_dir)
@@ -133,8 +141,10 @@ def generate(args, agents, action_space, acting_agent_ids):
             agent_obs = [o[num_action] for o in obs]
             agent_actions = agents[acting_agent_id].act(agent_obs, action_space)
             for num_process in range(num_processes):
-                actions[num_process][num_action] = agent_actions[num_process]
+                actions[num_procress][num_action] = agent_actions[num_process]
 
+        # TODO: check that this works as expected for grid
+        # import pdb; pdb.set_trace()
         obs, reward, done, info = envs.step(actions)
         for process_dir in process_dirs:
             directory = os.path.join(record_json_dir, '%d' % process_dir)
@@ -149,6 +159,7 @@ def generate(args, agents, action_space, acting_agent_ids):
             else:
                 envs.render()
 
+        # TODO: check that info, done, step, reset work well !!
         for num, done_ in enumerate(done):
             if done_.all():
                 directory = os.path.join(record_json_dir, '%d' % process_dirs[num])
@@ -194,10 +205,12 @@ def save_endgame_info(directory, info):
 
 if __name__ == "__main__":
     args = get_args()
+    print("\n ###### args ######## \n ", args)
     obs_shape, action_space = env_helpers.get_env_shapes(args.config,
                                                          args.num_stack)
     agents, acting_agent_ids = build_agents(args.agents, obs_shape,
                                             action_space, args)
+
     print("Generating data for agents %s..." % args.agents)
     generate(args, agents, action_space, acting_agent_ids)
     print("Completed.")

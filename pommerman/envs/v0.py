@@ -206,7 +206,6 @@ class Pomme(gym.Env):
         elif expert == 'ComplexAgent':
             return self.model.expert_act(self.complex_expert, obs,
                                          self.action_space)
-
         elif expert == 'AstarAgent':
             return self.model.expert_act(self.astar_expert, obs,
                                          self.action_space)
