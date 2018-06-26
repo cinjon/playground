@@ -188,8 +188,11 @@ class Grid(PommeV0):
         # print("BEFORE board \n ", self._board)
         # print("actions \n", actions)
         results = self.model.step_grid(actions, self._board, self._agents)
+
+        print("results ", results)
         self._board, self._agents = results[:2]
-        # print("AFTER board \n", self._board)
+        print("AFTER board \n", self._board)
+        print("AFTER agetsn \n", self._agents)
 
         # NOTE: this should be above calling the below functions since they
         # take the step_count to change obs etc., so step_count should be

@@ -549,7 +549,7 @@ class ForwardModel(object):
             curr_board[x_next, y_next] = constants.GridItem.Agent.value
 
         print("board after ", curr_board)
-        return curr_board
+        return curr_board, curr_agents
 
     def get_observations(self, curr_board, agents, bombs,
                          is_partially_observable, agent_view_size,
@@ -611,20 +611,32 @@ class ForwardModel(object):
 
         return observations
 
-    def get_observations_grid(self, curr_board, agents,
-                              max_steps, step_count=None):
+    def get_observations_grid(self, curr_board, agents, max_steps, step_count=None):
+        # TODO: make this function more elegant please
+        # make it so that it uses the agent's attributes
         """Gets the observations as an np.array of the visible squares."""
 
-        board_size = len(curr_board)
-        attrs = ['position', 'goal_position', 'step']
-
-        board = curr_board
         observations = []
-        agent_obs = {'board': board}
+        agent_obs = {'board': curr_board}
 
-        for attr in attrs:
-            assert hasattr(agents[0], attr)
-            agent_obs[attr] = getattr(agents[0], attr)
+        pos_agent = np.where(curr_board == constants.GridItem.Agent.value)
+        row_agent = pos_agent[0][0]
+        col_agent = pos_agent[1][0]
+        agent_obs['position'] = (row_agent, col_agent)
+
+        pos_goal = np.where(curr_board == constants.GridItem.Goal.value)
+        # TODO: find something less hacky
+        if pos_goal:
+            row_goal = pos_goal[0][0]
+            col_goal = pos_goal[1][0]
+            agent_obs['goal_position'] = (row_goal, col_goal)
+        else:
+            agent_obs['goal_position'] = agents[0]._goal_pos
+
+
+        if step_count is not None:
+            agent_obs['step'] = step_count
+
         observations.append(agent_obs)
 
         return observations
