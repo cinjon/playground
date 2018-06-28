@@ -350,7 +350,12 @@ class Pomme(gym.Env):
                 step = random.choice(range(min(self._uniform_v, step_count - 1)))
             else:
                 raise
-            return os.path.join(directory, '%d.json' % step), step
+
+            print("DIRE", directory)
+            if 'grid' in directory:
+                return os.path.join(directory, '%0d.json' % step), step
+            else:
+                return os.path.join(directory, '%d.json' % step), step
 
         if hasattr(self, '_applicable_games') and self._applicable_games:
             directory, step_count = random.choice(self._applicable_games)

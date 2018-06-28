@@ -110,6 +110,7 @@ def train():
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
         item_reward=args.item_reward, use_second_place=args.use_second_place
     )
+    print("TRAIN ENVS")
 
     uniform_v = None
     running_success_rate = []
@@ -307,6 +308,7 @@ def train():
     init_kl_factor = args.init_kl_factor
     distill_expert = args.distill_expert
 
+    print("111")
     if distill_expert is not None:
         assert(distill_epochs > training_agents[0].num_epoch), \
         "If you are distilling, distill_epochs > trianing_agents[0].num_epoch."
@@ -433,7 +435,7 @@ def train():
         raise ValueError("Only Simple and Homogenous training regimes have been \
             implemented.")
     onehot_dim = len(expert_actions_onehot.shape) - 1
-
+    print("222")
 
     # NOTE: only works for how_train simple because we assume training_ids
     # has a single element
@@ -481,9 +483,9 @@ def train():
         expert_actions_onehot.scatter_(onehot_dim, actions_tensor, 1)
 
     # Start the environment and set the current_obs appropriately.
-
+    print("333")
     current_obs = update_current_obs(envs.reset())
-
+    print("444")
     if how_train == 'simple' or how_train == 'homogenous':
         # NOTE: Here, we put the first observation into the rollouts.
         training_agents[0].update_rollouts(obs=current_obs, timestep=0)
@@ -510,6 +512,7 @@ def train():
     bomb_penalty_lambda = 1.0
 
     for num_epoch in range(start_epoch, num_epochs):
+        print("NUM ECPO: ", num_epoch)
         if num_epoch >= args.begin_selfbombing_epoch:
             envs.enable_selfbombing()
 
@@ -579,12 +582,15 @@ def train():
             with utility.Timer() as t:
                 obs, reward, done, info = envs.step(cpu_actions_agents)
 
+            print(obs, reward, done, info)
+
             reward = reward.astype(np.float)
             update_stats(info)
             game_ended = np.array([done_.all() for done_ in done])
             for num_process, ended_ in enumerate(game_ended):
                 game_step_counts[num_process] += 1
                 if ended_:
+                    print("ENDD!")
                     running_total_game_step_counts.append(
                         game_step_counts[num_process])
                     game_step_counts[num_process] = 0
