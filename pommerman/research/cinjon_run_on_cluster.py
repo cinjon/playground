@@ -2235,25 +2235,53 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
                     
                     
 ### This is using the 2nd place agent as the expert. They were there to the end, but received a -1 at the end.
+# job = {
+#     "how-train": "simple",  "log-interval": 2500, "save-interval": 25,
+#     "log-dir": os.path.join(directory, "logs-bsfxusp"), "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 60, "gamma": 1.0, "batch-size": 102400, "num-mini-batch": 20,
+#     "num-frames": 2000000000, "use-second-place": ""
+# }
+# counter = 0
+# for learning_rate in [1e-4, 3e-4]:
+#     for (name, distro) in [
+#             ("uBnG", "uniformBoundsG"), #50
+#             ("uBnK", "uniformBoundsK"), #40
+#     ]:
+#         for numgames in [4]:
+#             for itemreward in [0, .1]:
+#                 for seed in [1, 2]:
+#                     j = {k:v for k,v in job.items()}
+#                     j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex-2nd/train" % numgames)
+#                     j["run-name"] = "bsfxusp-%s-%d" % (name, counter)
+#                     if itemreward:
+#                         j["item-reward"] = itemreward
+#                     j["seed"] = seed
+#                     j["state-directory-distribution"] = distro
+#                     j["lr"] = learning_rate
+#                     train_ppo_job(j, j["run-name"], is_fb=True)
+#                     counter += 1
+
+
+### Same as two above with 100 games, but here we use an epoch change of 85.
 job = {
     "how-train": "simple",  "log-interval": 2500, "save-interval": 25,
-    "log-dir": os.path.join(directory, "logs-bsfxusp"), "save-dir": os.path.join(directory, "models"),
+    "log-dir": os.path.join(directory, "logs-bsfx100"), "save-dir": os.path.join(directory, "models"),
     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
     "num-processes": 60, "gamma": 1.0, "batch-size": 102400, "num-mini-batch": 20,
-    "num-frames": 2000000000, "use-second-place": ""
+    "num-frames": 2000000000,
 }
 counter = 0
-for learning_rate in [1e-4, 3e-4]:
+for learning_rate in [3e-4]:
     for (name, distro) in [
-            ("uBnG", "uniformBoundsG"), #50
-            ("uBnK", "uniformBoundsK"), #40
+            ("uBnL", "uniformBoundsL"), #85
     ]:
-        for numgames in [4]:
+        for numgames in [100]:
             for itemreward in [0, .1]:
                 for seed in [1, 2]:
                     j = {k:v for k,v in job.items()}
-                    j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex-2nd/train" % numgames)
-                    j["run-name"] = "bsfxusp-%s-%d" % (name, counter)
+                    j["state-directory"] = os.path.join(directory, "ffacompetition%d-s100-complex/train" % numgames)
+                    j["run-name"] = "100bds-%s-%d" % (name, counter)
                     if itemreward:
                         j["item-reward"] = itemreward
                     j["seed"] = seed
