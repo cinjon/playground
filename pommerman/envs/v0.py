@@ -132,25 +132,26 @@ class Pomme(gym.Env):
         self._game_state_distribution = distribution
         self._applicable_games = []
         if self._init_game_state_directory:
-            for directory in os.listdir(self._init_game_state_directory):
-                path = os.path.join(self._init_game_state_directory, directory)
+            for subdir in os.listdir(self._init_game_state_directory):
+                path = os.path.join(self._init_game_state_directory, subdir)
                 endgame_file = os.path.join(path, 'endgame.json')
                 with open(endgame_file, 'r') as f:
                     endgame = json.loads(f.read())
-                    if use_second_place:
-                        players = endgame['second']
-                    else:
-                        players = endgame['winners']
-                    # An agent must be represented in the players.
-                    if not any([agent in players
-                                for agent in self.training_agents]):
-                        continue
+                    if 'grid' not in path:
+                        if use_second_place:
+                            players = endgame['second']
+                        else:
+                            players = endgame['winners']
+                        # An agent must be represented in the players.
+                        if not any([agent in players
+                                    for agent in self.training_agents]):
+                            continue
 
-                    # An agent must be alive.
-                    alive = endgame.get('alive', self.training_agents)
-                    if len(players) == 2 and not any([
-                            agent in alive for agent in self.training_agents]):
-                        continue
+                        # An agent must be alive.
+                        alive = endgame.get('alive', self.training_agents)
+                        if len(players) == 2 and not any([
+                                agent in alive for agent in self.training_agents]):
+                            continue
 
                     step_count = endgame['step_count']
                     self._applicable_games.append((path, step_count))

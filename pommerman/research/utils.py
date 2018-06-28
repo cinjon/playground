@@ -467,6 +467,8 @@ def validate_how_train(args):
         assert(nagents > 1), s
         print("Heterogenous training is not implemented yet.")
         return None
+    elif how_train == 'astar':
+        return 1
 
 
 def torch_numpy_stack(value, data=True):
