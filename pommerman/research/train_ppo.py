@@ -364,7 +364,6 @@ def train():
     start_epoch = training_agents[0].num_epoch
     total_steps = training_agents[0].total_steps
     num_episodes = training_agents[0].num_episodes
-    print("STAR: ", start_epoch, total_steps, num_episodes)
     if training_agents[0].uniform_v is not None:
         print("UNFIROM V IS NOT NONE")
         uniform_v = training_agents[0].uniform_v
