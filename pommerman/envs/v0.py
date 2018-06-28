@@ -127,7 +127,7 @@ class Pomme(gym.Env):
     def set_uniform_v(self, v):
         self._uniform_v = v
 
-    def set_state_directory(self, directory, distribution):
+    def set_state_directory(self, directory, distribution, use_second_place=False):
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
         self._applicable_games = []
@@ -137,22 +137,28 @@ class Pomme(gym.Env):
                 endgame_file = os.path.join(path, 'endgame.json')
                 with open(endgame_file, 'r') as f:
                     endgame = json.loads(f.read())
-                    winners = endgame['winners']
-                    # An agent must be represented in the winners.
-                    if not any([agent in winners
+                    if use_second_place:
+                        players = endgame['second']
+                    else:
+                        players = endgame['winners']
+                    # An agent must be represented in the players.
+                    if not any([agent in players
                                 for agent in self.training_agents]):
                         continue
 
                     # An agent must be alive.
                     alive = endgame.get('alive', self.training_agents)
-                    if len(winners) == 2 and not any([
+                    if len(players) == 2 and not any([
                             agent in alive for agent in self.training_agents]):
                         continue
 
                     step_count = endgame['step_count']
                     self._applicable_games.append((path, step_count))
-            print("Environment has %d applicable games." % \
-                  len(self._applicable_games), self._applicable_games)
+            print("PRINT Environment has %d applicable games." % \
+                  len(self._applicable_games), self._applicable_games, " --> rank --> ", self.rank)
+            logging.warn("LOG Environment has %d applicable games." % \
+                         len(self._applicable_games), self._applicable_games,
+                         " --> rank --> ", self.rank)
 
     def set_init_game_state(self, game_state_file):
         """Set the initial game state.
@@ -239,6 +245,7 @@ class Pomme(gym.Env):
         ret['step_count'] = self._step_count
         if hasattr(self, '_game_state_step_start'):
             ret['game_state_step_start'] = self._game_state_step_start
+            ret['game_state_step_start_beg'] = self._game_state_step_start_beg
         return ret
 
     def reset(self):
@@ -355,6 +362,7 @@ class Pomme(gym.Env):
                     while not os.path.exists(game_state_file):
                         game_state_file, step = get_game_state_file(directory, step_count)
                     self._game_state_step_start = step_count - step + 1
+                    self._game_state_step_start_beg = step
                     with open(game_state_file, 'r') as f:
                         self.set_json_info(json.loads(f.read()))
                     break

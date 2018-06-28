@@ -17,7 +17,8 @@ from pommerman.constants import GameType
 def _make_train_env(config, how_train, seed, rank, game_state_file,
                     training_agents, num_stack, do_filter_team=True,
                     state_directory=None, state_directory_distribution=None,
-                    step_loss=None, bomb_reward=None, item_reward=None):
+                    step_loss=None, bomb_reward=None, item_reward=None,
+                    use_second_place=False):
     """Makes an environment callable for multithreading purposes.
     Args:
       config: See the arguments module's config options.
@@ -82,7 +83,8 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         env.rank = rank
 
         env.set_training_agents(training_agent_ids)
-        env.set_state_directory(state_directory, state_directory_distribution)
+        env.set_state_directory(state_directory, state_directory_distribution,
+                                use_second_place=use_second_place)
         env.set_reward_shaping(step_loss, bomb_reward, item_reward)
 
         env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
@@ -124,7 +126,8 @@ def _make_eval_env(config, how_train, seed, rank, agents, training_agent_ids,
 def make_train_envs(config, how_train, seed, game_state_file, training_agents,
                     num_stack, num_processes, do_filter_team=True,
                     state_directory=None, state_directory_distribution=None,
-                    step_loss=None, bomb_reward=None, item_reward=None):
+                    step_loss=None, bomb_reward=None, item_reward=None,
+                    use_second_place=False):
     envs = [
         _make_train_env(
             config=config, how_train=how_train, seed=seed, rank=rank,
@@ -132,7 +135,8 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
             num_stack=num_stack, do_filter_team=do_filter_team,
             state_directory=state_directory,
             state_directory_distribution=state_directory_distribution,
-            step_loss=step_loss, bomb_reward=bomb_reward, item_reward=item_reward
+            step_loss=step_loss, bomb_reward=bomb_reward, item_reward=item_reward,
+            use_second_place=use_second_place
         )
         for rank in range(num_processes)
     ]

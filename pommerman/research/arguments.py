@@ -84,6 +84,8 @@ def get_args():
                         help='train only with reinforce')
     parser.add_argument('--eval-only', action='store_true', default=False,
                         help='run train script but only do eval.')
+    parser.add_argument('--use-second-place', action='store_true', default=False,
+                        help='whether we run from 2nd place instead of 1st.')
     parser.add_argument('--add-nonlin-valhead', action='store_true', default=False,
                         help='add nonlinearity to value head')
     parser.add_argument('--batch-size', type=int, default=5120,

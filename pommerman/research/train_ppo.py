@@ -100,13 +100,15 @@ def train():
         suffix += ".abpe%d" % args.anneal_bomb_penalty_epochs
     if args.item_reward:
         suffix += ".itemrew%.3f" % args.item_reward
+    if args.use_second_place:
+        suffix += ".usp"
 
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
         num_stack, num_processes, state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution,
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
-        item_reward=args.item_reward
+        item_reward=args.item_reward, use_second_place=args.use_second_place
     )
 
     uniform_v = None
@@ -212,6 +214,24 @@ def train():
         uniform_v = 32
         uniform_v_factor = 2
         uniform_v_incr = 100
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsI':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 150
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsJ':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 75
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsK':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 40
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'uniformForwardA':
@@ -353,6 +373,8 @@ def train():
             
     start_step_wins = defaultdict(int)
     start_step_all = defaultdict(int)
+    start_step_wins_beg = defaultdict(int)
+    start_step_all_beg = defaultdict(int)
 
     running_num_episodes = 0
     cumulative_reward = 0
@@ -720,6 +742,8 @@ def train():
             win, alive_win = get_win_alive(info, envs)
             game_state_start_steps = np.array([
                 info_.get('game_state_step_start') for info_ in info])
+            game_state_start_steps_beg = np.array([
+                info_.get('game_state_step_start_beg') for info_ in info])
 
             if args.render:
                 envs.render(args.record_pngs_dir, game_step_counts, num_env=3)
@@ -781,9 +805,11 @@ def train():
                 success_rate += sum([int(s) for s in \
                                      ((game_ended == True) &
                                       (win == True))])
-                if any([done_ for done_ in done]):
+                if args.eval_only and any([done_ for done_ in done]):
                     print("Num completed %d --> %d success." % (
                         running_num_episodes, success_rate))
+                    if running_num_episodes >= 1000:
+                        raise
 
                 ### NOTE: Use the below if you want to make a game video of just
                 ### the first successful game.
@@ -794,12 +820,14 @@ def train():
                 #     print("DEL THAT SHIT")
                 #     os.rmdir(args.record_pngs_dir)
 
-                for e, w, ss in zip(game_ended, win, game_state_start_steps):
-                    if not e or ss is None:
+                for e, w, ss, sb in zip(game_ended, win, game_state_start_steps, game_state_start_steps_beg):
+                    if not e or ss is None or sb is None:
                         continue
                     if w:
                         start_step_wins[ss] += 1
+                        start_step_wins_beg[sb] += 1                        
                     start_step_all[ss] += 1
+                    start_step_all_beg[sb] += 1                    
 
             elif how_train == 'homogenous':
                 # We have to clear any observations from done so that the stacks are pure.
@@ -1059,6 +1087,8 @@ def train():
 
             start_step_ratios = {k:1.0 * start_step_wins.get(k, 0) / v
                                  for k, v in start_step_all.items()}
+            start_step_beg_ratios = {k:1.0 * start_step_wins_beg.get(k, 0) / v
+                                     for k, v in start_step_all_beg.items()}
 
             utils.log_to_console(num_epoch, num_episodes, total_steps,
                                  steps_per_sec, epochs_per_sec, final_rewards,
@@ -1068,7 +1098,7 @@ def train():
                                  success_rate_alive, running_num_episodes,
                                  mean_total_loss, mean_kl_loss, mean_pg_loss,
                                  distill_factor, args.reinforce_only,
-                                 start_step_ratios)
+                                 start_step_ratios, start_step_beg_ratios)
 
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
@@ -1083,6 +1113,7 @@ def train():
                                      mean_kl_loss, mean_pg_loss, lr,
                                      distill_factor, args.reinforce_only,
                                      start_step_ratios, start_step_all,
+                                     start_step_beg_ratios, start_step_all_beg,
                                      bomb_penalty_lambda,
                                      np.array(action_choices),
                                      np.array(action_probs), uniform_v,
@@ -1091,6 +1122,8 @@ def train():
 
             start_step_all = defaultdict(int)
             start_step_wins = defaultdict(int)
+            start_step_all_beg = defaultdict(int)
+            start_step_wins_beg = defaultdict(int)
             
             if args.state_directory_distribution == 'uniformAdapt':
                 rate_ = 1.0 * success_rate / running_num_episodes
