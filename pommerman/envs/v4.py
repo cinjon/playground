@@ -26,6 +26,7 @@ import numpy as np
 from .. import utility
 import random
 import json
+import os
 
 
 class Grid(PommeV0):

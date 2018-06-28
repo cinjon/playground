@@ -155,8 +155,10 @@ class Pomme(gym.Env):
 
                     step_count = endgame['step_count']
                     self._applicable_games.append((path, step_count))
-            # print("PRINT Environment has %d applicable games." % \
-            #       len(self._applicable_games), self._applicable_games, " --> rank --> ", self.rank)
+            print("PRINT Environment has %d applicable games --> rank %d." % (
+                len(self._applicable_games), self.rank))
+            if len(self._applicable_games) < 5:
+                print(self._applicable_games)
             # logging.warn("LOG Environment has %d applicable games --> rank %d" % (
             #              len(self._applicable_games), self.rank))
             # logging.warn(self._applicable_games)
