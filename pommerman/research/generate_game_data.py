@@ -165,7 +165,7 @@ def generate(args, agents, action_space, acting_agent_ids):
                 winners = info_.get('winners', [])
                 if any([result != pommerman.constants.Result.Win,
                         'Grid' not in args.config and not winners,
-                        info_['step_count'] < 35]):
+                        info_['step_count'] < 240]):
                     delete_data(directory)
                 else:
                     save_endgame_info(directory, info_)
