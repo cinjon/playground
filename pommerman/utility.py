@@ -152,23 +152,24 @@ def make_items(board, num_items):
         num_items -= 1
     return item_positions
 
+
 def make_board_grid(size, num_rigid=0):
     # TODO: when num_walls > 0 make sure the agent can reach the goal
     """Make a random board with an agent, a goal and
     a few rigid walls (optional).
+
     The numbers refer to the GridItem enum in constants. This is:
      0 - passage
      1 - rigid wall
      2 - goal
      3 - agent
+
     Args:
       size: The dimension of the board, i.e. it's sizeXsize.
       num_rigid: The number of rigid walls on the board.
+
     Returns:
       board: The resulting random board.
-     OBS: pos = (x, y) where
-        x increases downwards and
-        y increases rightwards
     """
     def lay_wall_grid(value, num_left, coordinates, board):
         x, y = random.sample(coordinates, 1)[0]
@@ -179,8 +180,8 @@ def make_board_grid(size, num_rigid=0):
 
     def make_grid(size, num_rigid):
         # Initialize everything as a passage.
-        board = np.ones(
-            (size, size)).astype(np.uint8) * constants.GridItem.Passage.value
+        board = np.full((size, size), constants.GridItem.Passage.value) \
+                  .astype(np.uint8)
 
         # Gather all the possible coordinates to use for walls.
         coordinates = set([
@@ -203,11 +204,50 @@ def make_board_grid(size, num_rigid=0):
         # Lay down the rigid walls.
         while num_rigid > 0:
             num_rigid = lay_wall_grid(constants.GridItem.Wall.value, num_rigid,
-                                 coordinates, board)
+                                      coordinates, board)
         return board, agent_pos, goal_pos
 
     board, agent_pos, goal_pos = make_grid(size, num_rigid)
+    counter = 1
+    while not accessible_grid(board, agent_pos, goal_pos):
+        print("reaming board %d" % counter)
+        counter += 1
+        board, agent_pos, goal_pos = make_grid(size, num_rigid)
+
+    # print("Board")
+    # print(board)
     return board
+
+
+def accessible_grid(board, agent_pos, goal_pos):
+    seen = set()
+    passage_positions = np.where(board == constants.GridItem.Passage.value)
+    positions = list(zip(passage_positions[0], passage_positions[1]))
+
+    Q = [agent_pos]
+    while Q:
+        row, col = Q.pop()
+        for (i, j) in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+            next_position = (row + i, col + j)
+            if next_position in seen:
+                continue
+            if not position_on_board(board, next_position):
+                continue
+            if position_is_gridrigid(board, next_position):
+                continue
+
+            if next_position == goal_pos:
+              return True
+
+            if next_position in positions:
+                positions.pop(positions.index(next_position))
+                if not len(positions):
+                    return False
+
+            seen.add(next_position)
+            Q.append(next_position)
+    return False
+
 
 def inaccessible_passages(board, agent_positions):
     """Return inaccessible passages on this board."""
@@ -334,6 +374,10 @@ def position_is_passage(board, position):
 
 def position_is_rigid(board, position):
     return _position_is_item(board, position, constants.Item.Rigid)
+
+
+def position_is_gridrigid(board, position):
+    return _position_is_item(board, position, constants.GridItem.Wall)
 
 
 def position_is_wood(board, position):

@@ -5,6 +5,8 @@ import heapq
 import itertools
 from scipy.spatial.distance import cityblock
 from .. import characters
+from .. import constants
+
 
 class AstarAgent(BaseAgent):
     # TODO: decide whether we want to keep all these functions understand
@@ -21,7 +23,7 @@ class AstarAgent(BaseAgent):
     def __init__(self, character=characters.Walker, *args, **kwargs):
         #TODO: do we need args kwargs below?
         super(AstarAgent, self).__init__(character, *args, **kwargs)
-
+        self._path = None
         self.is_simple_agent = True
 
     def act(self, obs, action_space):
@@ -41,20 +43,22 @@ class AstarAgent(BaseAgent):
         # next_loc = self._path[self._step]
 
         # NOTE: alternative -- less efficient: computes path at each step
-        self._path = self._get_path()
-        next_loc = self._path[0]
+        if not self._path:
+            self._path = self._get_path(self.obs['board'])
+        next_loc = self._path.pop(0)
 
         action = self._action_to_loc(next_loc)
+        # print(self._agent_pos, self._goal_pos, self._path, next_loc, action)
 
         return action
 
-    def _get_path(self):
+    def _get_path(self, board):
         '''
         Returns shortest path to goal from
         the agent's initial position to its goal.
         '''
         # Find shortest path to goal using A* alg
-        _, came_from = self._astar(self._agent_move_func,
+        _, came_from = self._astar(self._agent_move_func, board,
                                    self._agent_pos, self._goal_pos)
 
         # Path to goal
@@ -72,7 +76,6 @@ class AstarAgent(BaseAgent):
         current_loc = self._agent_pos
         if not self._within_bounds(current_loc) or \
                 not self._within_bounds(next_loc):
-
             raise Exception("One of the locations is \
             not valid for this maze.")
 
@@ -158,7 +161,7 @@ class AstarAgent(BaseAgent):
         return visited, path
 
 
-    def _astar(self, move_func, start, goal):
+    def _astar(self, move_func, board, start, goal):
         '''
         Implements the Astar algorithm which finds the
         shortest path between start and goal, in gridworld env.
@@ -184,17 +187,19 @@ class AstarAgent(BaseAgent):
 
         while not frontier.empty():
             current = frontier.get()
-
             if current == goal:
                 break
 
-            for next in move_func(current):
+            for next_ in move_func(current):
+                if board[next_] == constants.GridItem.Wall.value:
+                    continue
+
                 new_cost = cost_so_far[current] + 1
-                if next not in cost_so_far or new_cost < cost_so_far[next]:
-                    cost_so_far[next] = new_cost
-                    priority = new_cost + cityblock(goal, next)
-                    frontier.put(next, priority)
-                    came_from[next] = current
+                if next_ not in cost_so_far or new_cost < cost_so_far[next_]:
+                    cost_so_far[next_] = new_cost
+                    priority = new_cost + cityblock(goal, next_)
+                    frontier.put(next_, priority)
+                    came_from[next_] = current
 
         return cost_so_far, came_from
 
@@ -215,6 +220,7 @@ class AstarAgent(BaseAgent):
         '''
         x, y = location
         return 0 <= x < self._board_size and 0 <= y < self._board_size
+
 
 class PriorityQueue:
     def __init__(self):

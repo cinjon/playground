@@ -48,11 +48,11 @@ class Grid(PommeV0):
         self.observation_space = spaces.Box(
             np.array(min_obs), np.array(max_obs))
 
+    def set_reward_shaping(self, step_loss=0.0, bomb_reward=None, item_reward=None):
+        self._step_loss = step_loss
+
     def make_board(self):
         self._board = utility.make_board_grid(self._board_size, self._num_rigid)
-
-    def make_items(self):
-        return
 
     def get_observations(self):
         self.observations = self.model.get_observations_grid(
@@ -68,7 +68,7 @@ class Grid(PommeV0):
         agent_pos = self.observations[0]['position']
         goal_pos = self.observations[0]['goal_position']
         rewards = self.model.get_rewards_grid(agent_pos, goal_pos)
-
+        rewards = [r - self._step_loss for r in rewards]
         return rewards
 
     def _get_done(self):
@@ -95,35 +95,8 @@ class Grid(PommeV0):
             if self._game_state_distribution == 'uniform':
                 # Pick a random game state to start from.
                 step = random.choice(range(step_count))
-            elif self._game_state_distribution == 'uniform3':
-                # Pick a game state uniformly over the last 21.
-                # NOTE: This is an effort to reduce the effect of the credit
-                # assignment problem. If this works well, then we might be able
-                # to move a sliding window back across epochs.
-                step = random.choice(
-                    range(max(0, step_count - 4), step_count - 1)
-                )
-            elif self._game_state_distribution == 'uniformAdapt':
-                step = random.choice(
-                    range(max(0, step_count - self._uniform_v), step_count - 1)
-                )
-            elif self._game_state_distribution.startswith('uniformSchedule'):
-                # if uniform_v == 512 and step_count == 290, then this is range(0, 289)
-                # ... eh, wtf.
-                step = random.choice(
-                    range(max(0, step_count - self._uniform_v), step_count - 1)
-                )
-            elif utility.is_int(self._game_state_distribution):
-                game_state_int = int(self._game_state_distribution)
-                step = random.choice(
-                    range(max(0, step_count - game_state_int - 5),
-                          max(0, step_count - game_state_int) + 5)
-                )
             elif self._game_state_distribution == 'genesis':
                 step = 0
-            elif self._game_state_distribution.startswith('uniformForward'):
-                step = random.choice(
-                    range(min(self._uniform_v, step_count - 1)))
             else:
                 raise
             return os.path.join(directory, '%d.json' % step), step
@@ -152,7 +125,6 @@ class Grid(PommeV0):
                                  (game_state_file, step_count, step))
         elif self._init_game_state is not None:
             self.set_json_info()
-
         else:
             self._step_count = 0
             self.make_board()
@@ -199,11 +171,11 @@ class Grid(PommeV0):
         reward = self._get_rewards()
         info = self._get_info(done, reward)
 
-        print("\n\n\n################")
-        print("done ", done)
-        print("obs ", obs)
-        print("reward ", reward)
-        print("info ", info)
+        # print("\n\n\n################")
+        # print("done ", done)
+        # print("obs ", obs)
+        # print("reward ", reward)
+        # print("info ", info)
 
         return obs, reward, done, info
 
@@ -212,8 +184,8 @@ class Grid(PommeV0):
         board = obs["board"].reshape(-1).astype(np.float32)
         position = utility.make_np_float(obs["position"])
         goal_position = utility.make_np_float(obs["goal_position"])
-
-        return np.concatenate(board, agent_position, goal_position)
+        ret = np.concatenate(board, agent_position, goal_position)
+        return ret
 
     def get_json_info(self):
         """Returns a json snapshot of the current game state."""

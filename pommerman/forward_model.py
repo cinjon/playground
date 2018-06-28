@@ -687,12 +687,7 @@ class ForwardModel(object):
 
     @staticmethod
     def get_done_grid(agent_pos, goal_pos, step_count, max_steps):
-        if agent_pos == goal_pos or step_count >= max_steps:
-            # the agent reached the goal
-            return True
-        else:
-            # the agent has not yet reached the goal
-            return False
+        return agent_pos == goal_pos or step_count >= max_steps
 
     @staticmethod
     def get_info(done, rewards, game_type, agents, training_agents=None):
@@ -753,18 +748,17 @@ class ForwardModel(object):
 
     @staticmethod
     def get_info_grid(done, agent_loc, goal_loc):
-        if done:
-            if agent_loc == goal_loc:
-                return {
-                    'result': constants.Result.Win
-                }
-            else:
-                return {
-                    'result': constants.Result.Loss
-                }
-        else:
+        if not done:
             return {
                 'result': constants.Result.Incomplete
+            }
+        elif agent_loc == goal_loc:
+            return {
+                'result': constants.Result.Win
+            }
+        else:
+            return {
+                'result': constants.Result.Loss
             }
 
     @staticmethod
@@ -803,9 +797,4 @@ class ForwardModel(object):
 
     @staticmethod
     def get_rewards_grid(agent_pos, goal_pos):
-        if agent_pos == goal_pos:
-            # the agent reached the goal
-            return [1]
-        else:
-            # the agent has not yet reached the goal
-            return [-0.1]
+        return [1] if agent_pos == goal_pos else [0]

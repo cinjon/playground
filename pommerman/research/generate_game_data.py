@@ -6,7 +6,7 @@ python generate_game_data.py --agents=complex::null,complex::null,complex::null,
   --record-json-dir=/path/to/json/dir --seed=<insert seed>
 
 For Grid envs:
-python generate_game_data.py --agents=astar::null --config=Grid-v4 --num-episodes=10 \
+python generate_game_data.py --agents=astar::null --config=GridWalls-v4 --num-episodes=10 \
 --num-processes=12 --num-stack=1 --how-train astar --seed=<insert seed> \
 --record-json-dir=/path/to/json/dir 
 """
@@ -107,7 +107,6 @@ def generate(args, agents, action_space, acting_agent_ids):
     num_episodes = args.num_episodes
     init_num_episodes = args.num_episodes
 
-
     if record_json_dir and not os.path.exists(record_json_dir):
         os.makedirs(record_json_dir)
 
@@ -166,8 +165,8 @@ def generate(args, agents, action_space, acting_agent_ids):
                 result = info_['result']
                 winners = info_.get('winners', [])
                 if any([result != pommerman.constants.Result.Win,
-                        not winners,
-                        info_['step_count'] < 80]):
+                        'Grid' not in args.config and not winners,
+                        info_['step_count'] < 35]):
                     delete_data(directory)
                 else:
                     save_endgame_info(directory, info_)

@@ -74,10 +74,10 @@ NUM_ITEMS_8 = 12
 DEFAULT_BLAST_STRENGTH_8 = 2
 
 # Constants for the Grid with single agent and goal.
-GRID_BOARD_SIZE = 8
-GRID_MAX_STEPS = 20
+GRID_BOARD_SIZE = 24
+GRID_MAX_STEPS = 200
 GRID_NUM_RIGID = 0         # no walls
-GRIDWALLS_NUM_RIGID = 10  # some rigid walls
+GRIDWALLS_NUM_RIGID = 120  # some rigid walls
 
 
 class Item(Enum):
