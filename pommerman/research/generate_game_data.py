@@ -140,22 +140,21 @@ def generate(args, agents, action_space, acting_agent_ids):
             agent_obs = [o[num_action] for o in obs]
             agent_actions = agents[acting_agent_id].act(agent_obs, action_space)
             for num_process in range(num_processes):
-                actions[num_procress][num_action] = agent_actions[num_process]
+                actions[num_process][num_action] = agent_actions[num_process]
 
-        # TODO: check that this works as expected for grid
-        obs, reward, done, info = envs.step(actions)
         for process_dir in process_dirs:
             directory = os.path.join(record_json_dir, '%d' % process_dir)
             if not os.path.exists(directory):
                 os.makedirs(directory)
-
         envs.record_json([os.path.join(record_json_dir, '%d' % process_dir)
                           for process_dir in process_dirs])
         if args.render:
-            if done[0].all():
-                time.sleep(2)
-            else:
-                envs.render()
+            envs.render()
+
+        obs, reward, done, info = envs.step(actions)
+
+        if args.render and done[0].all():
+            time.sleep(2)
 
         # TODO: check that info, done, step, reset work well !!
         for num, done_ in enumerate(done):

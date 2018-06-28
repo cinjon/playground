@@ -234,6 +234,12 @@ def train():
         uniform_v_incr = 40
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsL':
+        uniform_v = 32
+        uniform_v_factor = 2
+        uniform_v_incr = 85
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'uniformForwardA':
         uniform_v = 32
         uniform_v_factor = 2
@@ -564,7 +570,8 @@ def train():
                         raise ValueError("We only support distilling from \
                             DaggerAgent, SimpleAgent, or ComplexAgent")
 
-                result = training_agent.actor_critic_act(step, 0)
+                result = training_agent.actor_critic_act(
+                    step, 0, deterministic=args.eval_only)
                 # [num_processor,] ..., [num_processor, 6]
                 cpu_actions_agents, cpu_probs = update_actor_critic_results(result)
                 action_choices.extend(cpu_actions_agents)
@@ -582,7 +589,7 @@ def train():
                     running_total_game_step_counts.append(
                         game_step_counts[num_process])
                     game_step_counts[num_process] = 0
-                    if args.eval_only:
+                    if args.eval_only and num_process == 3:
                         print("TPPO FINI: ", num_process, info[num_process])
 
             win, alive_win = get_win_alive(info, envs)

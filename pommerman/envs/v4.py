@@ -48,7 +48,8 @@ class Grid(PommeV0):
         self.observation_space = spaces.Box(
             np.array(min_obs), np.array(max_obs))
 
-    def set_reward_shaping(self, step_loss=0.0, bomb_reward=None, item_reward=None):
+    def set_reward_shaping(self, step_loss=0.0, bomb_reward=None,
+                           item_reward=None, use_second_place=False):
         self._step_loss = step_loss
 
     def make_board(self):

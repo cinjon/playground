@@ -252,10 +252,14 @@ class SubprocVecEnv(_VecEnv):
         self.remotes[0].send(('get_game_type', None))
         return self.remotes[0].recv()
 
-    def record_json(self, directories):
-        for remote, directory in zip(self.remotes, directories):
-            remote.send(('record_json', directory))
-        return [remote.recv() for remote in self.remotes]
+    def record_json(self, directories, num_env=None):
+        if num_env:
+            self.remotes[num_env].send(('record_json', directories[num_env]))
+            return self.remotes[num_env].recv()
+        else:
+            for remote, directory in zip(self.remotes, directories):
+                remote.send(('record_json', directory))
+            return [remote.recv() for remote in self.remotes]
 
     def get_non_training_obs(self):
         for remote in self.remotes:

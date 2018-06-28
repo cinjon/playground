@@ -57,7 +57,7 @@ class PPOAgent(ResearchAgent):
                              volatile=True)
         return observations, states, masks
 
-    def actor_critic_act(self, step, num_agent=0):
+    def actor_critic_act(self, step, num_agent=0, deterministic=False):
         """Uses the actor_critic to take action.
         Args:
           step: The int timestep that we are acting.
@@ -66,7 +66,8 @@ class PPOAgent(ResearchAgent):
           See the actor_critic's act function in model.py.
         """
         # NOTE: Training uses this --> it uses act(..., deterministic=False).
-        return self._actor_critic.act(*self.get_rollout_data(step, num_agent))
+        return self._actor_critic.act(*self.get_rollout_data(step, num_agent),
+                                      deterministic=deterministic)
 
     def get_rollout_data(self, step, num_agent, num_agent_end=None):
         return self._rollout_data(step, num_agent, num_agent_end)

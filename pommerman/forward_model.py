@@ -523,13 +523,8 @@ class ForwardModel(object):
     def step_grid(self, actions, curr_board, curr_agents):
         # TODO: make sure it works for GridWalls
         agent = curr_agents[0]
-
-        pos_agent = np.where(curr_board == constants.GridItem.Agent.value)
-        row_agent = pos_agent[0][0]
-        col_agent = pos_agent[1][0]
-        position = (row_agent, col_agent)
+        position = agent.position
         x, y = position
-
         if not actions:
             action = agent.act()[0]
         else:
@@ -542,7 +537,7 @@ class ForwardModel(object):
             x_next, y_next = utility.get_next_position(position, direction)
             curr_board[x_next, y_next] = constants.GridItem.Agent.value
             curr_board[x, y] = constants.GridItem.Passage.value
-            agent.position = (x_next, y_next)
+            agent.move(direction)
 
         return curr_board, curr_agents
 
@@ -627,7 +622,6 @@ class ForwardModel(object):
             agent_obs['goal_position'] = (row_goal, col_goal)
         else:
             agent_obs['goal_position'] = agents[0]._goal_pos
-
 
         if step_count is not None:
             agent_obs['step'] = step_count

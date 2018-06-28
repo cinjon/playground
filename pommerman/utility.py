@@ -306,27 +306,19 @@ def is_valid_direction(board, position, direction, invalid_values=None):
 
 def is_valid_direction_grid(board, position, direction, invalid_values=None):
     row, col = position
-    if invalid_values is None:
-        invalid_values = [item.value for item in \
-                          [constants.GridItem.Wall]]
+    invalid_values = invalid_values or [constants.GridItem.Wall.value]
 
     if constants.Action(direction) == constants.Action.Stop:
         return True
-
-    if constants.Action(direction) == constants.Action.Up:
+    elif constants.Action(direction) == constants.Action.Up:
         return row - 1 >= 0 and board[row - 1][col] not in invalid_values
-
-    if constants.Action(direction) == constants.Action.Down:
-        return row + 1 < len(board) and board[row +
-                                              1][col] not in invalid_values
-
-    if constants.Action(direction) == constants.Action.Left:
+    elif constants.Action(direction) == constants.Action.Down:
+        return row + 1 < len(board) and board[row + 1][col] not in invalid_values
+    elif constants.Action(direction) == constants.Action.Left:
         return col - 1 >= 0 and board[row][col - 1] not in invalid_values
-
-    if constants.Action(direction) == constants.Action.Right:
+    elif constants.Action(direction) == constants.Action.Right:
         return col + 1 < len(board[0]) and \
             board[row][col+1] not in invalid_values
-
     raise constants.InvalidAction("We did not receive a valid direction: ",
                                   direction)
 
