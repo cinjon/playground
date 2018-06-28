@@ -220,7 +220,7 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                    cumulative_reward, terminal_reward, success_rate,
                    success_rate_alive, running_num_episodes, mean_total_loss,
                    mean_kl_loss=None, mean_pg_loss = None, distill_factor=0,
-                   reinforce_only=False, start_step_ratios=None):
+                   reinforce_only=False, start_step_ratios=None, start_step_beg_ratios=None):
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "
@@ -247,6 +247,10 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
     if start_step_ratios:
         print("Start Step Win Ratios: %s" % ", ".join(
             ["%d: %.3f" % (k, v) for k, v in sorted(start_step_ratios.items())])
+        )
+    if start_step_beg_ratios:
+        print("Start Step Beg Win Ratios: %s" % ", ".join(
+            ["%d: %.3f" % (k, v) for k, v in sorted(start_step_beg_ratios.items())])
         )
 
 
@@ -280,6 +284,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        mean_kl_loss=None, mean_pg_loss=None, lr=None,
                        distill_factor=0, reinforce_only=False,
                        start_step_ratios=None, start_step_all=None,
+                       start_step_beg_ratios=None, start_step_all_beg=None,                       
                        bomb_penalty_lambda=None, action_choices=None,
                        action_probs=None, uniform_v=None,
                        mean_running_success_rate=None,
@@ -309,31 +314,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     # }, num_episodes)
 
     # x-axis: # steps
-    if reinforce_only:
-        writer.add_scalar('pg_loss_step', mean_pg_loss, total_steps)
-    else:
-        writer.add_scalar('entropy_step', mean_dist_entropy, total_steps)
-        writer.add_scalar('action_loss_step', mean_action_loss, total_steps)
-        writer.add_scalar('value_loss_step', mean_value_loss, total_steps)
     if mean_kl_loss and not np.isnan(mean_kl_loss):
         writer.add_scalar('kl_loss_step', mean_kl_loss, total_steps)
     writer.add_scalar('total_loss_step', mean_total_loss, total_steps)
 
-    writer.add_scalar('final_reward_step', final_rewards.mean(), total_steps)
-    writer.add_scalar('cumulative_reward_step',
-                    1.0 * cumulative_reward / running_num_episodes, total_steps)
-    writer.add_scalar('terminal_reward_step',
-                    1.0 * terminal_reward / running_num_episodes, total_steps)
     writer.add_scalar('success_rate_step',
                     1.0 * success_rate / running_num_episodes, total_steps)
-    writer.add_scalar('success_rate_alive_step',
-                    1.0 * success_rate_alive / running_num_episodes, total_steps)
-
-    for title, count in count_stats.items():
-        if title.startswith('bomb:'):
-            continue
-        writer.add_scalar(title, 1.0 * count / running_num_episodes,
-                          total_steps)
 
     writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
     # writer.add_scalar('bomb_penalty_lambda', bomb_penalty_lambda, num_epoch)
@@ -363,11 +349,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     if mean_running_success_rate is not None and not np.isnan(mean_running_success_rate):
         writer.add_scalar('mean_running_success_rate', mean_running_success_rate,
                           num_epoch)
-    if running_total_game_step_counts:
-        avg = np.mean(running_total_game_step_counts)
-        std = np.std(running_total_game_step_counts)
-        writer.add_scalar('game_step_counts/mean', avg, num_epoch)
-        writer.add_scalar('game_step_counts/std', std, num_epoch)
+    # if running_total_game_step_counts:
+    #     avg = np.mean(running_total_game_step_counts)
+    #     std = np.std(running_total_game_step_counts)
+    #     writer.add_scalar('game_step_counts/mean', avg, num_epoch)
+    #     writer.add_scalar('game_step_counts/std', std, num_epoch)
+    
     # x-axis: # episodes
     # if reinforce_only:
     #     writer.add_scalar('pg_loss_epi', mean_pg_loss, num_episodes)
@@ -393,37 +380,14 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     for start_step, ratio in start_step_ratios.items():
         writer.add_scalar("win_startstep_epoch/%d" % start_step, ratio,
                           num_epoch)
-        # writer.add_scalar("win_startstep_step/%d" % start_step, ratio,
-        #                   total_steps)
-        # writer.add_scalar("win_startstep_epi/%d" % start_step, ratio,
-        #                   num_episodes)
+    for start_step, ratio in start_step_beg_ratios.items():
+        writer.add_scalar("win_startstep_beg_epoch/%d" % start_step, ratio,
+                          num_epoch)
 
     for start_step, count in start_step_all.items():
         writer.add_scalar("all_startstep_epoch/%d" % start_step, count, num_epoch)
-
-    # for title, count in count_stats.items():
-    #     if title.startswith('bomb:'):
-    #         continue
-    #     writer.add_scalar(title, 1.0 * count / running_num_episodes,
-    #                       num_episodes)
-
-    # writer.add_scalars('bomb_distances_epi', {
-    #     key.split(':')[1]: 1.0 * count / running_num_episodes
-    #     for key, count in count_stats.items() \
-    #     if key.startswith('bomb:')
-    # }, num_episodes)
-
-    # if array_stats.get('rank'):
-    #     writer.add_scalar('mean_rank_epi', np.mean(array_stats['rank']),
-    #                       num_episodes)
-
-    # if array_stats.get('dead'):
-    #     writer.add_scalar('mean_dying_step_epi', np.mean(array_stats['dead']),
-    #                       num_episodes)
-    #     writer.add_scalar(
-    #         'percent_dying_per_episode_epi',
-    #         1.0 * len(array_stats['dead']) / running_num_episodes,
-    #         num_episodes)
+    for start_step, count in start_step_all_beg.items():
+        writer.add_scalar("all_startstep_beg_epoch/%d" % start_step, count, num_epoch)
 
     # x-axis: # epochs / updates
     if lr is not None:
@@ -444,13 +408,13 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     writer.add_scalar('final_reward_epoch', final_rewards.mean(), num_epoch)
     writer.add_scalar('cumulative_reward_epoch',
                     1.0 * cumulative_reward / running_num_episodes, num_epoch)
-    writer.add_scalar('terminal_reward_epoch',
-                    1.0 * terminal_reward / running_num_episodes, num_epoch)
+    # writer.add_scalar('terminal_reward_epoch',
+    #                 1.0 * terminal_reward / running_num_episodes, num_epoch)
     writer.add_scalar('success_rate_epoch',
                     1.0 * success_rate / running_num_episodes, num_epoch)
-    writer.add_scalar('success_rate_alive_epoch',
-                    1.0 * success_rate_alive / running_num_episodes,
-                    num_epoch)
+    # writer.add_scalar('success_rate_alive_epoch',
+    #                 1.0 * success_rate_alive / running_num_episodes,
+    #                 num_epoch)
 
 
     # for title, count in count_stats.items():
