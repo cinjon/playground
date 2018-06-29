@@ -72,16 +72,16 @@ def train():
         num_epochs, reward_sharing, batch_size, num_mini_batch = \
         utils.get_train_vars(args, num_training_per_episode)
 
-    obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
+    obs_shape, action_space, character, board_size = env_helpers.get_env_info(config, num_stack)
 
     if args.reinforce_only:
         training_agents = utils.load_agents(
             obs_shape, action_space, num_training_per_episode, num_steps, args,
-            reinforce_agent.ReinforceAgent)
+            reinforce_agent.ReinforceAgent, character=character, board_size=board_size)
     else:
         training_agents = utils.load_agents(
             obs_shape, action_space, num_training_per_episode, num_steps,
-            args, ppo_agent.PPOAgent)
+            args, ppo_agent.PPOAgent, character=character, board_size=board_size)
 
     model_str = args.model_str.replace('PommeCNNPolicy', '')
     config_str = config.strip('Pomme').replace('Short', 'Sh').replace('FFACompetition-v0', 'FFACmp')
@@ -110,7 +110,6 @@ def train():
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
         item_reward=args.item_reward, use_second_place=args.use_second_place
     )
-    print("TRAIN ENVS")
 
     uniform_v = None
     running_success_rate = []
@@ -308,7 +307,6 @@ def train():
     init_kl_factor = args.init_kl_factor
     distill_expert = args.distill_expert
 
-    print("111")
     if distill_expert is not None:
         assert(distill_epochs > training_agents[0].num_epoch), \
         "If you are distilling, distill_epochs > trianing_agents[0].num_epoch."
@@ -428,14 +426,13 @@ def train():
                         if 'bomb' in l:
                             count_stats['bomb'] += 1
 
-    if how_train == 'simple':
+    if how_train == 'simple' or how_train == 'grid':
         expert_actions_onehot = torch.FloatTensor(
             num_processes, action_space.n)
     else:
         raise ValueError("Only Simple and Homogenous training regimes have been \
             implemented.")
     onehot_dim = len(expert_actions_onehot.shape) - 1
-    print("222")
 
     # NOTE: only works for how_train simple because we assume training_ids
     # has a single element
@@ -483,10 +480,8 @@ def train():
         expert_actions_onehot.scatter_(onehot_dim, actions_tensor, 1)
 
     # Start the environment and set the current_obs appropriately.
-    print("333")
     current_obs = update_current_obs(envs.reset())
-    print("444")
-    if how_train == 'simple' or how_train == 'homogenous':
+    if how_train in ['simple', 'homogenous', 'grid']:
         # NOTE: Here, we put the first observation into the rollouts.
         training_agents[0].update_rollouts(obs=current_obs, timestep=0)
 
@@ -506,13 +501,12 @@ def train():
     start = time.time()
     # NOTE: assumes just one agent.
     action_choices = []
-    action_probs = [[] for _ in range(6)]
+    action_probs = [[] for _ in range(action_space.n)]
 
     anneal_bomb_penalty_epochs = args.anneal_bomb_penalty_epochs
     bomb_penalty_lambda = 1.0
 
     for num_epoch in range(start_epoch, num_epochs):
-        print("NUM ECPO: ", num_epoch)
         if num_epoch >= args.begin_selfbombing_epoch:
             envs.enable_selfbombing()
 
@@ -522,8 +516,8 @@ def train():
             envs.set_bomb_penalty_lambda(bomb_penalty_lambda)
 
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval) \
-           and how_train == 'simple':
-            # Only save at regular epochs if using "simple". The others save
+           and how_train in ['simple', 'grid']:
+            # Only save at regular epochs if using "simple" or "grid". The others save
             # upon successful evaluation.
             utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
                               num_episodes, args, suffix, clear_saved=True)
@@ -579,10 +573,16 @@ def train():
                 action_choices.extend(cpu_actions_agents)
                 for num in range(6):
                     action_probs[num].extend([p[num] for p in cpu_probs])
+            elif how_train == 'grid':
+                training_agent = training_agents[0]
+                result = training_agent.actor_critic_act(
+                    step, 0, deterministic=args.eval_only)
+                cpu_actions_agents, cpu_probs = update_actor_critic_results(result)
+                action_choices.extend(cpu_actions_agents)
+                for num in range(action_space.n):
+                    action_probs[num].extend([p[num] for p in cpu_probs])
             with utility.Timer() as t:
                 obs, reward, done, info = envs.step(cpu_actions_agents)
-
-            print(obs, reward, done, info)
 
             reward = reward.astype(np.float)
             update_stats(info)
@@ -590,7 +590,6 @@ def train():
             for num_process, ended_ in enumerate(game_ended):
                 game_step_counts[num_process] += 1
                 if ended_:
-                    print("ENDD!")
                     running_total_game_step_counts.append(
                         game_step_counts[num_process])
                     game_step_counts[num_process] = 0
@@ -606,7 +605,7 @@ def train():
             if args.render:
                 envs.render(args.record_pngs_dir, game_step_counts, num_env=3)
 
-            if how_train == 'simple':
+            if how_train in ['simple', 'grid']:
                 # NOTE: The masking for simple should be such that:
                 # - final_rewards is masked out on every step except for the
                 # last step of a process. at that point, it becomes the
@@ -695,7 +694,7 @@ def train():
             episode_rewards *= masks
 
             final_reward_arr = np.array(final_rewards.squeeze(0))
-            if how_train == 'simple':
+            if how_train in ['simple', 'grid']:
                 final_sum = final_reward_arr[done.squeeze() == True].sum()
                 cumulative_reward += final_sum
 
@@ -704,7 +703,7 @@ def train():
                 masks = masks.cuda()
                 current_obs = current_obs.cuda()
 
-            if how_train == 'simple':
+            if how_train in ['simple', 'grid']:
                 masks_all = masks.transpose(0,1).unsqueeze(2)
 
             reward_all = reward.unsqueeze(2)
@@ -734,14 +733,14 @@ def train():
 
             value_all = utils.torch_numpy_stack(value_agents)
 
-            if how_train == 'simple' or how_train == 'homogenous':
+            if how_train in ['simple', 'homogenous', 'grid']:
                 training_agents[0].insert_rollouts(
                     step, current_obs, states_all, action_all,
                     action_log_prob_all, value_all, reward_all, masks_all,
                     action_log_prob_distr, dagger_prob_distr)
 
         # Compute the advantage values.
-        if not args.eval_only and (how_train == 'simple' or how_train == 'homogenous'):
+        if not args.eval_only and how_train in ['simple', 'homogenous', 'grid']:
             training_agent = training_agents[0]
             next_value_agents = [
                 training_agent.actor_critic_call(step=-1, num_agent=num_agent)

@@ -504,8 +504,6 @@ class ForwardModel(object):
             curr_board[flame.position] = constants.Item.Flames.value
 
         # Kill agents on flames. Otherwise, update position on curr_board.
-        # if do_print:
-        # print(exploded_causes)
         for agent in alive_agents:
             position = agent.position
             flame = flames_dict.get(position)
@@ -535,10 +533,10 @@ class ForwardModel(object):
         if utility.is_valid_direction_grid(curr_board, position, action):
             direction = constants.Action(action)
             x_next, y_next = utility.get_next_position(position, direction)
-            curr_board[x_next, y_next] = constants.GridItem.Agent.value
             curr_board[x, y] = constants.GridItem.Passage.value
+            curr_board[x_next, y_next] = constants.GridItem.Agent.value
             agent.move(direction)
-
+        
         return curr_board, curr_agents
 
     def get_observations(self, curr_board, agents, bombs,
@@ -607,7 +605,7 @@ class ForwardModel(object):
         """Gets the observations as an np.array of the visible squares."""
 
         observations = []
-        agent_obs = {'board': curr_board}
+        agent_obs = {'board': curr_board, 'is_alive': True}
 
         pos_agent = np.where(curr_board == constants.GridItem.Agent.value)
         row_agent = pos_agent[0][0]
@@ -681,7 +679,8 @@ class ForwardModel(object):
 
     @staticmethod
     def get_done_grid(agent_pos, goal_pos, step_count, max_steps):
-        return agent_pos == goal_pos or step_count >= max_steps
+        ret = agent_pos == goal_pos or step_count >= max_steps
+        return [ret]
 
     @staticmethod
     def get_info(done, rewards, game_type, agents, training_agents=None):

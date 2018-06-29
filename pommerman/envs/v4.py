@@ -99,9 +99,34 @@ class Grid(PommeV0):
                 step = random.choice(range(step_count))
             elif self._game_state_distribution == 'genesis':
                 step = 0
+            elif self._game_state_distribution.startswith('uniformBounds'):
+                # (0, 32), (24, 64), (56, 128), (120, 256), (248, 512), (504, 1024), (1016, 2048)
+                # --> (504, 1024) --> (0, step_count - 504)
+                # --> (1016, 2048) --> (0, 1)
+                lb = self._uniform_v
+                if self._uniform_v < 40:
+                    ub = 1
+                else:
+                    ub = int(lb / 2) - 8
+
+                # at lb == 512, minrange is either 0 or step_count - 512
+                # then maxrange is either 1, step_count - 511, or step_count - 244
+                # step_count - 244 > step_count - 511, so it can't be the latter.
+                # thus it's either 1 or step_count - 244.
+                # step is then either 0, random(0, step_count - 244) if step_count > 244,
+                # or random(step_count - 512, step_count - 244) if step_count > 512.
+                minrange = max(0, step_count - lb)
+                maxrange = max(minrange + 1, step_count - ub)
+                step = random.choice(range(minrange, maxrange))
+            elif utility.is_int(self._game_state_distribution):
+                game_state_int = int(self._game_state_distribution)
+                step = random.choice(
+                    range(max(0, step_count - game_state_int - 5),
+                          max(0, step_count - game_state_int) + 5)
+                )
             else:
                 raise
-            return os.path.join(directory, '%d.json' % step), step
+            return os.path.join(directory, '%03d.json' % step), step
 
         if hasattr(self, '_applicable_games') and self._applicable_games:
             directory, step_count = random.choice(self._applicable_games)
@@ -145,6 +170,29 @@ class Grid(PommeV0):
 
         return self.get_observations()
 
+    def set_json_info(self, game_state=None):
+        game_state = game_state or self._init_game_state
+
+        board_size = int(game_state['board_size'])
+        self._board_size = board_size
+        self._step_count = int(game_state['step_count'])
+
+        board_array = json.loads(game_state['board'])
+        self._board = np.ones((board_size, board_size)).astype(np.uint8)
+        self._board *= constants.Item.Passage.value
+        for x in range(self._board_size):
+            for y in range(self._board_size):
+                self._board[x, y] = board_array[x][y]
+
+        # NOTE: We assume there is just one agent.
+        agent_array = json.loads(game_state['agents'])
+        agent = self._agents[0]
+        agent.set_start_position(tuple(agent_array[0]['position']))
+        agent.set_goal_position(tuple(agent_array[0]['goal_position']))
+        agent.reset(self._step_count)
+        self._board[agent.position] = constants.GridItem.Agent.value
+        self._board[agent.goal_position] = constants.GridItem.Goal.value
+        
     def act(self, obs, acting_agent_ids=[], ex_agent_ids=None):
         if ex_agent_ids is not None:
             agents = [agent for agent in self._agents \
@@ -172,12 +220,6 @@ class Grid(PommeV0):
         done = self._get_done()
         reward = self._get_rewards()
         info = self._get_info(done, reward)
-
-        # print("\n\n\n################")
-        # print("done ", done)
-        # print("obs ", obs)
-        # print("reward ", reward)
-        # print("info ", info)
 
         return obs, reward, done, info
 

@@ -9,15 +9,16 @@ import dagger_agent
 import networks
 
 
-def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
-                args, agent_type, network_type='ac'):
+def load_agents(obs_shape, action_space, num_training_per_episode, num_steps,
+                args, agent_type, network_type='ac', character=None, board_size=None):
+    board_size = board_size or args.board_size
     if network_type == 'qmix':
         net = lambda state: networks.get_q_network(args.model_str)(
             state, obs_shape[0], action_space, obs_shape[1],
             args.num_channels, args.num_agents)
     else:
         net = lambda state: networks.get_actor_critic(args.model_str)(
-            state, obs_shape[0], action_space, args.board_size,
+            state, obs_shape[0], action_space, board_size,
             args.num_channels, args.recurrent_policy)
 
     paths = args.saved_paths
@@ -55,8 +56,8 @@ def load_agents(obs_shape, action_space, num_training_per_episode,num_steps,
             optimizer_state_dict = None
             model = net(None)
 
-        agent = agent_type(model, num_stack=args.num_stack, cuda=args.cuda,
-                           num_processes=args.num_processes,
+        agent = agent_type(model, character=character, num_stack=args.num_stack,
+                           cuda=args.cuda, num_processes=args.num_processes,
                            recurrent_policy = args.recurrent_policy)
         agent.initialize(args, obs_shape, action_space,
                          num_training_per_episode, num_episodes, total_steps,
@@ -467,7 +468,7 @@ def validate_how_train(args):
         assert(nagents > 1), s
         print("Heterogenous training is not implemented yet.")
         return None
-    elif how_train == 'astar':
+    elif how_train == 'astar' or how_train == 'grid':
         return 1
 
 

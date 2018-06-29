@@ -107,6 +107,7 @@ class Item(Enum):
     Agent3 = 13
     Goal = 14
 
+    
 class GridItem(Enum):
     """The Items for the Grid env."""
     Passage = 0
@@ -114,6 +115,7 @@ class GridItem(Enum):
     Goal = 2
     Agent = 3
 
+    
 class GameType(Enum):
     """The Game Types.
 

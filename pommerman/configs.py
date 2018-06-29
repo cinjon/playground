@@ -27,9 +27,10 @@ def grid_env():
         'num_rigid': constants.GRID_NUM_RIGID,
         'max_steps': constants.GRID_MAX_STEPS,
         'render_fps': 1000,
+        'agent': characters.Walker
     }
-    agent = characters.Walker
     return locals()
+
 
 def grid_walls_env():
     """Start up a grid with an agent and a goal,
@@ -44,6 +45,7 @@ def grid_walls_env():
         'num_rigid': constants.GRIDWALLS_NUM_RIGID,
         'max_steps': constants.GRID_MAX_STEPS,
         'render_fps': 1000,
+        'character': characters.Walker,        
     }
     agent = characters.Walker
     return locals()

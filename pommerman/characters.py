@@ -116,8 +116,8 @@ class Walker(Bomber):
     def set_goal_position(self, goal_position):
         self.goal_position = goal_position
 
-    def reset(self):
-        self.step = 0
+    def reset(self, step=0):
+        self.step = step
         self.position = self.start_position
         self.goal_position = self.goal_position
 

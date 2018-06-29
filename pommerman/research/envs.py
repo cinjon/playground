@@ -71,6 +71,9 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         elif how_train == 'astar':
             agents = [astar_agent()]
             training_agent_ids = []
+        elif how_train == 'grid':
+            agents = training_agents
+            training_agent_ids = [0]
         else:
             raise
 
@@ -159,7 +162,7 @@ def make_eval_envs(config, how_train, seed, agents, training_agent_ids,
     return SubprocVecEnv(envs)
 
 
-def get_env_shapes(config, num_stack):
+def get_env_info(config, num_stack):
     if config == GameType.Grid:
         dummy_env = _make_train_env(config=config, how_train='astar', seed=None,
                                     rank=-1, game_state_file=None,
@@ -171,7 +174,9 @@ def get_env_shapes(config, num_stack):
     envs_shape = dummy_env.observation_space.shape[1:]
     obs_shape = (envs_shape[0], *envs_shape[1:])
     action_space = dummy_env.action_space
-    return obs_shape, action_space
+    character = dummy_env.spec._kwargs['character']
+    board_size = dummy_env.spec._kwargs['board_size']
+    return obs_shape, action_space, character, board_size
 
 
 class WrapPommeEval(gym.ObservationWrapper):
@@ -193,15 +198,13 @@ class WrapPommeEval(gym.ObservationWrapper):
         # )
 
     def step(self, actions):
-        if self._how_train == 'simple' or self._how_train == 'dagger' \
-            or self._how_train == 'astar':
+        if self._how_train in ['simple', 'dagger', 'astar', 'grid']:
             obs = self.env.get_observations()
             all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
             training_agents = self.env.training_agents
             if training_agents:
                 for training_agent, action in zip(training_agents, actions):
                     all_actions.insert(training_agent, action)
-
         elif self._how_train == 'homogenous':
             all_actions = actions
         elif self._how_train == 'qmix':
@@ -255,7 +258,10 @@ class WrapPomme(gym.ObservationWrapper):
         self._do_filter_team = do_filter_team
         self._acting_agent_ids = acting_agent_ids or self.env.training_agents
         board_size = env.spec._kwargs['board_size']
-        obs_shape = (19, board_size, board_size)
+        if env.spec._kwargs['game_type'] == GameType.Grid:
+            obs_shape = (5, board_size, board_size)
+        else:
+            obs_shape = (19, board_size, board_size)
         extended_shape = [len(self.env.training_agents), obs_shape[0],
                           obs_shape[1], obs_shape[2]]
         self.observation_space = spaces.Box(
@@ -313,8 +319,7 @@ class WrapPomme(gym.ObservationWrapper):
         return self.env._game_type
 
     def step(self, actions):
-        if self._how_train == 'simple' or self._how_train == 'dagger' or \
-            self._how_train == 'astar':
+        if self._how_train in ['simple', 'dagger', 'astar', 'grid']:
             obs = self.env.get_observations()
             all_actions = self.env.act(obs)
             if type(actions) == list:

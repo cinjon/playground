@@ -42,10 +42,11 @@ def orthogonal(tensor, gain=1):
 
 def get_actor_critic(model):
     """Gets an actor critic from this """
-    actor_critics = ['PommeCNNPolicySmall', \
-                     'PommeCNNPolicySmaller', \
-                     'PommeCNNPolicySmallNonlinCritic', \
-                     'PommeCNNPolicySmallerNonlinCritic']
+    actor_critics = ['PommeCNNPolicySmall',
+                     'PommeCNNPolicySmaller',
+                     'PommeCNNPolicySmallNonlinCritic',
+                     'PommeCNNPolicySmallerNonlinCritic',
+                     'GridCNNPolicy']
 
     for name, obj in inspect.getmembers(sys.modules[__name__]):
         if name not in actor_critics:
@@ -277,7 +278,7 @@ class PommeCNNPolicySmaller(_FFPolicy):
 
         return self.critic_linear(x), x, states
 
-
+    
 class PommeCNNPolicySmallNonlinCritic(_FFPolicy):
     """Class implementing a policy that adds extra nonlinearity to the value head.
 
@@ -602,63 +603,176 @@ def featurize3D(obs, use_step=True):
         - (1) Step: Integer map in range [0, max_game_length=2500)
     """
     agent_dummy = pommerman.constants.Item.AgentDummy
-    map_size = len(obs["board"])
+    board = obs["board"]
+    map_size = len(board)
 
+    feature_maps = []
+    
     # feature maps with ints for bomb blast strength and life.
-    bomb_blast_strength = obs["bomb_blast_strength"] \
-                          .astype(np.float32) \
-                          .reshape(1, map_size, map_size)
-    bomb_life = obs["bomb_life"].astype(np.float32) \
-                                .reshape(1, map_size, map_size)
+    if "bomb_blast_strength" in obs:
+        bomb_blast_strength = obs["bomb_blast_strength"] \
+                              .astype(np.float32) \
+                              .reshape(1, map_size, map_size)
+        bomb_life = obs["bomb_life"].astype(np.float32) \
+                                    .reshape(1, map_size, map_size)
+        feature_maps.extend([bomb_blast_strength, bomb_life])
 
     # position of self. If the agent is dead, then this is all zeros.
     position = np.zeros((1, map_size, map_size)).astype(np.float32)
     if obs["is_alive"]:
         position[0, obs["position"][0], obs["position"][1]] = 1
+    feature_maps.append(position)
 
+    if "goal_position" in obs:
+        # This is GridWorld.
+        gx, gy = obs["goal_position"]
+        mx, my = obs["position"]
+        goal_position = np.zeros((1, map_size, map_size)).astype(np.float32)
+        goal_position[0, gx, gy] = 1
+        
+        passages = board.copy()[None, :, :]
+        passages[0, gx, gy] = 1
+        passages[0, mx, my] = 1
+        passages = 1 - passages
+
+        walls = board.copy()[None, :, :]
+        walls[0, gx, gy] = 0
+        walls[0, mx, my] = 0
+        feature_maps.extend([goal_position, passages, walls])
+        
     # ammo of self agent: constant feature map.
-    ammo = np.ones((1, map_size, map_size)).astype(np.float32) * obs["ammo"]
-
+    if "ammo" in obs:
+        ammo = np.ones((1, map_size, map_size)).astype(np.float32) * obs["ammo"]
+        feature_maps.append(ammo)
+        
     # blast strength of self agent: constant feature map
-    blast_strength = np.ones((1, map_size, map_size)).astype(np.float32)
-    blast_strength *= obs["blast_strength"]
+    if "blast_strength" in obs:
+        blast_strength = np.ones((1, map_size, map_size)).astype(np.float32)
+        blast_strength *= obs["blast_strength"]
+        feature_maps.extend(blast_strength)
 
     # whether the agent can kick: constant feature map of 1 or 0.
-    can_kick = np.ones((1, map_size, map_size)).astype(np.float32)
-    can_kick *= float(obs["can_kick"])
+    if "can_kick" in obs:
+        can_kick = np.ones((1, map_size, map_size)).astype(np.float32)
+        can_kick *= float(obs["can_kick"])
+        feature_maps.append(can_kick)
 
-    if obs["teammate"] == agent_dummy:
-        has_teammate = np.zeros((1, map_size, map_size)) \
-                         .astype(np.float32)
-        teammate = None
+    if "teammate" in obs:
+        items = np.zeros((8, map_size, map_size))
+        for num, i in enumerate([0, 1, 2, 4, 6, 7, 8, 9]):
+            items[num][np.where(obs["board"] == i)] = 1
+        feature_maps.append(items)
+
+        if obs["teammate"] == agent_dummy:
+            has_teammate = np.zeros((1, map_size, map_size)) \
+                             .astype(np.float32)
+            teammate = None
+        else:
+            has_teammate = np.ones((1, map_size, map_size)) \
+                             .astype(np.float32)
+            teammate = np.zeros((map_size, map_size)).astype(np.float32)
+            teammate[np.where(obs["board"] == obs["teammate"].value)] = 1
+            teammate = teammate.reshape(1, map_size, map_size)
+        feature_maps.append(has_teammate)
+        
+        # Enemy feature maps.
+        _enemies = [e for e in obs["enemies"] if e != agent_dummy]
+        enemies = np.zeros((len(_enemies), map_size, map_size)) \
+                    .astype(np.float32)
+        for i in range(len(_enemies)):
+            enemies[i][np.where(obs["board"] == _enemies[i].value)] = 1
+        feature_maps.append(enemies)
     else:
-        has_teammate = np.ones((1, map_size, map_size)) \
-                         .astype(np.float32)
-        teammate = np.zeros((map_size, map_size)).astype(np.float32)
-        teammate[np.where(obs["board"] == obs["teammate"].value)] = 1
-        teammate = teammate.reshape(1, map_size, map_size)
-
-    # Enemy feature maps.
-    _enemies = [e for e in obs["enemies"] if e != agent_dummy]
-    enemies = np.zeros((len(_enemies), map_size, map_size)) \
-                .astype(np.float32)
-    for i in range(len(_enemies)):
-        enemies[i][np.where(obs["board"] == _enemies[i].value)] = 1
-
-    items = np.zeros((8, map_size, map_size))
-    for num, i in enumerate([0, 1, 2, 4, 6, 7, 8, 9]):
-        items[num][np.where(obs["board"] == i)] = 1
+        teammate = None
 
     # step count
     step = np.ones((1, map_size, map_size)).astype(np.float32) * obs["step"]
-
-    feature_maps = [
-        bomb_blast_strength, bomb_life, position, ammo, blast_strength,
-        can_kick, items, has_teammate, enemies
-    ]
     if use_step:
         feature_maps.append(step)
     if teammate is not None:
         feature_maps.append(teammate)
 
     return np.concatenate(feature_maps)
+
+
+class GridCNNPolicy(_FFPolicy):
+    """Class implementing a policy.
+
+    Args:
+      state_dict: The state dict from which we are loading. If this is None,
+        then initializes anew.
+      num_inputs: The int number of inputs to the convnet.
+      action_space: The action space from the environment.
+      board_size: The size of the game board (13).
+      num_channels: The number of channels to use in the convnet.
+    """
+    def __init__(self, state_dict, num_inputs, action_space, board_size,
+                 num_channels, use_gru=False):
+        super(GridCNNPolicy, self).__init__()
+        self.board_size = board_size
+        self.num_channels = num_channels
+        self.use_gru = use_gru
+        self._init_network(num_inputs)
+        self.dist = Categorical(128, action_space.n)
+        self.train()
+        self.reset_parameters()
+        if state_dict:
+            self.load_state_dict(state_dict)
+
+    @property
+    def state_size(self):
+        if hasattr(self, 'gru'):
+            return 128
+        else:
+            return 1
+
+    @property
+    def output_size(self):
+        return 128
+
+    def _init_network(self, num_inputs):
+        self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
+                               padding=1)
+        self.conv2 = nn.Conv2d(self.num_channels, self.num_channels, 3,
+                               stride=1, padding=1)
+        self.fc1 = nn.Linear(
+            self.num_channels*(self.board_size)*(self.board_size), 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.critic_linear = nn.Linear(128, 1)
+        self.actor_linear = nn.Linear(128, 1)
+
+        if self.use_gru:
+            self.gru = nn.GRUCell(128, 128)
+            nn.init.orthogonal(self.gru.weight_ih.data)
+            nn.init.orthogonal(self.gru.weight_hh.data)
+            self.gru.bias_ih.data.fill_(0)
+            self.gru.bias_hh.data.fill_(0)
+
+    def reset_parameters(self):
+        self.apply(_weights_init)
+        relu_gain = nn.init.calculate_gain('relu')
+        self.conv1.weight.data.mul_(relu_gain)
+        self.conv2.weight.data.mul_(relu_gain)
+        self.fc1.weight.data.mul_(relu_gain)
+        self.fc2.weight.data.mul_(relu_gain)
+
+    def forward(self, inputs, states, masks):
+        x = F.relu(self.conv1(inputs)) # 2x256x13x13
+        x = F.relu(self.conv2(x)) # 2x256x13x13
+        x = x.view(-1, self.num_channels * self.board_size**2)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+
+        if hasattr(self, 'gru'):
+            if inputs.size(0) == states.size(0):
+                x = states = self.gru(x, states * masks)
+            else:
+                x = x.view(-1, states.size(0), x.size(1))
+                masks = masks.view(-1, states.size(0), 1)
+                outputs = []
+                for i in range(x.size(0)):
+                    hx = states = self.gru(x[i], states * masks[i])
+                    outputs.append(hx)
+                x = torch.cat(outputs, 0)
+
+        return self.critic_linear(x), x, states
