@@ -649,7 +649,7 @@ def featurize3D(obs, use_step=True):
     if "blast_strength" in obs:
         blast_strength = np.ones((1, map_size, map_size)).astype(np.float32)
         blast_strength *= obs["blast_strength"]
-        feature_maps.extend(blast_strength)
+        feature_maps.append(blast_strength)
 
     # whether the agent can kick: constant feature map of 1 or 0.
     if "can_kick" in obs:
