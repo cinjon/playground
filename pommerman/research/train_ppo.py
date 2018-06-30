@@ -72,7 +72,8 @@ def train():
         num_epochs, reward_sharing, batch_size, num_mini_batch = \
         utils.get_train_vars(args, num_training_per_episode)
 
-    obs_shape, action_space, character, board_size = env_helpers.get_env_info(config, num_stack)
+    obs_shape, action_space, character, board_size = env_helpers.get_env_info(
+        config, num_stack)
 
     if args.reinforce_only:
         training_agents = utils.load_agents(
@@ -370,11 +371,9 @@ def train():
         uniform_v_prior = training_agents[0].uniform_v_prior
         envs.set_uniform_v(uniform_v)
         if args.state_directory_distribution.startswith('setBounds'):
-            print("Len of incrs bef: ", len(uniform_v_vals), uniform_v, uniform_v_vals, uniform_v_incrs)
             while uniform_v_vals and uniform_v_vals[0] < uniform_v:
                 uniform_v_vals.pop(0)
                 uniform_v_incrs.pop(0)
-            print("Len of incrs aft: ", len(uniform_v_vals), uniform_v, uniform_v_vals, uniform_v_incrs)
             
     start_step_wins = defaultdict(int)
     start_step_all = defaultdict(int)
@@ -581,8 +580,7 @@ def train():
                 action_choices.extend(cpu_actions_agents)
                 for num in range(action_space.n):
                     action_probs[num].extend([p[num] for p in cpu_probs])
-            with utility.Timer() as t:
-                obs, reward, done, info = envs.step(cpu_actions_agents)
+            obs, reward, done, info = envs.step(cpu_actions_agents)
 
             reward = reward.astype(np.float)
             update_stats(info)
@@ -688,7 +686,7 @@ def train():
 
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
             # NOTE: These don't mean anything for homogenous training
-            episode_rewards += reward
+            episode_rewards += reward[:, :, None]
             final_rewards *= masks
             final_rewards += (1 - masks) * episode_rewards
             episode_rewards *= masks
