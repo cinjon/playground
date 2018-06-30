@@ -45,10 +45,11 @@ def _get_info(inp, args):
         return pommerman.agents.AstarAgent, None
 
 
-def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
+def _build(info, obs_shape, action_space, cuda, cuda_device, model_str,
+           board_size, character):
     agent_type, path = info
     if path:
-        actor_critic = lambda state, board_size, num_channels: \
+        actor_critic = lambda state, num_channels: \
             networks.get_actor_critic(model_str)(state, obs_shape[0],
                                                  action_space, board_size,
                                                  num_channels)
@@ -63,22 +64,22 @@ def _build(info, obs_shape, action_space, cuda, cuda_device, model_str):
         model_state_dict = loaded_model['state_dict']
         args_state_dict = loaded_model['args']
         model = actor_critic(model_state_dict,
-                             args_state_dict['board_size'],
                              args_state_dict['num_channels'])
         agent = agent_type(model, num_stack=args_state_dict['num_stack'],
-                           cuda=cuda)
+                           cuda=cuda, character=character)
         if cuda:
             agent.cuda()
         return agent
     else:
-        return agent_type()
+        return agent_type(character=character)
 
 
-def build_agents(agents, obs_shape, action_space, args):
+def build_agents(agents, obs_shape, board_size, args, action_space, character):
     agents = agents.split(',')
 
     agents = [_build(_get_info(agent, args), obs_shape, action_space,
-                     args.cuda, args.cuda_device, args.model_str)
+                     args.cuda, args.cuda_device, args.model_str, board_size,
+                     character)
                for agent in agents]
     acting_agent_ids = [num for num, agent in enumerate(agents) \
                         if not agent.is_simple_agent]
@@ -163,9 +164,11 @@ def generate(args, agents, action_space, acting_agent_ids):
                 info_ = info[num]
                 result = info_['result']
                 winners = info_.get('winners', [])
+                step_count = info_['step_count']
+                targ_count = 35 if 'Grid' in args.config else 240
                 if any([result != pommerman.constants.Result.Win,
                         'Grid' not in args.config and not winners,
-                        info_['step_count'] < 240]):
+                        step_count < targ_count]):
                     delete_data(directory)
                 else:
                     save_endgame_info(directory, info_)
@@ -202,10 +205,10 @@ def save_endgame_info(directory, info):
 
 if __name__ == "__main__":
     args = get_args()
-    obs_shape, action_space = env_helpers.get_env_shapes(args.config,
-                                                         args.num_stack)
-    agents, acting_agent_ids = build_agents(args.agents, obs_shape,
-                                            action_space, args)
+    obs_shape, action_space, character, board_size = env_helpers.get_env_info(
+        args.config, args.num_stack)
+    agents, acting_agent_ids = build_agents(args.agents, obs_shape, board_size,
+                                            args, action_space, character)
 
     print("Generating data for agents %s..." % args.agents)
     generate(args, agents, action_space, acting_agent_ids)
