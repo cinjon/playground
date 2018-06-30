@@ -241,6 +241,18 @@ def train():
         uniform_v_incr = 85
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsGrA':
+        uniform_v = 4
+        uniform_v_factor = 2
+        uniform_v_incr = 50
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBoundsGrB':
+        uniform_v = 4
+        uniform_v_factor = 2
+        uniform_v_incr = 100
+        uniform_v_prior = 0
+        envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'uniformForwardA':
         uniform_v = 32
         uniform_v_factor = 2
