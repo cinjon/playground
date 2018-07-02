@@ -86,6 +86,7 @@ class Grid(PommeV0):
         ret['step_count'] = self._step_count
         if hasattr(self, '_game_state_step_start'):
             ret['game_state_step_start'] = self._game_state_step_start
+            ret['game_state_step_start_beg'] = self._game_state_step_start_beg
         return ret
 
     def reset(self):
@@ -118,6 +119,18 @@ class Grid(PommeV0):
                 minrange = max(0, step_count - lb)
                 maxrange = max(minrange + 1, step_count - ub)
                 step = random.choice(range(minrange, maxrange))
+            elif self._game_state_distribution.startswith('grUniformBounds'):
+                # This is the Grid version of uniformBounds. The max value here is 47.
+                # (0, 4), (4, 8), (8, 16), (16, 32), (32, 64), (max, max)
+                lb = self._uniform_v
+                if self._uniform_v < 5:
+                    ub = 1
+                else:
+                    ub = lb // 2
+
+                minrange = max(0, step_count - lb)
+                maxrange = max(minrange + 1, step_count - ub)
+                step = random.choice(range(minrange, maxrange))
             elif utility.is_int(self._game_state_distribution):
                 game_state_int = int(self._game_state_distribution)
                 step = random.choice(
@@ -142,6 +155,7 @@ class Grid(PommeV0):
                         game_state_file, step = get_game_state_file(
                             directory, step_count)
                     self._game_state_step_start = step_count - step + 1
+                    self._game_state_step_start_beg = step
                     with open(game_state_file, 'r') as f:
                         self.set_json_info(json.loads(f.read()))
                     break

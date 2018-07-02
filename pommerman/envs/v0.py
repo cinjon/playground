@@ -155,10 +155,10 @@ class Pomme(gym.Env):
 
                     step_count = endgame['step_count']
                     self._applicable_games.append((path, step_count))
-            print("PRINT Environment has %d applicable games --> rank %d." % (
-                len(self._applicable_games), self.rank))
-            if len(self._applicable_games) < 5:
-                print(self._applicable_games)
+            # print("PRINT Environment has %d applicable games --> rank %d." % (
+            #     len(self._applicable_games), self.rank))
+            # if len(self._applicable_games) < 5:
+            #     print(self._applicable_games)
             # logging.warn("LOG Environment has %d applicable games --> rank %d" % (
             #              len(self._applicable_games), self.rank))
             # logging.warn(self._applicable_games)
@@ -350,7 +350,6 @@ class Pomme(gym.Env):
                 step = random.choice(range(min(self._uniform_v, step_count - 1)))
             else:
                 raise
-
             return os.path.join(directory, '%d.json' % step), step
 
         if hasattr(self, '_applicable_games') and self._applicable_games:

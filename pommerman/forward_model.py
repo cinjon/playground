@@ -619,7 +619,7 @@ class ForwardModel(object):
             col_goal = pos_goal[1][0]
             agent_obs['goal_position'] = (row_goal, col_goal)
         else:
-            agent_obs['goal_position'] = agents[0]._goal_pos
+            agent_obs['goal_position'] = agents[0].goal_position
 
         if step_count is not None:
             agent_obs['step'] = step_count
@@ -747,7 +747,8 @@ class ForwardModel(object):
             }
         elif agent_loc == goal_loc:
             return {
-                'result': constants.Result.Win
+                'result': constants.Result.Win,
+                'winners': [0]
             }
         else:
             return {
