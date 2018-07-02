@@ -89,27 +89,58 @@ def train_ppo_job(flags, jobname=None, is_fb=False, partition="uninterrupted"):
     os.system(s)
 
 ### First djikstra runs.
+# job = {
+#     "how-train": "grid",  "log-interval": 5000, "save-interval": 100,
+#     "log-dir": os.path.join(directory, "logs"), "num-stack": 1,
+#     "save-dir": os.path.join(directory, "models"), "num-channels": 32,
+#     "config": "GridWalls-v4", "model-str": "GridCNNPolicy", "use-gae": "",
+#     "num-processes": 60, "gamma": 0.99, "batch-size": 25600, "num-mini-batch": 5,
+#     "state-directory": os.path.join(directory, "astars110-s100/train"),
+# }
+# counter = 0
+# for learning_rate in [1e-4, 3e-4, 1e-3]:
+#     for (name, distro) in [
+#             ("genesis", "genesis"),
+#             ("uBnGrA", "uniformBoundsGrA"),
+#             ("uBnGrB", "uniformBoundsGrB"),
+#     ]:
+#         for step_loss in [.03, .1]:
+#             for seed in [1]:
+#                 j = {k:v for k,v in job.items()}
+#                 j["run-name"] = "grid-%s-%d" % (name, counter)
+#                 j["seed"] = seed
+#                 j["step-loss"] = step_loss
+#                 j["state-directory-distribution"] = distro
+#                 j["lr"] = learning_rate
+#                 train_ppo_job(j, j["run-name"], is_fb=True, partition="learnfair")
+#                 counter += 1
+
+
 job = {
-    "how-train": "grid",  "log-interval": 5000, "save-interval": 100,
+    "how-train": "grid",  "log-interval": 10000, "save-interval": 500,
     "log-dir": os.path.join(directory, "logs"), "num-stack": 1,
     "save-dir": os.path.join(directory, "models"), "num-channels": 32,
     "config": "GridWalls-v4", "model-str": "GridCNNPolicy", "use-gae": "",
-    "num-processes": 60, "gamma": 0.99, "batch-size": 25600, "num-mini-batch": 5,
-    "state-directory":"/checkpoint/cinjon/selfplayground/gridastars110-s100/train",
+    "num-processes": 60, "gamma": 0.99, 
+    "state-directory": os.path.join(directory, "astars110-s100/train"),
+    "batch-size": 102400, "num-mini-batch": 20, "num-frames": 2000000000
 }
 counter = 0
-for learning_rate in [1e-4, 3e-4, 1e-3]:
+for learning_rate in [3e-4, 1e-3]:
     for (name, distro) in [
             ("genesis", "genesis"),
-            ("uBnGrA", "uniformBoundsGrA"),
-            ("uBnGrB", "uniformBoundsGrB"),
+            ("grUBnA", "grUniformBoundsA"),
+            ("grUBnB", "grUniformBoundsB"),
+            ("grUBnC", "grUniformBoundsC"),            
     ]:
         for step_loss in [.03, .1]:
-            for seed in [1]:
+            for seed in [1, 2]:
                 j = {k:v for k,v in job.items()}
-                j["run-name"] = "grid-%s-%d" % (name, counter)
+                j["run-name"] = "grid2-%s-%d" % (name, counter)
                 j["seed"] = seed
+                j["step-loss"] = step_loss
                 j["state-directory-distribution"] = distro
                 j["lr"] = learning_rate
-                train_ppo_job(j, j["run-name"], is_fb=True, partition="learnfair")
+                train_ppo_job(j, j["run-name"], is_fb=True, partition="uninterrupted")
                 counter += 1
+                
