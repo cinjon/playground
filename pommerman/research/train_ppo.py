@@ -103,6 +103,8 @@ def train():
         suffix += ".itemrew%.3f" % args.item_reward
     if args.use_second_place:
         suffix += ".usp"
+    if args.step_loss:
+        suffix += ".stl%.3f" % args.step_loss
 
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
@@ -643,7 +645,7 @@ def train():
                 info_.get('game_state_step_start_beg') for info_ in info])
 
             if args.render:
-                envs.render(args.record_pngs_dir, game_step_counts, num_env=3)
+                envs.render(args.record_pngs_dir, game_step_counts, num_env=0)
 
             if how_train in ['simple', 'grid']:
                 # NOTE: The masking for simple should be such that:
