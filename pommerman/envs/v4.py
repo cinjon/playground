@@ -256,3 +256,19 @@ class Grid(PommeV0):
         for key, value in ret.items():
             ret[key] = json.dumps(value, cls=utility.PommermanJSONEncoder)
         return ret
+
+    def render(self,
+               mode=None,
+               close=False,
+               record_pngs_dir=None,
+               record_json_dir=None,
+               do_sleep=True
+    ):
+        if close:
+            self.close()
+            return
+
+        print("Step %d." % self._step_count)
+        print(self._board)
+        print("\n")
+        time.sleep(1.0 / self.render_fps)

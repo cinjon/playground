@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from multiprocessing import Process, Pipe
+import os
+import time
 
 import numpy as np
-import os
 from scipy.misc import imresize as resize
-import time
+
+import pommerman
 
 
 def worker(remote, parent_remote, env_fn_wrapper):
@@ -169,25 +171,28 @@ class SubprocVecEnv(_VecEnv):
         self.remotes[0].send(('get_render_fps', None))
         self._render_fps = self.remotes[0].recv()
 
-    def render(self, record_pngs_dir=None, game_step_counts=None, num_env=0):
-        self.remotes[num_env].send(('render', None))
-        frame = self.remotes[num_env].recv()
-        from PIL import Image
-        from gym.envs.classic_control import rendering
-        human_factor = 32
-        board_size = 13
-        img = resize(frame, (board_size*human_factor, board_size*human_factor),
-                     interp='nearest')
-        if self._viewer is None:
-            self._viewer = rendering.SimpleImageViewer()
-        self._viewer.imshow(img)
-        if record_pngs_dir and game_step_counts is not None:
-            step = game_step_counts[num_env]
-            if not os.path.exists(record_pngs_dir):
-                os.makedirs(record_pngs_dir)
-            im = Image.fromarray(img)
-            im.save(os.path.join(record_pngs_dir, '%d.png' % step))
-        time.sleep(1.0 / self._render_fps)
+    def render(self, record_pngs_dir=None, game_step_counts=None, num_env=0,
+               game_type=None):
+        if game_type == pommerman.constants.GameType.Grid:
+            self.remotes[num_env].send(('render', None))
+        else:
+            self.remotes[num_env].send(('render', None))
+            frame = self.remotes[num_env].recv()
+            from PIL import Image
+            from gym.envs.classic_control import rendering
+            human_factor = 32
+            board_size = 13
+            new_size = board_size * human_factor
+            img = resize(frame, (new_size, new_size), interp='nearest')
+            if self._viewer is None:
+                self._viewer = rendering.SimpleImageViewer()
+            self._viewer.imshow(img)
+            if record_pngs_dir and game_step_counts is not None:
+                step = game_step_counts[num_env]
+                if not os.path.exists(record_pngs_dir):
+                    os.makedirs(record_pngs_dir)
+                im = Image.fromarray(img)
+                im.save(os.path.join(record_pngs_dir, '%d.png' % step))
 
     def reset(self, acting_agent_ids=None):
         for remote in self.remotes:

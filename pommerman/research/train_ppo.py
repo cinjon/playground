@@ -113,6 +113,7 @@ def train():
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
         item_reward=args.item_reward, use_second_place=args.use_second_place
     )
+    game_type = envs.get_game_type()
 
     uniform_v = None
     running_success_rate = []
@@ -369,7 +370,7 @@ def train():
             distill_agent.set_eval()
             # NOTE: We have to call init_agent, but the agent_id won't matter
             # because we will use the observations from the ppo_agent.
-            distill_agent.init_agent(0, envs.get_game_type())
+            distill_agent.init_agent(0, game_type)
             distill_type = distill_target.split('::')[0]
             if set_distill_kl >= 0:
                 suffix += ".dstlDagKL{}".format(set_distill_kl)
@@ -645,7 +646,8 @@ def train():
                 info_.get('game_state_step_start_beg') for info_ in info])
 
             if args.render:
-                envs.render(args.record_pngs_dir, game_step_counts, num_env=0)
+                envs.render(args.record_pngs_dir, game_step_counts, num_env=0,
+                            game_type=game_type)
 
             if how_train in ['simple', 'grid']:
                 # NOTE: The masking for simple should be such that:
@@ -669,7 +671,7 @@ def train():
                     [0.0] if ended_ else [1.0]
                 for ended_ in game_ended])
 
-                if envs.get_game_type() == constants.GameType.Team:
+                if game_type == constants.GameType.Team:
                     for num_process in range(num_processes):
                         self_reward = reward[num_process][0]
                         teammate_reward = reward[num_process][1]
