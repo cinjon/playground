@@ -173,6 +173,7 @@ class Grid(PommeV0):
             agent.set_start_position(info['position'])
             agent.set_goal_position(info['goal'])
             agent.reset(info['step_count'])
+            self._optimal_num_steps = len(path)
         elif hasattr(self, '_applicable_games') and self._applicable_games:
             directory, step_count = random.choice(self._applicable_games)
             counter = 0
@@ -197,6 +198,11 @@ class Grid(PommeV0):
                           (game_state_file, step_count, step))
                     logging.warn("LOG --> GSF: %s / sc: %d / step: %d..." %
                                  (game_state_file, step_count, step))
+            if directory not in self._optimal_num_steps_directory:
+                optimal_num_steps = self._compute_optimal(
+                    self._board, self._agents[0].position, self._agents[0].goal_position)
+                self._optimal_num_steps_directory[directory] = optimal_num_steps
+            self._optimal_num_steps = self._optimal_num_steps_directory[directory]
         elif self._init_game_state is not None:
             self.set_json_info()
         else:
@@ -214,8 +220,6 @@ class Grid(PommeV0):
                 agent.set_goal_position((row_goal, col_goal))
 
                 agent.reset()
-        self._optimal_num_steps = self._compute_optimal(
-            self._board, self._agents[0].position, self._agents[0].goal_position)
         return self.get_observations()
 
     @staticmethod

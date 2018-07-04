@@ -59,6 +59,7 @@ class Pomme(gym.Env):
         self._bomb_reward = 0.0
         self._item_reward = 0.0
         self._selfbombing = False
+        self._optimal_num_steps_directory = {}
 
         self.training_agents = []
         self.model = forward_model.ForwardModel()
@@ -131,6 +132,7 @@ class Pomme(gym.Env):
                             use_second_place=False):
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
+        self._online_backplay = False
         if directory == "online":
             self._online_backplay = True
             return
