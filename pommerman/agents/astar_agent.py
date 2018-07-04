@@ -6,6 +6,7 @@ import itertools
 from scipy.spatial.distance import cityblock
 from .. import characters
 from .. import constants
+import random
 
 
 class AstarAgent(BaseAgent):
@@ -15,16 +16,16 @@ class AstarAgent(BaseAgent):
     """This agent uses the A* algorithm to
     find the shortest path to an assigned goal
     and takes actions along that path.
-
     TODO: implement the dijkstra version as well
     shouldn't be any difference other than Dijkstra
     could be a bit slower."""
 
-    def __init__(self, character=characters.Walker, *args, **kwargs):
+    def __init__(self, character=characters.Walker, prob_optim=1.0, *args, **kwargs):
         #TODO: do we need args kwargs below?
-        super(AstarAgent, self).__init__(character, *args, **kwargs)
+        super(AstarAgent, self).__init__(character, prob_optim=1.0, *args, **kwargs)
         self._path = None
         self.is_simple_agent = True
+        self._prob_optim = prob_optim
 
     def act(self, obs, action_space):
         self.obs = obs  # single agent
@@ -43,12 +44,21 @@ class AstarAgent(BaseAgent):
         # next_loc = self._path[self._step]
 
         # NOTE: alternative -- less efficient: computes path at each step
-        if not self._path:
+        if self._prob_optim == 1.0:
+            self._path = self._get_path(self.obs['board'])
+        elif not self._path:
             self._path = self._get_path(self.obs['board'])
         next_loc = self._path.pop(0)
 
-        action = self._action_to_loc(next_loc)
-        # print(self._agent_pos, self._goal_pos, self._path, next_loc, action)
+        possible_actions = set([0, 1, 2, 3, 4])
+        prob = random.uniform(0,1)
+        if prob < self._prob_optim: # take optimal action with prob self._prob_optim
+            action = self._action_to_loc(next_loc)
+        else:  # take suboptimal action with prob 1 - self._prob_optim
+            opt_action = self._action_to_loc(next_loc)
+            possible_actions.remove(opt_action)
+
+            action = random.choice(list(possible_actions))
 
         return action
 
@@ -102,7 +112,6 @@ class AstarAgent(BaseAgent):
         '''
         Returns all the locations the agent can move to
         from its current position: up, down, east, west.
-
         Note:
         The next position must be inside the maze.
         '''
@@ -122,11 +131,9 @@ class AstarAgent(BaseAgent):
             move_func -- f(loc) determines the locations you can move to from loc
             start_loc -- (x, y) tuple of start location
             end_loc -- (x, y) tuple of end location -- optional
-
         Returns:
             visited -- dictionary of {location: distance} pairs
             path -- dictionary of {location: previous_location} pairs
-
         Notes:
             - if end_loc is None, then returns visited and path for all the
         nodes in the graph (all locations in the maze)
@@ -165,12 +172,10 @@ class AstarAgent(BaseAgent):
         '''
         Implements the Astar algorithm which finds the
         shortest path between start and goal, in gridworld env.
-
         Args:
             move_func -- f(loc) determines the locations you can move to from loc
             start -- (x, y) tuple of start location
             goal -- (x, y) tuple of end location -- optional
-
         Returns:
             cost_so_far -- dictionary of {location: path_cost} pairs
             came_from -- dictionary of {location: previous_location} pairs

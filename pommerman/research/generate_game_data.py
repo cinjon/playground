@@ -1,14 +1,12 @@
 """Generate data script.
-
 On Cpu:
 python generate_game_data.py --agents=complex::null,complex::null,complex::null,complex::null \
   --config=PommeFFACompetition-v0 --num-episodes=10 --num-processes=12 \
   --record-json-dir=/path/to/json/dir --seed=<insert seed>
-
 For Grid envs:
 python generate_game_data.py --agents=astar::null --config=GridWalls-v4 --num-episodes=10 \
 --num-processes=12 --num-stack=1 --how-train astar --seed=<insert seed> \
---record-json-dir=/path/to/json/dir 
+--record-json-dir=/path/to/json/dir
 """
 import json
 import os
@@ -71,7 +69,7 @@ def _build(info, obs_shape, action_space, cuda, cuda_device, model_str,
             agent.cuda()
         return agent
     else:
-        return agent_type(character=character)
+        return agent_type(character=character, prob_optim=args.prob_optim)
 
 
 def build_agents(agents, obs_shape, board_size, args, action_space, character):
@@ -89,11 +87,9 @@ def build_agents(agents, obs_shape, board_size, args, action_space, character):
 
 def generate(args, agents, action_space, acting_agent_ids):
     """Generate a number of episodes of training data.
-
     We want to save a number of episodes by their game states in order to then
     learn from these starting at the back end. After saving a game, we go back
     and record who won so that we can easily load agents to play as that agent.
-
     Args:
       args: The arguments we are passing through from CLI.
       num_episodes: The number of episodes to save.
@@ -204,6 +200,7 @@ def save_endgame_info(directory, info):
 
 
 if __name__ == "__main__":
+
     args = get_args()
     obs_shape, action_space, character, board_size = env_helpers.get_env_info(
         args.config, args.num_stack)

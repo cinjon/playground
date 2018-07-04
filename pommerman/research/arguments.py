@@ -245,7 +245,9 @@ def get_args():
     # for Generating Game Data
     parser.add_argument('--num-episodes', type=int, default=2,
                         help='number of episodes for which to generate data.')
-
+    parser.add_argument('--prob-optim', type=float, default=1.0,
+                        help='probability that the expert (used for replay trajectories) \
+                        takes the optimal action.')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
