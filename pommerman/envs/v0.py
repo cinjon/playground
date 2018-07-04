@@ -60,6 +60,8 @@ class Pomme(gym.Env):
         self._item_reward = 0.0
         self._selfbombing = False
         self._optimal_num_steps_directory = {}
+        self._num_make = []
+        self._num_inac = []
 
         self.training_agents = []
         self.model = forward_model.ForwardModel()

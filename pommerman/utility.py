@@ -153,7 +153,7 @@ def make_items(board, num_items):
     return item_positions
 
 
-def make_board_grid(size, num_rigid=0, extra=False):
+def make_board_grid(size, num_rigid=0, min_length=1, extra=False):
     # TODO: when num_walls > 0 make sure the agent can reach the goal
     """Make a random board with an agent, a goal and
     a few rigid walls (optional).
@@ -196,7 +196,12 @@ def make_board_grid(size, num_rigid=0, extra=False):
         coordinates.remove(agent_pos)
 
         # Randomly pick the goal location. Exclude it from coordinates
-        x_g, y_g = random.sample(coordinates, 1)[0]
+        goal_coordinates = [(gx, gy) for gx, gy in coordinates \
+                            if abs(x - gx) + abs(y - gy) >= min_length]
+        if not goal_coordinates:
+            return None, None, None
+
+        x_g, y_g = random.sample(goal_coordinates, 1)[0]
         goal_pos = (x_g, y_g)
         board[x_g, y_g] = constants.GridItem.Goal.value
         coordinates.remove(goal_pos)
@@ -209,12 +214,12 @@ def make_board_grid(size, num_rigid=0, extra=False):
 
     board, agent_pos, goal_pos = make_grid(size, num_rigid)
     counter = 1
-    while not accessible_grid(board, agent_pos, goal_pos):
+    while not agent_pos or not accessible_grid(board, agent_pos, goal_pos):
         counter += 1
         board, agent_pos, goal_pos = make_grid(size, num_rigid)
 
     if extra:
-        return board, agent_pos, goal_pos
+        return board, agent_pos, goal_pos, counter
     else:
         return board
 

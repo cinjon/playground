@@ -430,7 +430,6 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
         num_optimal = len([k for k in running_optimal_info if k[2] == 0])
         avg_over = np.mean([k[2] for k in running_optimal_info])
         std_over = np.std([k[2] for k in running_optimal_info])
-        print("WAT: ", num_optimal, avg_over, std_over)
         writer.add_scalar('percent_optimal_epoch',
                           1.0 * num_optimal / running_num_episodes,
                           num_epoch)

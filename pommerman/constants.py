@@ -77,7 +77,10 @@ DEFAULT_BLAST_STRENGTH_8 = 2
 GRID_BOARD_SIZE = 24
 GRID_MAX_STEPS = 200
 GRID_NUM_RIGID = 0         # no walls
-GRIDWALLS_NUM_RIGID = 120  # some rigid walls
+# num --> avg make_board_grid / avg num_inaccessible
+# 220 --> 1.73 / 5.72, 180 --> 2.36 / 3.42, 160 --> 3.055 / 3.93,
+# 120 --> 5.55 / 6.55
+GRIDWALLS_NUM_RIGID = 180  # some rigid walls
 
 
 class Item(Enum):

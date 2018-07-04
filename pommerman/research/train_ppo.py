@@ -969,7 +969,7 @@ def train():
             start_step_wins = defaultdict(int)
             start_step_all_beg = defaultdict(int)
             start_step_wins_beg = defaultdict(int)
-            
+
             if args.state_directory_distribution == 'uniformAdapt':
                 rate_ = 1.0 * success_rate / running_num_episodes
                 running_success_rate.append(rate_)
@@ -998,7 +998,7 @@ def train():
             final_rewards = torch.zeros([num_training_per_episode,
                                          num_processes, 1])
             running_total_game_step_counts = []
-            running_num_optimal = []
+            running_optimal_info = []
             running_num_episodes = 0
             cumulative_reward = 0
             terminal_reward = 0
