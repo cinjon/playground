@@ -90,7 +90,10 @@ class Grid(PommeV0):
         ret = self.model.get_info_grid(done, agent_pos, goal_pos)
         ret['step_count'] = self._step_count
         ret['optimal_num_steps'] = self._optimal_num_steps
-        ret['game_state_file'] = self._game_state_file
+        try:
+            ret['game_state_file'] = self._game_state_file
+        except AttributeError:
+            pass
         if hasattr(self, '_game_state_step_start'):
             ret['game_state_step_start'] = self._game_state_step_start
             ret['game_state_step_start_beg'] = self._game_state_step_start_beg
@@ -99,7 +102,7 @@ class Grid(PommeV0):
     def reset(self):
         assert (self._agents is not None)
 
-        def get_game_state_file(directory, step_count):
+        def get_game_state_step(step_count):
             # TODO: the game_state_distribution types will need
             # some adjustment to the simple grid env
             if self._game_state_distribution == 'uniform':
@@ -140,27 +143,49 @@ class Grid(PommeV0):
                 step = random.choice(range(minrange, maxrange))
             elif utility.is_int(self._game_state_distribution):
                 game_state_int = int(self._game_state_distribution)
-                step = random.choice(
-                    range(max(0, step_count - game_state_int - 5),
-                          max(0, step_count - game_state_int) + 5)
-                )
+                min_range = max(0, step_count - game_state_int - 5)
+                max_range = min(max(0, step_count - game_state_int) + 5,
+                                step_count)
+                step = random.choice(range(min_range, max_range))
             else:
                 raise
-            return os.path.join(directory, '%03d.json' % step), step
+            return step
 
-        if hasattr(self, '_applicable_games') and self._applicable_games:
+        if self._online_backplay:
+            # Run a game until completion, saving the states at each step.
+            # Then, pick from the right set of steps.
+            board, agent_pos, goal_pos = utility.make_board_grid(
+                size=self._board_size, num_rigid=self._num_rigid, extra=True)
+            path = self._compute_path_json(board, agent_pos, goal_pos)
+            while len(path) < 35:
+                board, agent_pos, goal_pos = utility.make_board_grid(
+                    size=self._board_size, num_rigid=self._num_rigid, extra=True)
+                path = self._compute_path_json(board, agent_pos, goal_pos)
+
+            step = get_game_state_step(step_count=len(path))
+            self._game_state_step_start = len(path) - step + 1
+            self._game_state_step_start_beg = step
+            info = path[step]
+            self._board = info['board'].astype(np.uint8)
+            self._board_size = info['board_size']
+            self._step_count = info['step_count']
+            agent = self._agents[0]
+            agent.set_start_position(info['position'])
+            agent.set_goal_position(info['goal'])
+            agent.reset(info['step_count'])
+        elif hasattr(self, '_applicable_games') and self._applicable_games:
             directory, step_count = random.choice(self._applicable_games)
             counter = 0
             while True:
                 if counter == 5:
                     raise
-                game_state_file, step = get_game_state_file(
-                    directory, step_count)
+                step = get_game_state_step(step_count)
+                game_state_file = os.path.join(directory, '%03d.json' % step)
                 counter += 1
                 try:
                     while not os.path.exists(game_state_file):
-                        game_state_file, step = get_game_state_file(
-                            directory, step_count)
+                        step = get_game_state_step(step_count)
+                        game_state_file = os.path.join(directory, '%03d.json' % step)
                     self._game_state_step_start = step_count - step + 1
                     self._game_state_step_start_beg = step
                     self._game_state_file = game_state_file
@@ -314,3 +339,57 @@ class Grid(PommeV0):
         print(self._board)
         print("\n")
         time.sleep(1.0 / self.render_fps)
+
+    @staticmethod
+    def _compute_path_json(board, start, end):
+        seen = set()
+        prev = {}
+        dist = defaultdict(lambda: 1000000)
+        dist[start] = 0
+        Q = queue.PriorityQueue()
+        Q.put((dist[start], start))
+
+        found = False
+        while not Q.empty() and not found:
+            d, position = Q.get()
+            x, y = position
+            for row, col in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                new_position = (x + row, y + col)
+                if new_position in seen:
+                    continue
+                elif x + row >= len(board) or x + row < 0:
+                    continue
+                elif y + col >= len(board) or y + col < 0:
+                    continue
+                elif board[new_position] == 1:
+                    continue
+
+                val = d + 1
+                if val < dist[new_position]:
+                    dist[new_position] = val
+                    prev[new_position] = position
+
+                seen.add(new_position)
+                Q.put((dist[new_position], new_position))
+
+                if new_position == end:
+                    found = True
+                    break
+
+        path = []
+        curr = end
+        while prev.get(curr):
+            curr = prev[curr]
+            curr_board = board.copy()
+            curr_board[start] = constants.GridItem.Passage.value
+            curr_board[curr] = constants.GridItem.Agent.value
+            path.append({
+                'goal': end,
+                'position': curr,
+                'board': curr_board,
+                'board_size': len(curr_board),
+                'step_count': dist[curr]
+            })
+
+        path = list(reversed(path))
+        return path

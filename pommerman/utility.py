@@ -153,7 +153,7 @@ def make_items(board, num_items):
     return item_positions
 
 
-def make_board_grid(size, num_rigid=0):
+def make_board_grid(size, num_rigid=0, extra=False):
     # TODO: when num_walls > 0 make sure the agent can reach the goal
     """Make a random board with an agent, a goal and
     a few rigid walls (optional).
@@ -210,13 +210,13 @@ def make_board_grid(size, num_rigid=0):
     board, agent_pos, goal_pos = make_grid(size, num_rigid)
     counter = 1
     while not accessible_grid(board, agent_pos, goal_pos):
-        print("reaming board %d" % counter)
         counter += 1
         board, agent_pos, goal_pos = make_grid(size, num_rigid)
 
-    # print("Board")
-    # print(board)
-    return board
+    if extra:
+        return board, agent_pos, goal_pos
+    else:
+        return board
 
 
 def accessible_grid(board, agent_pos, goal_pos):

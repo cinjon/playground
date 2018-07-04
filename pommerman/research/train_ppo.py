@@ -643,8 +643,9 @@ def train():
                         is_win = info_['result'] == constants.Result.Win
                         running_optimal_info.append((
                             optimal, step_count, step_count - optimal))
-                        optimal_by_file[game_state_file].append((
-                            step_count - optimal, is_win))
+                        if game_state_file:
+                            optimal_by_file[game_state_file].append((
+                                step_count - optimal, is_win))
                     game_step_counts[num_process] = 0
                     # if args.eval_only and num_process == 0:
                     #     print("TPPO FINI: ", num_process, info_)
@@ -727,15 +728,16 @@ def train():
                         print('Num optimal %d / Avg optimal %.3f / Std optimal %.3f.' % (
                             num_optimal, avg_over, std_over))
                     if running_num_episodes >= 250:
-                        print("\n")
-                        counts = {f: np.mean([k[0] for k in lst])
-                                  for f, lst in sorted(optimal_by_file.items())}
-                        is_wins = {f: 1.0*sum([k[1] for k in lst])/len(lst)
-                                   for f, lst in sorted(optimal_by_file.items())}
-                        for f in sorted(optimal_by_file):
-                            print(f, ", avg over optimal: %.3f, " % counts[f],
-                                  "percent wins %.3f." % is_wins[f])
-                        print("\n")
+                        if optimal_by_file:
+                            print("\n")
+                            counts = {f: np.mean([k[0] for k in lst])
+                                      for f, lst in sorted(optimal_by_file.items())}
+                            is_wins = {f: 1.0*sum([k[1] for k in lst])/len(lst)
+                                       for f, lst in sorted(optimal_by_file.items())}
+                            for f in sorted(optimal_by_file):
+                                print(f, ", avg over optimal: %.3f, " % counts[f],
+                                      "percent wins %.3f." % is_wins[f])
+                            print("\n")
                         raise
 
                 ### NOTE: Use the below if you want to make a game video of just
@@ -747,7 +749,8 @@ def train():
                 #     print("DEL THAT SHIT")
                 #     os.rmdir(args.record_pngs_dir)
 
-                for e, w, ss, sb in zip(game_ended, win, game_state_start_steps, game_state_start_steps_beg):
+                for e, w, ss, sb in zip(game_ended, win, game_state_start_steps,
+                                        game_state_start_steps_beg):
                     if not e or ss is None or sb is None:
                         continue
                     if w:
@@ -938,7 +941,8 @@ def train():
                                  success_rate_alive, running_num_episodes,
                                  mean_total_loss, mean_kl_loss, mean_pg_loss,
                                  distill_factor, args.reinforce_only,
-                                 start_step_ratios, start_step_beg_ratios)
+                                 start_step_ratios, start_step_beg_ratios,
+                                 running_optimal_info)
 
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
@@ -958,7 +962,8 @@ def train():
                                      np.array(action_choices),
                                      np.array(action_probs), uniform_v,
                                      np.mean(running_success_rate),
-                                     running_total_game_step_counts)
+                                     running_total_game_step_counts,
+                                     running_optimal_info)
 
             start_step_all = defaultdict(int)
             start_step_wins = defaultdict(int)
@@ -993,6 +998,7 @@ def train():
             final_rewards = torch.zeros([num_training_per_episode,
                                          num_processes, 1])
             running_total_game_step_counts = []
+            running_num_optimal = []
             running_num_episodes = 0
             cumulative_reward = 0
             terminal_reward = 0

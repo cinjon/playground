@@ -127,9 +127,14 @@ class Pomme(gym.Env):
     def set_uniform_v(self, v):
         self._uniform_v = v
 
-    def set_state_directory(self, directory, distribution, use_second_place=False):
+    def set_state_directory(self, directory, distribution,
+                            use_second_place=False):
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
+        if directory == "online":
+            self._online_backplay = True
+            return
+
         self._applicable_games = []
         if self._init_game_state_directory:
             for subdir in os.listdir(self._init_game_state_directory):

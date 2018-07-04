@@ -221,7 +221,8 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                    cumulative_reward, terminal_reward, success_rate,
                    success_rate_alive, running_num_episodes, mean_total_loss,
                    mean_kl_loss=None, mean_pg_loss = None, distill_factor=0,
-                   reinforce_only=False, start_step_ratios=None, start_step_beg_ratios=None):
+                   reinforce_only=False, start_step_ratios=None,
+                   start_step_beg_ratios=None, running_optimal_info=None):
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "
@@ -253,6 +254,12 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
         print("Start Step Beg Win Ratios: %s" % ", ".join(
             ["%d: %.3f" % (k, v) for k, v in sorted(start_step_beg_ratios.items())])
         )
+    if running_optimal_info:
+        num_optimal = len([k for k in running_optimal_info if k[2] == 0])
+        avg_over = np.mean([k[2] for k in running_optimal_info])
+        std_over = np.std([k[2] for k in running_optimal_info])
+        print('Num optimal %d / Avg optimal %.3f / Std optimal %.3f.' % (
+            num_optimal, avg_over, std_over))
 
 
 def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
@@ -285,11 +292,12 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        mean_kl_loss=None, mean_pg_loss=None, lr=None,
                        distill_factor=0, reinforce_only=False,
                        start_step_ratios=None, start_step_all=None,
-                       start_step_beg_ratios=None, start_step_all_beg=None,                       
+                       start_step_beg_ratios=None, start_step_all_beg=None,
                        bomb_penalty_lambda=None, action_choices=None,
                        action_probs=None, uniform_v=None,
                        mean_running_success_rate=None,
-                       running_total_game_step_counts=[]):
+                       running_total_game_step_counts=[],
+                       running_optimal_info=None):
     # writer.add_scalar('entropy', {
     #     'mean' : mean_dist_entropy,
     #     'std_max': mean_dist_entropy + std_dist_entropy,
@@ -382,12 +390,16 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
         writer.add_scalar("win_startstep_epoch/%d" % start_step, ratio,
                           num_epoch)
     for start_step, ratio in start_step_beg_ratios.items():
+        if start_step > 5:
+            continue
         writer.add_scalar("win_startstep_beg_epoch/%d" % start_step, ratio,
                           num_epoch)
 
     for start_step, count in start_step_all.items():
         writer.add_scalar("all_startstep_epoch/%d" % start_step, count, num_epoch)
     for start_step, count in start_step_all_beg.items():
+        if start_step > 5:
+            continue
         writer.add_scalar("all_startstep_beg_epoch/%d" % start_step, count, num_epoch)
 
     # x-axis: # epochs / updates
@@ -408,11 +420,23 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
 
     writer.add_scalar('final_reward_epoch', final_rewards.mean(), num_epoch)
     writer.add_scalar('cumulative_reward_epoch',
-                    1.0 * cumulative_reward / running_num_episodes, num_epoch)
+                      1.0 * cumulative_reward / running_num_episodes, num_epoch)
     # writer.add_scalar('terminal_reward_epoch',
     #                 1.0 * terminal_reward / running_num_episodes, num_epoch)
     writer.add_scalar('success_rate_epoch',
-                    1.0 * success_rate / running_num_episodes, num_epoch)
+                      1.0 * success_rate / running_num_episodes, num_epoch)
+
+    if running_optimal_info:
+        num_optimal = len([k for k in running_optimal_info if k[2] == 0])
+        avg_over = np.mean([k[2] for k in running_optimal_info])
+        std_over = np.std([k[2] for k in running_optimal_info])
+        print("WAT: ", num_optimal, avg_over, std_over)
+        writer.add_scalar('percent_optimal_epoch',
+                          1.0 * num_optimal / running_num_episodes,
+                          num_epoch)
+        writer.add_scalar('avg_optimal_over_epoch', avg_over, num_epoch)
+        writer.add_scalar('std_optimal_over_epoch', std_over, num_epoch)
+
     # writer.add_scalar('success_rate_alive_epoch',
     #                 1.0 * success_rate_alive / running_num_episodes,
     #                 num_epoch)
