@@ -156,7 +156,7 @@ class Grid(PommeV0):
             # Then, pick from the right set of steps.
             board, agent_pos, goal_pos, num_inaccess = utility.make_board_grid(
                 size=self._board_size, num_rigid=self._num_rigid,
-                min_length=25, extra=True)
+                min_length=30, extra=True)
             path = self._compute_path_json(board, agent_pos, goal_pos)
             counter = 1
             while len(path) < 35:
