@@ -175,6 +175,7 @@ class SubprocVecEnv(_VecEnv):
                game_type=None):
         if game_type == pommerman.constants.GameType.Grid:
             self.remotes[num_env].send(('render', None))
+            self.remotes[num_env].recv()
         else:
             self.remotes[num_env].send(('render', None))
             frame = self.remotes[num_env].recv()
@@ -207,6 +208,7 @@ class SubprocVecEnv(_VecEnv):
     def step_wait(self):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
+        # print(results)
         obs, rews, dones, infos = zip(*results)
         return np.stack(obs), np.stack(rews), np.stack(dones), infos
 

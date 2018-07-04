@@ -362,9 +362,8 @@ def train():
 
     # NOTE: you need to set the distill expert in order to do distillation
     do_distill = distill_expert is not None
-    print("Distilling: {} from {} \n".format(do_distill, distill_expert))
-
     if do_distill:
+        print("Distilling: {} from {} \n".format(do_distill, distill_expert))
         if distill_expert == 'DaggerAgent':
             distill_agent = utils.load_distill_agent(obs_shape, action_space, args)
             distill_agent.set_eval()
@@ -433,6 +432,8 @@ def train():
     prev_epoch = start_epoch
     game_step_counts = [0 for _ in range(num_processes)]
     running_total_game_step_counts = []
+    running_optimal_info = []
+    optimal_by_file = defaultdict(list)
 
     if args.reinforce_only:
         final_pg_losses = [[] for agent in range(len(training_agents))]
@@ -633,11 +634,20 @@ def train():
             for num_process, ended_ in enumerate(game_ended):
                 game_step_counts[num_process] += 1
                 if ended_:
-                    running_total_game_step_counts.append(
-                        game_step_counts[num_process])
+                    step_count = game_step_counts[num_process]
+                    running_total_game_step_counts.append(step_count)
+                    info_ = info[num_process]
+                    optimal = info_.get('optimal_num_steps')
+                    game_state_file = info_.get('game_state_file')
+                    if optimal:
+                        is_win = info_['result'] == constants.Result.Win
+                        running_optimal_info.append((
+                            optimal, step_count, step_count - optimal))
+                        optimal_by_file[game_state_file].append((
+                            step_count - optimal, is_win))
                     game_step_counts[num_process] = 0
-                    if args.eval_only and num_process == 3:
-                        print("TPPO FINI: ", num_process, info[num_process])
+                    # if args.eval_only and num_process == 0:
+                    #     print("TPPO FINI: ", num_process, info_)
 
             win, alive_win = get_win_alive(info, envs)
             game_state_start_steps = np.array([
@@ -709,7 +719,23 @@ def train():
                 if args.eval_only and any([done_ for done_ in done]):
                     print("Num completed %d --> %d success." % (
                         running_num_episodes, success_rate))
-                    if running_num_episodes >= 1000:
+                    if 'optimal_num_steps' in info[0]:
+                        num_optimal = len([k for k in running_optimal_info \
+                                           if k[2] == 0])
+                        avg_over = np.mean([k[2] for k in running_optimal_info])
+                        std_over = np.std([k[2] for k in running_optimal_info])
+                        print('Num optimal %d / Avg optimal %.3f / Std optimal %.3f.' % (
+                            num_optimal, avg_over, std_over))
+                    if running_num_episodes >= 250:
+                        print("\n")
+                        counts = {f: np.mean([k[0] for k in lst])
+                                  for f, lst in sorted(optimal_by_file.items())}
+                        is_wins = {f: 1.0*sum([k[1] for k in lst])/len(lst)
+                                   for f, lst in sorted(optimal_by_file.items())}
+                        for f in sorted(optimal_by_file):
+                            print(f, ", avg over optimal: %.3f, " % counts[f],
+                                  "percent wins %.3f." % is_wins[f])
+                        print("\n")
                         raise
 
                 ### NOTE: Use the below if you want to make a game video of just

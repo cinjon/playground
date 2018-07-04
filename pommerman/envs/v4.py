@@ -19,14 +19,19 @@ need to have an LSTM.
 
 Output should be a single discrete action representing [Up, Down, Left, Right].
 """
-from .v0 import Pomme as PommeV0
-from gym import spaces
-from .. import constants
-import numpy as np
-from .. import utility
-import random
+from collections import defaultdict
 import json
 import os
+import queue
+import random
+import time
+
+from gym import spaces
+import numpy as np
+
+from .. import constants
+from .. import utility
+from .v0 import Pomme as PommeV0
 
 
 class Grid(PommeV0):
@@ -84,6 +89,8 @@ class Grid(PommeV0):
         goal_pos = self.observations[0]['goal_position']
         ret = self.model.get_info_grid(done, agent_pos, goal_pos)
         ret['step_count'] = self._step_count
+        ret['optimal_num_steps'] = self._optimal_num_steps
+        ret['game_state_file'] = self._game_state_file
         if hasattr(self, '_game_state_step_start'):
             ret['game_state_step_start'] = self._game_state_step_start
             ret['game_state_step_start_beg'] = self._game_state_step_start_beg
@@ -156,6 +163,7 @@ class Grid(PommeV0):
                             directory, step_count)
                     self._game_state_step_start = step_count - step + 1
                     self._game_state_step_start_beg = step
+                    self._game_state_file = game_state_file
                     with open(game_state_file, 'r') as f:
                         self.set_json_info(json.loads(f.read()))
                     break
@@ -181,8 +189,41 @@ class Grid(PommeV0):
                 agent.set_goal_position((row_goal, col_goal))
 
                 agent.reset()
-
+        self._optimal_num_steps = self._compute_optimal(
+            self._board, self._agents[0].position, self._agents[0].goal_position)
         return self.get_observations()
+
+    @staticmethod
+    def _compute_optimal(board, start, end):
+        seen = set()
+        dist = defaultdict(lambda: 1000000)
+        dist[start] = 0
+        Q = queue.PriorityQueue()
+        Q.put((dist[start], start))
+        while not Q.empty():
+            d, position = Q.get()
+            x, y = position
+            for row, col in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                if x + row >= len(board) or x + row < 0:
+                    continue
+                if y + col >= len(board) or y + col < 0:
+                    continue
+
+                new_position = (x + row, y + col)
+                if board[new_position] == 1:
+                    continue
+
+                val = d + 1
+                if val < dist[new_position]:
+                    dist[new_position] = val
+
+                if new_position == end:
+                    return dist[new_position]
+
+                if new_position not in seen:
+                    seen.add(new_position)
+                    Q.put((dist[new_position], new_position))
+        return None
 
     def set_json_info(self, game_state=None):
         game_state = game_state or self._init_game_state
@@ -268,7 +309,8 @@ class Grid(PommeV0):
             self.close()
             return
 
-        print("Step %d." % self._step_count)
+        print("Step %d / Optimal %d." % (self._step_count,
+                                         self._optimal_num_steps))
         print(self._board)
         print("\n")
         time.sleep(1.0 / self.render_fps)
