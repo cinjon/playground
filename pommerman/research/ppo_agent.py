@@ -39,19 +39,20 @@ class PPOAgent(ResearchAgent):
     def _rollout_data(self, step, num_agent, num_agent_end=None):
         if num_agent_end is not None:
             assert(num_agent_end > num_agent)
-            with torch.no_grad():
-                observations = Variable(
-                    self._rollout.observations[step, num_agent:num_agent_end])
-                states = Variable(
-                    self._rollout.states[step, num_agent:num_agent_end])
-                masks = Variable(
-                    self._rollout.masks[step, num_agent:num_agent_end])
+            observations = Variable(
+                self._rollout.observations[step, num_agent:num_agent_end])
+            states = Variable(
+                self._rollout.states[step, num_agent:num_agent_end])
+            masks = Variable(
+                self._rollout.masks[step, num_agent:num_agent_end])
         else:
-            with torch.no_grad():
-                observations = Variable(
-                    self._rollout.observations[step, num_agent])
-                states = Variable(self._rollout.states[step, num_agent])
-                masks = Variable(self._rollout.masks[step, num_agent])
+            observations = Variable(
+                self._rollout.observations[step, num_agent],
+                volatile=True)
+            states = Variable(self._rollout.states[step, num_agent],
+                              volatile=True)
+            masks = Variable(self._rollout.masks[step, num_agent],
+                             volatile=True)
         return observations, states, masks
 
     def actor_critic_act(self, step, num_agent=0, deterministic=False):
