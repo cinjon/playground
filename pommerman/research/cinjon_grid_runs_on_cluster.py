@@ -52,7 +52,8 @@ abbr = {
 }
 
 
-def train_ppo_job(flags, jobname=None, is_fb=False, partition="uninterrupted"):
+def train_ppo_job(flags, jobname=None, is_fb=False,
+                  partition="uninterrupted", time=24):
     num_processes = flags["num-processes"]
     jobname = jobname or 'pman'
     jobnameattrs = '%s.%s' % (
@@ -84,8 +85,8 @@ def train_ppo_job(flags, jobname=None, is_fb=False, partition="uninterrupted"):
     else:
         s = "sbatch --qos batch --gres=gpu:1 --nodes=1 "        
     s += "--cpus-per-task=%s " % num_processes
-    s += "--mem=64000 --time=24:00:00 %s &" % os.path.join(
-        slurm_scripts, jobnameattrs + ".slurm")
+    s += "--mem=64000 --time=%d:00:00 %s &" % (
+        time, os.path.join(slurm_scripts, jobnameattrs + ".slurm"))
     os.system(s)
 
 ### First djikstra runs.
@@ -153,6 +154,8 @@ for learning_rate in [3e-3, 1e-3]:
                     j["state-directory-distribution"] = distro
                     j["state-directory"] = state_directory
                     j["lr"] = learning_rate
-                    train_ppo_job(j, j["run-name"], is_fb=True, partition="uninterrupted")
+                    time = 72 if state_directory == "online" else 24
+                    train_ppo_job(j, j["run-name"], is_fb=True,
+                                  partition="uninterrupted", time=time)
                     counter += 1
                 
