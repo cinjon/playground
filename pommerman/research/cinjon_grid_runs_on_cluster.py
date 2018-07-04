@@ -116,8 +116,10 @@ def train_ppo_job(flags, jobname=None, is_fb=False, partition="uninterrupted"):
 #                 counter += 1
 
 
+### Djikstra runs that worked.
+# In particular --> grUniformBounds{A, B}, lr 1e-3, stl of .03
 job = {
-    "how-train": "grid",  "log-interval": 10000, "save-interval": 500,
+    "how-train": "grid",  "log-interval": 10000, "save-interval": 100,
     "log-dir": os.path.join(directory, "logs"), "num-stack": 1,
     "save-dir": os.path.join(directory, "models"), "num-channels": 32,
     "config": "GridWalls-v4", "model-str": "GridCNNPolicy", "use-gae": "",
@@ -126,21 +128,31 @@ job = {
     "batch-size": 102400, "num-mini-batch": 20, "num-frames": 2000000000
 }
 counter = 0
-for learning_rate in [3e-4, 1e-3]:
+for learning_rate in [3e-3, 1e-3]:
     for (name, distro) in [
             ("genesis", "genesis"),
             ("grUBnA", "grUniformBoundsA"),
             ("grUBnB", "grUniformBoundsB"),
-            ("grUBnC", "grUniformBoundsC"),            
     ]:
-        for step_loss in [.03, .1]:
+        for step_loss in [.01, .03]:
             for seed in [1, 2]:
-                j = {k:v for k,v in job.items()}
-                j["run-name"] = "grid2-%s-%d" % (name, counter)
-                j["seed"] = seed
-                j["step-loss"] = step_loss
-                j["state-directory-distribution"] = distro
-                j["lr"] = learning_rate
-                train_ppo_job(j, j["run-name"], is_fb=True, partition="uninterrupted")
-                counter += 1
+                for state_directory in [
+                        "online", os.path.join(directory, "astars110-s100/train")
+                ]:
+                    j = {k:v for k,v in job.items()}
+                    j["run-name"] = "%s-%d" % (name, counter)
+                    if state_directory == "online":
+                        j["log-dir"] += "-online"
+                        j["run-name"] = "gOnl-%s" % j["run-name"]
+                        j["log-interval"] = 1000
+                    else:
+                        j["log-dir"] += "-100"
+                        j["run-name"] = "g100-%s" % j["run-name"]                        
+                    j["seed"] = seed
+                    j["step-loss"] = step_loss
+                    j["state-directory-distribution"] = distro
+                    j["state-directory"] = state_directory
+                    j["lr"] = learning_rate
+                    train_ppo_job(j, j["run-name"], is_fb=True, partition="uninterrupted")
+                    counter += 1
                 
