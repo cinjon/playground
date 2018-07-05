@@ -60,7 +60,7 @@ class Grid(PommeV0):
 
     def make_board(self):
         self._board = utility.make_board_grid(
-            size=self._board_size, num_rigid=self._num_rigid, min_length=30)
+            size=self._board_size, num_rigid=self._num_rigid, min_length=25)
 
     def get_observations(self):
         self.observations = self.model.get_observations_grid(
