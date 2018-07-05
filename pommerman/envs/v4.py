@@ -59,7 +59,8 @@ class Grid(PommeV0):
         self._step_loss = step_loss
 
     def make_board(self):
-        self._board = utility.make_board_grid(self._board_size, self._num_rigid)
+        self._board = utility.make_board_grid(
+            size=self._board_size, num_rigid=self._num_rigid, min_length=30)
 
     def get_observations(self):
         self.observations = self.model.get_observations_grid(
@@ -166,12 +167,12 @@ class Grid(PommeV0):
                 path = self._compute_path_json(board, agent_pos, goal_pos)
                 counter += 1
                 num_inaccess += inaccess_counter
-                
             # self._num_make.append(counter)
             # self._num_inac.append(num_inaccess)
-            # print("Avg num make / num inac: %d / %.3f / %.3f" % (
-            #     len(self._num_make), np.mean(self._num_make),
-            #     np.mean(self._num_inac)))
+            # if self.rank == 0:
+            #     print("Avg num make / num inac: %d / %.3f / %.3f" % (
+            #         len(self._num_make), np.mean(self._num_make),
+            #         np.mean(self._num_inac)))
 
             step = get_game_state_step(step_count=len(path))
             self._game_state_step_start = len(path) - step + 1
