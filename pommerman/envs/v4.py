@@ -166,6 +166,7 @@ class Grid(PommeV0):
                 path = self._compute_path_json(board, agent_pos, goal_pos)
                 counter += 1
                 num_inaccess += inaccess_counter
+                
             # self._num_make.append(counter)
             # self._num_inac.append(num_inaccess)
             # print("Avg num make / num inac: %d / %.3f / %.3f" % (
