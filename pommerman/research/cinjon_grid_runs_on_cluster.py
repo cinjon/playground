@@ -117,7 +117,49 @@ def train_ppo_job(flags, jobname=None, is_fb=False,
 #                 counter += 1
 
 
-### Djikstra runs that worked.
+### Do the Djikstra runs that worked but with rigid=180, ml30 and online30.
+# In particular --> grUniformBounds{A, B}, lr 1e-3, stl of .03
+# job = {
+#     "how-train": "grid",  "log-interval": 10000, "save-interval": 100,
+#     "log-dir": os.path.join(directory, "logs"), "num-stack": 1,
+#     "save-dir": os.path.join(directory, "models"), "num-channels": 32,
+#     "config": "GridWalls-v4", "model-str": "GridCNNPolicy", "use-gae": "",
+#     "num-processes": 60, "gamma": 0.99,
+#     "batch-size": 102400, "num-mini-batch": 20, "num-frames": 2000000000
+# }
+# counter = 0
+# for learning_rate in [3e-3, 1e-3]:
+#     for (name, distro) in [
+#             ("genesis", "genesis"),
+#             ("grUBnA", "grUniformBoundsA"),
+#             ("grUBnB", "grUniformBoundsB"),
+#     ]:
+#         for step_loss in [.01, .03]:
+#             for seed in [1, 2]:
+#                 for state_directory in [
+#                         "online", os.path.join(directory, "ml30-astars110-s100/train")
+#                 ]:
+#                     j = {k:v for k,v in job.items()}
+#                     j["run-name"] = "%s-%d" % (name, counter)
+#                     if state_directory == "online":
+#                         j["log-dir"] += "-online"
+#                         j["run-name"] = "onlMl30-%s" % j["run-name"]
+#                         j["log-interval"] = 1000
+#                     else:
+#                         j["log-dir"] += "-100"
+#                         j["run-name"] = "100Ml30-%s" % j["run-name"]                        
+#                     j["seed"] = seed
+#                     j["step-loss"] = step_loss
+#                     j["state-directory-distribution"] = distro
+#                     j["state-directory"] = state_directory
+#                     j["lr"] = learning_rate
+#                     time = 72 if state_directory == "online" else 36
+#                     train_ppo_job(j, j["run-name"], is_fb=True,
+#                                   partition="uninterrupted", time=time)
+#                     counter += 1
+
+
+### Do the Djikstra runs that worked but with rigid=180, ml25 and online25.
 # In particular --> grUniformBounds{A, B}, lr 1e-3, stl of .03
 job = {
     "how-train": "grid",  "log-interval": 10000, "save-interval": 100,
@@ -128,32 +170,34 @@ job = {
     "batch-size": 102400, "num-mini-batch": 20, "num-frames": 2000000000
 }
 counter = 0
-for learning_rate in [3e-3, 1e-3]:
+for learning_rate in [1e-3]:
     for (name, distro) in [
             ("genesis", "genesis"),
             ("grUBnA", "grUniformBoundsA"),
             ("grUBnB", "grUniformBoundsB"),
+            ("grUBnB", "grUniformBoundsC"),            
     ]:
-        for step_loss in [.01, .03]:
-            for seed in [1, 2]:
+        for step_loss in [.03]:
+            for seed in [1, 2, 3]:
                 for state_directory in [
-                        "online", os.path.join(directory, "ml30-astars110-s100/train")
+                        "online", os.path.join(directory, "ml25-astars110-s100/train")
                 ]:
                     j = {k:v for k,v in job.items()}
                     j["run-name"] = "%s-%d" % (name, counter)
                     if state_directory == "online":
                         j["log-dir"] += "-online"
-                        j["run-name"] = "onlMl30-%s" % j["run-name"]
+                        j["run-name"] = "onlMl25-%s" % j["run-name"]
                         j["log-interval"] = 1000
                     else:
                         j["log-dir"] += "-100"
-                        j["run-name"] = "100Ml30-%s" % j["run-name"]                        
+                        j["run-name"] = "100Ml25-%s" % j["run-name"]                        
                     j["seed"] = seed
                     j["step-loss"] = step_loss
                     j["state-directory-distribution"] = distro
                     j["state-directory"] = state_directory
                     j["lr"] = learning_rate
-                    time = 72 if state_directory == "online" else 36
+                    time = 36 if state_directory == "online" else 24
                     train_ppo_job(j, j["run-name"], is_fb=True,
                                   partition="uninterrupted", time=time)
                     counter += 1
+                    
