@@ -172,11 +172,8 @@ def make_board_grid(size, num_rigid=0, min_length=1, extra=False):
       board: The resulting random board.
     """
     def lay_wall_grid(value, num_left, coordinates, board):
-        x, y = random.sample(coordinates, 1)[0]
-        coordinates.remove((x, y))
-        board[x, y] = value
-        num_left -= 1
-        return num_left
+        for x, y in random.sample(coordinates, num_left):
+            board[(x, y)] = value
 
     def make_grid(size, num_rigid):
         # Initialize everything as a passage.
@@ -207,9 +204,8 @@ def make_board_grid(size, num_rigid=0, min_length=1, extra=False):
         coordinates.remove(goal_pos)
 
         # Lay down the rigid walls.
-        while num_rigid > 0:
-            num_rigid = lay_wall_grid(constants.GridItem.Wall.value, num_rigid,
-                                      coordinates, board)
+        lay_wall_grid(constants.GridItem.Wall.value, num_rigid, coordinates,
+                      board)
         return board, agent_pos, goal_pos
 
     board, agent_pos, goal_pos = make_grid(size, num_rigid)
