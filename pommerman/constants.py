@@ -78,8 +78,11 @@ GRID_BOARD_SIZE = 24
 GRID_MAX_STEPS = 200
 GRID_NUM_RIGID = 0         # no walls
 # num --> avg make_board_grid / avg num_inaccessible
+# for min_path = 30:
 # 220 --> 1.73 / 5.72, 180 --> 2.36 / 3.42, 160 --> 3.055 / 3.93,
-# 120 --> 5.55 / 6.55
+# 120 --> 5.55 / 6.55, 150 --> 3.1 / 3.9
+# for min_path = 25
+# 150 --> 6.6 / 7.2, 180 --> 3.2 / 4.1
 GRIDWALLS_NUM_RIGID = 180  # some rigid walls
 
 
