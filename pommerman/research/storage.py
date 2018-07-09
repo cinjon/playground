@@ -3,6 +3,7 @@ from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 from collections import deque
 import random
 import numpy as np
+from schedule import LinearSchedule
 
 
 class RolloutStorage(object):
@@ -316,7 +317,6 @@ class CPUReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
-
 class PrioritizedReplayBuffer(CPUReplayBuffer):
     """Implements proportional prioritization.
 
@@ -325,27 +325,27 @@ class PrioritizedReplayBuffer(CPUReplayBuffer):
     the td_error using `update_probs` method. This
     update is used in the next round of prioritized
     sampling.
-
-    TODO(sanyam): This implementation is basic. Need to
-    update with more efficient sampling and adding
-    weighted importance sampling.
     """
-    def __init__(self, size=5000,
-                 epsilon=0.01, alpha=0.8):
+    def __init__(self, size=5000, epsilon=0.01,
+                 alpha=0.6, beta=0.4, num_steps=int(1e6)):
         super(PrioritizedReplayBuffer, self).__init__(size=size)
 
         self.size = size
         self.epsilon = epsilon
         self.alpha = alpha
+        self.beta = LinearSchedule(min_val=beta, max_val=1.0,
+                                   num_steps=num_steps)
         self.probs = deque(maxlen=size)
+
+        self._max_prob = epsilon
 
     def push(self, item):
         super(PrioritizedReplayBuffer, self).push(item)
-        self.probs.append(1.0)
+        self.probs.append(self._max_prob)
 
     def extend(self, *items):
         super(PrioritizedReplayBuffer, self).extend(*items)
-        self.probs.extend([1.0] * len(items))
+        self.probs.extend([self._max_prob] * len(items))
 
     def clear(self):
         super(PrioritizedReplayBuffer, self).clear()
@@ -354,13 +354,17 @@ class PrioritizedReplayBuffer(CPUReplayBuffer):
     def sample(self, batch_size):
         self._assert_batch_size(batch_size)
 
-        probs = np.array(self.probs)
+        probs = np.array(self.probs, dtype=np.float32)
         probs /= np.sum(probs)
 
         indices = np.random.choice(range(self.__len__()), size=batch_size,
                                    replace=False, p=probs)
+
+        sample_weights = np.power(probs[indices], - self.beta.value)
+        sample_weights /= np.max(sample_weights)
+
         batch = [self.buffer[i] for i in indices]
-        return indices, batch
+        return indices, sample_weights, batch
 
     def update_probs(self, indices: np.array, td_error: np.array):
         new_prob = np.power(td_error + self.epsilon, self.alpha)
@@ -368,3 +372,4 @@ class PrioritizedReplayBuffer(CPUReplayBuffer):
         updated_probs[indices] = np.squeeze(new_prob, axis=-1)
 
         self.probs = deque(updated_probs, maxlen=self.size)
+        self._max_prob = max(self._max_prob, np.max(new_prob).item())
