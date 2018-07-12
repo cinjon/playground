@@ -259,6 +259,7 @@ class Pomme(gym.Env):
         if hasattr(self, '_game_state_step_start'):
             ret['game_state_step_start'] = self._game_state_step_start
             ret['game_state_step_start_beg'] = self._game_state_step_start_beg
+            ret['game_state_file'] = self._game_state_file
         return ret
 
     def reset(self):
@@ -360,7 +361,7 @@ class Pomme(gym.Env):
                 step = random.choice(range(min(self._uniform_v, step_count - 1)))
             else:
                 raise
-            return os.path.join(directory, '%d.json' % step), step
+            return os.path.join(directory, '%03d.json' % step), step
 
         if hasattr(self, '_applicable_games') and self._applicable_games:
             directory, step_count = random.choice(self._applicable_games)
@@ -376,6 +377,7 @@ class Pomme(gym.Env):
                         game_state_file, step = get_game_state_file(directory, step_count)
                     self._game_state_step_start = step_count - step + 1
                     self._game_state_step_start_beg = step
+                    self._game_state_file = game_state_file
                     with open(game_state_file, 'r') as f:
                         self.set_json_info(json.loads(f.read()))
                     break

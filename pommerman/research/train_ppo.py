@@ -639,13 +639,15 @@ def train():
                     info_ = info[num_process]
                     optimal = info_.get('optimal_num_steps')
                     game_state_file = info_.get('game_state_file')
+                    is_win = info_.get('result', -1) == constants.Result.Win
                     if optimal:
-                        is_win = info_['result'] == constants.Result.Win
                         running_optimal_info.append((
                             optimal, step_count, step_count - optimal))
                         if game_state_file:
                             optimal_by_file[game_state_file].append((
                                 step_count - optimal, is_win))
+                    elif game_state_file:
+                        optimal_by_file[game_state_file].append((0, is_win))
                     game_step_counts[num_process] = 0
                     # if args.eval_only and num_process == 0:
                     #     print("TPPO FINI: ", num_process, info_)
@@ -717,6 +719,7 @@ def train():
                 success_rate += sum([int(s) for s in \
                                      ((game_ended == True) &
                                       (win == True))])
+                print("Num done: ", sum(done))
                 if args.eval_only and any([done_ for done_ in done]):
                     print("Num completed %d --> %d success." % (
                         running_num_episodes, success_rate))
@@ -725,18 +728,28 @@ def train():
                                            if k[2] == 0])
                         avg_over = np.mean([k[2] for k in running_optimal_info])
                         std_over = np.std([k[2] for k in running_optimal_info])
+                    if running_num_episodes >= 1000:
+                        print("Num completed %d --> %d success." % (
+                            running_num_episodes, success_rate))
                         print('Num optimal %d / Avg optimal %.3f / Std optimal %.3f.' % (
                             num_optimal, avg_over, std_over))
-                    if running_num_episodes >= 250:
                         if optimal_by_file:
                             print("\n")
                             counts = {f: np.mean([k[0] for k in lst])
                                       for f, lst in sorted(optimal_by_file.items())}
                             is_wins = {f: 1.0*sum([k[1] for k in lst])/len(lst)
                                        for f, lst in sorted(optimal_by_file.items())}
+                            buckets = defaultdict(int)
                             for f in sorted(optimal_by_file):
-                                print(f, ", avg over optimal: %.3f, " % counts[f],
-                                      "percent wins %.3f." % is_wins[f])
+                                # print(f, ", avg over optimal: %.3f, " % counts[f],
+                                #       "percent wins %.3f." % is_wins[f])
+                                if counts[f] == 0:
+                                    buckets[0] += 1
+                                else:
+                                    next_five = ((counts[f] // 5) + 1) * 5
+                                    buckets[next_five] += 1
+                            for bucket, count in sorted(buckets.items()):
+                                print("Bucket %d: %d" % (bucket, count))
                             print("\n")
                         raise
 

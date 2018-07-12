@@ -83,7 +83,7 @@ GRID_NUM_RIGID = 0         # no walls
 # 120 --> 5.55 / 6.55, 150 --> 3.1 / 3.9
 # for min_path = 25
 # 150 --> 6.6 / 7.2, 180 --> 3.2 / 4.1
-GRIDWALLS_NUM_RIGID = 180  # some rigid walls
+GRIDWALLS_NUM_RIGID = 120 #  was 180 # some rigid walls
 
 
 class Item(Enum):

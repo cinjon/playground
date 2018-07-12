@@ -60,7 +60,7 @@ class Grid(PommeV0):
 
     def make_board(self):
         self._board = utility.make_board_grid(
-            size=self._board_size, num_rigid=self._num_rigid, min_length=25)
+            size=self._board_size, num_rigid=self._num_rigid, min_length=10)
 
     def get_observations(self):
         self.observations = self.model.get_observations_grid(
@@ -157,13 +157,13 @@ class Grid(PommeV0):
             # Then, pick from the right set of steps.
             board, agent_pos, goal_pos, num_inaccess = utility.make_board_grid(
                 size=self._board_size, num_rigid=self._num_rigid,
-                min_length=25, extra=True)
+                extra=True)
             path = self._compute_path_json(board, agent_pos, goal_pos)
             counter = 1
             while len(path) < 35:
                 board, agent_pos, goal_pos, inaccess_counter = utility.make_board_grid(
                     size=self._board_size, num_rigid=self._num_rigid,
-                    min_length=25, extra=True)
+                    extra=True)
                 path = self._compute_path_json(board, agent_pos, goal_pos)
                 counter += 1
                 num_inaccess += inaccess_counter
@@ -232,6 +232,8 @@ class Grid(PommeV0):
                 agent.set_goal_position((row_goal, col_goal))
 
                 agent.reset()
+            self._optimal_num_steps = self._compute_optimal(
+                self._board, self._agents[0].position, self._agents[0].goal_position)
         return self.get_observations()
 
     @staticmethod

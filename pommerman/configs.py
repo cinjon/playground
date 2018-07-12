@@ -84,6 +84,7 @@ def ffa_competition_fast_env():
         'num_wood': constants.NUM_WOOD,
         'num_items': constants.NUM_ITEMS,
         'max_steps': constants.MAX_STEPS,
+        'character': characters.Bomber,
         'render_fps': 700,
     }
     agent = characters.Bomber

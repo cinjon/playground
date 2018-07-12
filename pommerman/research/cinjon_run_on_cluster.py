@@ -2107,6 +2107,7 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 
 ### With the dumb batch size fix.
+# NOTE: This is the SMALL BATCH SIZE / WARM START VERSION!!!
 # job = {
 #     "how-train": "simple",  "log-interval": 2500, "save-interval": 500,
 #     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
@@ -2137,6 +2138,7 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
                     
 
 ### These were promising but take hella long to run, so we want to expedite them and save them more frequently..
+### NOTE: THIS IS THE BIG BATCH SIZE / WARM START
 # job = {
 #     "how-train": "simple",  "log-interval": 2500, "save-interval": 25,
 #     "log-dir": os.path.join(directory, "logs"), "save-dir": os.path.join(directory, "models"),
@@ -2367,41 +2369,42 @@ job = {
 counter = 0
 for learning_rate in [3e-4]:
     for (name, distro) in [
-            ("uBnG", "uniformBoundsG"), #50
+            # ("uBnG", "uniformBoundsG"), #50
+            ("uniform", "uniform"), #50            
     ]:
         for numgames in [5]:
             for itemreward in [0, .1]:
-                for seed in [3, 4, 5]:                    
-                    runng = 4
-                    j = {k:v for k,v in job.items()}
-                    subdir = "fx-ffacompetition%d-s100-complex" % numgames
-                    log_dir = os.path.join(directory, "logs-fx%d" % runng)
-                    save_dir = os.path.join(directory, "models-fx%d" % runng)
-                    run_name = "2fx%d-%s-%d" % (runng, name, counter)
-                    
-                    use_second_place = True
-                    if use_second_place:
-                        j["use-second-place"] = ""
-                        subdir += "-2nd"
-                        log_dir += "usp"
-                        save_dir += "usp"
-                        run_name += "usp"
+                for seed in [3, 4, 5]:
+                    for use_second_place in [True, False]:
+                        runng = 4
+                        j = {k:v for k,v in job.items()}
+                        subdir = "fx-ffacompetition%d-s100-complex" % numgames
+                        log_dir = os.path.join(directory, "logs-fx%d" % runng)
+                        save_dir = os.path.join(directory, "models-fx%d" % runng)
+                        run_name = "2fx%d-%s-%d" % (runng, name, counter)
                         
-                    j["state-directory"] = os.path.join(
-                        directory,
-                        "pomplays",
-                        subdir,
-                        "train")
-                    j["log-dir"] = log_dir
-                    j["save-dir"] = save_dir
-                    j["run-name"] = run_name
-                    if itemreward:
-                        j["item-reward"] = itemreward
-                    j["seed"] = seed
-                    j["state-directory-distribution"] = distro
-                    j["lr"] = learning_rate
-                    train_ppo_job(j, j["run-name"], is_fb=True)
-                    counter += 1
+                        if use_second_place:
+                            j["use-second-place"] = ""
+                            subdir += "-2nd"
+                            log_dir += "usp"
+                            save_dir += "usp"
+                            run_name += "usp"
+                            
+                        j["state-directory"] = os.path.join(
+                            directory,
+                            "pomplays",
+                            subdir,
+                            "train")
+                        j["log-dir"] = log_dir
+                        j["save-dir"] = save_dir
+                        j["run-name"] = run_name
+                        if itemreward:
+                            j["item-reward"] = itemreward
+                        j["seed"] = seed
+                        j["state-directory-distribution"] = distro
+                        j["lr"] = learning_rate
+                        train_ppo_job(j, j["run-name"], is_fb=True)
+                        counter += 1
                         
 
 ### Doing different seeds on the 100 L models...
@@ -2415,7 +2418,8 @@ job = {
 counter = 0
 for learning_rate in [3e-4]:
     for (name, distro) in [
-            ("uBnL", "uniformBoundsL"), #85
+            # ("uBnL", "uniformBoundsL"), #85
+            ("uniform", "uniform"), #85            
     ]:
         for numgames in [110]:
             for itemreward in [0, .1]:

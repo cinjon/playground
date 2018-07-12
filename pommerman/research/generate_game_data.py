@@ -162,9 +162,16 @@ def generate(args, agents, action_space, acting_agent_ids):
                 winners = info_.get('winners', [])
                 step_count = info_['step_count']
                 targ_count = 35 if 'Grid' in args.config else 240
+                if 'Grid' not in args.config:
+                    is_targ_optimal = True
+                else:
+                    optimal_num_steps = info_['optimal_num_steps']
+                    is_targ_optimal = step_count - optimal_num_steps == args.num_more_optimal
+                    print(is_targ_optimal, step_count, optimal_num_steps, args.num_more_optimal)
                 if any([result != pommerman.constants.Result.Win,
                         'Grid' not in args.config and not winners,
-                        step_count < targ_count]):
+                        step_count < targ_count,
+                        not is_targ_optimal]):
                     delete_data(directory)
                 else:
                     save_endgame_info(directory, info_)
@@ -188,7 +195,7 @@ def generate(args, agents, action_space, acting_agent_ids):
 
 
 def delete_data(directory):
-    print("Removing directory %s..." % directory)
+    # print("Removing directory %s..." % directory)
     shutil.rmtree(directory)
 
 
