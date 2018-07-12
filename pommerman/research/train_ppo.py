@@ -719,7 +719,6 @@ def train():
                 success_rate += sum([int(s) for s in \
                                      ((game_ended == True) &
                                       (win == True))])
-                print("Num done: ", sum(done))
                 if args.eval_only and any([done_ for done_ in done]):
                     print("Num completed %d --> %d success." % (
                         running_num_episodes, success_rate))
