@@ -29,6 +29,7 @@ abbr = {
     'set-distill-kl': 'sdkl',
     'num-processes': 'np',
     'config': 'cfg-',
+    "max-aggregate-agent-states": "maxaggr",
     'model-str': 'm-',
     'num-mini-batch': 'nmbtch',
     'minibatch-size': 'mbs',
@@ -87,7 +88,7 @@ def train_ppo_job(flags, jobname=None, is_fb=False, partition="uninterrupted"):
     os.system(s)
 
 
-def train_dagger_job(flags, jobname=None, is_fb=False):
+def train_dagger_job(flags, jobname=None, is_fb=False, partition="uninterrupted"):
     num_processes = flags["num-processes"]
     jobname = jobname or 'pmandag'
     jobnameattrs = '%s.%s' % (
@@ -105,7 +106,7 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
         f.write("#SBATCH --output=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".out"))
         f.write("#SBATCH --error=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".err"))
         if is_fb:
-            f.write("#SBATCH --partition=learnfair\n")
+            f.write("#SBATCH --partition=%s\n" % partition)
         else:
             f.write("#SBATCH --qos=batch\n")
         f.write("#SBATCH --mail-type=END,FAIL" + "\n")
@@ -2359,91 +2360,126 @@ def train_dagger_job(flags, jobname=None, is_fb=False):
 
 
 ### Doing different seeds on the G models...
+# job = {
+#     "how-train": "simple",  "log-interval": 7500, "save-interval": 25,
+#     "log-dir": os.path.join(directory, "logs-fxrp"), "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 60, "gamma": 1.0, "batch-size": 102400, "num-mini-batch": 20,
+#     "num-frames": 2000000000,
+# }
+# counter = 0
+# for learning_rate in [3e-4]:
+#     for (name, distro) in [
+#             # ("uBnG", "uniformBoundsG"), #50
+#             ("uniform", "uniform"), #50            
+#     ]:
+#         for numgames in [5]:
+#             for itemreward in [0, .1]:
+#                 for seed in [3, 4, 5]:
+#                     for use_second_place in [True, False]:
+#                         runng = 4
+#                         j = {k:v for k,v in job.items()}
+#                         subdir = "fx-ffacompetition%d-s100-complex" % numgames
+#                         log_dir = os.path.join(directory, "logs-fx%d" % runng)
+#                         save_dir = os.path.join(directory, "models-fx%d" % runng)
+#                         run_name = "2fx%d-%s-%d" % (runng, name, counter)
+                        
+#                         if use_second_place:
+#                             j["use-second-place"] = ""
+#                             subdir += "-2nd"
+#                             log_dir += "usp"
+#                             save_dir += "usp"
+#                             run_name += "usp"
+                            
+#                         j["state-directory"] = os.path.join(
+#                             directory,
+#                             "pomplays",
+#                             subdir,
+#                             "train")
+#                         j["log-dir"] = log_dir
+#                         j["save-dir"] = save_dir
+#                         j["run-name"] = run_name
+#                         if itemreward:
+#                             j["item-reward"] = itemreward
+#                         j["seed"] = seed
+#                         j["state-directory-distribution"] = distro
+#                         j["lr"] = learning_rate
+#                         train_ppo_job(j, j["run-name"], is_fb=True)
+#                         counter += 1
+                        
+
+### Doing different seeds on the 100 L models...
+# job = {
+#     "how-train": "simple",  "log-interval": 7500, "save-interval": 25,
+#     "log-dir": os.path.join(directory, "logs-fxrp"), "save-dir": os.path.join(directory, "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 60, "gamma": 1.0, "batch-size": 102400, "num-mini-batch": 20,
+#     "num-frames": 2000000000,
+# }
+# counter = 0
+# for learning_rate in [3e-4]:
+#     for (name, distro) in [
+#             # ("uBnL", "uniformBoundsL"), #85
+#             ("uniform", "uniform"), #85            
+#     ]:
+#         for numgames in [110]:
+#             for itemreward in [0, .1]:
+#                 for seed in [3, 4, 5]:
+#                     runng = 100
+#                     j = {k:v for k,v in job.items()}
+#                     subdir = "fx-ffacompetition%d-s100-complex" % numgames
+#                     log_dir = os.path.join(directory, "logs-fx%d" % runng)
+#                     save_dir = os.path.join(directory, "models-fx%d" % runng)
+#                     run_name = "2fx%d-%s-%d" % (runng, name, counter)
+#                     j["state-directory"] = os.path.join(
+#                         directory,
+#                         "pomplays",
+#                         subdir,
+#                         "train")
+#                     j["log-dir"] = log_dir
+#                     j["save-dir"] = save_dir
+#                     j["run-name"] = run_name
+#                     if itemreward:
+#                         j["item-reward"] = itemreward
+#                     j["seed"] = seed
+#                     j["state-directory-distribution"] = distro
+#                     j["lr"] = learning_rate
+#                     train_ppo_job(j, j["run-name"], is_fb=True)
+#                     counter += 1
+
+
+# Dagger
 job = {
-    "how-train": "simple",  "log-interval": 7500, "save-interval": 25,
-    "log-dir": os.path.join(directory, "logs-fxrp"), "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "num-processes": 60, "gamma": 1.0, "batch-size": 102400, "num-mini-batch": 20,
-    "num-frames": 2000000000,
+    "num-processes": 60, "how-train": "dagger", "num-episodes-dagger": 25, "log-interval": 25,
+    "save-interval": 25, "num-steps-eval": 250,
+    "log-dir": os.path.join(directory, "dagger", "logs"),
+    "save-dir": os.path.join(directory, "dagger", "models"),
+    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall",
+    "expert-prob": 0.5,
 }
 counter = 0
-for learning_rate in [3e-4]:
-    for (name, distro) in [
-            # ("uBnG", "uniformBoundsG"), #50
-            ("uniform", "uniform"), #50            
-    ]:
-        for numgames in [5]:
-            for itemreward in [0, .1]:
-                for seed in [3, 4, 5]:
-                    for use_second_place in [True, False]:
-                        runng = 4
+for learning_rate in [3e-3, 1e-3, 3e-4]:
+    for minibatch_size in [5120]:
+        for maxaggr_size in [102400, 51200]:
+            for numgames in [110, 5]:
+                for gamma in [.995, .99]:
+                    for seed in [1, 2]:
                         j = {k:v for k,v in job.items()}
                         subdir = "fx-ffacompetition%d-s100-complex" % numgames
-                        log_dir = os.path.join(directory, "logs-fx%d" % runng)
-                        save_dir = os.path.join(directory, "models-fx%d" % runng)
-                        run_name = "2fx%d-%s-%d" % (runng, name, counter)
-                        
-                        if use_second_place:
-                            j["use-second-place"] = ""
-                            subdir += "-2nd"
-                            log_dir += "usp"
-                            save_dir += "usp"
-                            run_name += "usp"
-                            
+                        run_name = "dagfx%d-%d" % (numgames, counter)
                         j["state-directory"] = os.path.join(
                             directory,
                             "pomplays",
                             subdir,
                             "train")
-                        j["log-dir"] = log_dir
-                        j["save-dir"] = save_dir
                         j["run-name"] = run_name
-                        if itemreward:
-                            j["item-reward"] = itemreward
                         j["seed"] = seed
-                        j["state-directory-distribution"] = distro
+                        j["gamma"] = gamma
+                        j["minibatch-size"] = minibatch_size
+                        j["max-aggregate-agent-states"] = maxaggr_size
+                        j["seed"] = seed
+                        j["state-directory-distribution"] = "genesis"
                         j["lr"] = learning_rate
-                        train_ppo_job(j, j["run-name"], is_fb=True)
+                        train_dagger_job(j, j["run-name"], is_fb=True, partition="uninterrupted")
                         counter += 1
-                        
 
-### Doing different seeds on the 100 L models...
-job = {
-    "how-train": "simple",  "log-interval": 7500, "save-interval": 25,
-    "log-dir": os.path.join(directory, "logs-fxrp"), "save-dir": os.path.join(directory, "models"),
-    "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "num-processes": 60, "gamma": 1.0, "batch-size": 102400, "num-mini-batch": 20,
-    "num-frames": 2000000000,
-}
-counter = 0
-for learning_rate in [3e-4]:
-    for (name, distro) in [
-            # ("uBnL", "uniformBoundsL"), #85
-            ("uniform", "uniform"), #85            
-    ]:
-        for numgames in [110]:
-            for itemreward in [0, .1]:
-                for seed in [3, 4, 5]:
-                    runng = 100
-                    j = {k:v for k,v in job.items()}
-                    subdir = "fx-ffacompetition%d-s100-complex" % numgames
-                    log_dir = os.path.join(directory, "logs-fx%d" % runng)
-                    save_dir = os.path.join(directory, "models-fx%d" % runng)
-                    run_name = "2fx%d-%s-%d" % (runng, name, counter)
-                    j["state-directory"] = os.path.join(
-                        directory,
-                        "pomplays",
-                        subdir,
-                        "train")
-                    j["log-dir"] = log_dir
-                    j["save-dir"] = save_dir
-                    j["run-name"] = run_name
-                    if itemreward:
-                        j["item-reward"] = itemreward
-                    j["seed"] = seed
-                    j["state-directory-distribution"] = distro
-                    j["lr"] = learning_rate
-                    train_ppo_job(j, j["run-name"], is_fb=True)
-                    counter += 1
-                        
-                    

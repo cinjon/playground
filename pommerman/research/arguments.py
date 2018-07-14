@@ -209,7 +209,7 @@ def get_args():
     parser.add_argument('--minibatch-size', type=int, default=5120,
                         help='size of the minibatch for training on \
                         the aggregated dataset')
-    parser.add_argument('--max_aggregate_agent_states', type=int, default=50000,
+    parser.add_argument('--max-aggregate-agent-states', type=int, default=50000,
                         help='Max size of the aggregate agent states.')
     parser.add_argument('--num-steps-eval', type=int, default=500,
                         help='number of steps in the evaluation of the Dagger')
