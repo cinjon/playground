@@ -264,22 +264,22 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
 
 def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
                               total_reward, success_rate, final_reward,
-                              value_loss):
-
+                              value_loss, epochs_per_sec, steps_per_sec,
+                              agent_mean_act_prob=None, expert_mean_act_prob=None):
     writer.add_scalar('final_reward_epoch', final_reward, num_epoch)
-    writer.add_scalar('final_reward_steps', final_reward, total_steps)
-
     writer.add_scalar('total_reward_epoch', total_reward, num_epoch)
-    writer.add_scalar('total_reward_steps', total_reward, total_steps)
-
     writer.add_scalar('action_loss_epoch', action_loss, num_epoch)
-    writer.add_scalar('action_loss_steps', action_loss, total_steps)
-
     writer.add_scalar('value_loss_epoch', value_loss, num_epoch)
-    writer.add_scalar('value_loss_steps', value_loss, total_steps)
-
     writer.add_scalar('success_rate_epoch', success_rate, num_epoch)
     writer.add_scalar('success_rate_steps', success_rate, total_steps)
+    writer.add_scalar('epochs_per_sec', epochs_per_sec, num_epoch)
+    writer.add_scalar('steps_per_sec', steps_per_sec, num_epoch)
+    if agent_mean_act_prob:
+        for num, i in enumerate(agent_mean_act_prob):
+            writer.add_histogram('agent_mean_act_prob/%d' % num, i, num_epoch, bins='doane')
+    if expert_mean_act_prob:
+        for num, i in enumerate(expert_mean_act_prob):
+            writer.add_histogram('expert_mean_act_prob/%d' % num, i, num_epoch, bins='doane')
 
 
 def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,

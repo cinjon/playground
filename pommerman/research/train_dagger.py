@@ -321,6 +321,8 @@ def train():
             eval_envs = env_helpers.make_train_envs(
                 config, 'simple', args.seed, args.game_state_file,
                 training_agents, num_stack, num_processes,
+                state_directory=args.state_directory,
+                state_directory_distribution=args.state_directory_distribution,
                 do_filter_team=False, step_loss=args.step_loss,
                 bomb_reward=args.bomb_reward, item_reward=args.item_reward)
 
@@ -394,7 +396,8 @@ def train():
             utils.log_to_tensorboard_dagger(
                 writer, num_epoch, total_steps, np.mean(action_losses),
                 cumulative_reward, success_rate, terminal_reward,
-                np.mean(value_losses))
+                np.mean(value_losses), epochs_per_sec, steps_per_sec,
+                agent_mean_act_prob, expert_mean_act_prob)
 
             running_num_episodes = 0
             cumulative_reward = 0
