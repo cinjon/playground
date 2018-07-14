@@ -315,7 +315,7 @@ def train():
         # Eval the current policy
         ######
         # TODO: make eval deterministic
-        if num_epoch % args.log_interval == 0 and (num_epoch == 0 or num_epoch > 249):
+        if num_epoch % args.log_interval == 0:
             agent.set_eval()
             eval_time = time.time()
             eval_envs = env_helpers.make_train_envs(
