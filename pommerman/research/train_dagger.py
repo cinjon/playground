@@ -20,7 +20,6 @@ import random
 import time
 
 import numpy as np
-from pommerman.agents import SimpleAgent
 from tensorboardX import SummaryWriter
 import torch
 from torch.autograd import Variable
@@ -44,17 +43,18 @@ def train():
     if args.cuda:
         torch.cuda.empty_cache()
 
+    num_training_per_episode = utils.validate_how_train(args)
     how_train, config, num_agents, num_stack, num_steps, num_processes, \
-        num_epochs, reward_sharing = utils.get_train_vars(args)
+        num_epochs, reward_sharing, batch_size, num_mini_batch = \
+        utils.get_train_vars(args, num_training_per_episode)
     assert(num_processes % 4 == 0), "Num Processes should be a multiple of " \
         "four so that the distribution of positions is even."
 
-    obs_shape, action_space = env_helpers.get_env_shapes(config, num_stack)
-    num_training_per_episode = utils.validate_how_train(how_train, num_agents)
+    obs_shape, action_space, character, board_size = env_helpers.get_env_info(config, num_stack)
 
     training_agents = utils.load_agents(
-        obs_shape, action_space, num_training_per_episode, args,
-        dagger_agent.DaggerAgent)
+        obs_shape, action_space, num_training_per_episode, num_steps, args,
+        agent_type=dagger_agent.DaggerAgent, character=character, board_size=board_size)
     agent = training_agents[0]
 
     #####
@@ -96,7 +96,9 @@ def train():
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
         num_stack, num_processes, state_directory=args.state_directory,
-        state_directory_distribution=args.state_directory_distribution)
+        state_directory_distribution=args.state_directory_distribution,
+        step_loss=args.step_loss, bomb_reward=args.bomb_reward,
+        item_reward=args.item_reward)
 
     # [num_proc, num_frame*19, board_size, board_size]
     agent_obs = torch.from_numpy(envs.reset()).float().squeeze(1)
@@ -148,7 +150,7 @@ def train():
         while count_episodes < args.num_episodes_dagger:
 
             expert_obs = envs.get_expert_obs()
-            expert_actions = envs.get_expert_actions(expert_obs)
+            expert_actions = envs.get_expert_actions(expert_obs, 'ComplexAgent')
 
             for num_process in range(num_processes):
                 agent_states_list[num_process].append(agent_obs[num_process])
@@ -234,7 +236,7 @@ def train():
         expert_actions_list = utils.flatten(expert_actions_list)
         returns_list = utils.flatten(returns_list)
 
-        if len(aggregate_agent_states) >= 50000:
+        if len(aggregate_agent_states) >= args.max_aggregate_agent_states:
             indices_replace = np.arange(0, len(aggregate_agent_states)) \
                                 .tolist()
             random.shuffle(indices_replace)
@@ -319,7 +321,8 @@ def train():
             eval_envs = env_helpers.make_train_envs(
                 config, 'simple', args.seed, args.game_state_file,
                 training_agents, num_stack, num_processes,
-                do_filter_team=False)
+                do_filter_team=False, step_loss=args.step_loss,
+                bomb_reward=args.bomb_reward, item_reward=args.item_reward)
 
             dagger_obs = torch.from_numpy(eval_envs.reset()) \
                               .float().squeeze(0).squeeze(1)
@@ -358,7 +361,7 @@ def train():
 
                 reward_eval = utils.torch_numpy_stack(reward_eval, False) \
                                    .transpose(0, 1)
-                episode_rewards += reward_eval
+                episode_rewards += reward_eval[:, :, None]
                 final_rewards *= masks
                 final_rewards += (1 - masks) * episode_rewards
                 episode_rewards *= masks

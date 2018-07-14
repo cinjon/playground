@@ -70,7 +70,8 @@ class DaggerAgent(ResearchAgent):
 
     def initialize(self, args, obs_shape, action_space,
                    num_training_per_episode, num_episodes, total_steps,
-                   num_epoch, optimizer_state_dict):
+                   num_epoch, optimizer_state_dict, num_steps, uniform_v,
+                   uniform_v_prior):
         params = self._actor_critic.parameters()
         self._optimizer = optim.Adam(params, lr=args.lr, eps=args.eps)
         if optimizer_state_dict:
@@ -78,3 +79,6 @@ class DaggerAgent(ResearchAgent):
         self.num_episodes = num_episodes
         self.total_steps = total_steps
         self.num_epoch = num_epoch
+        self.num_steps = num_steps
+        self.uniform_v = uniform_v
+        self.uniform_v_prior = uniform_v_prior

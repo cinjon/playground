@@ -17,7 +17,7 @@ from pommerman.constants import GameType
 def _make_train_env(config, how_train, seed, rank, game_state_file,
                     training_agents, num_stack, do_filter_team=True,
                     state_directory=None, state_directory_distribution=None,
-                    step_loss=None, bomb_reward=None, item_reward=None,
+                    step_loss=0.0, bomb_reward=0.0, item_reward=0.0,
                     use_second_place=False):
     """Makes an environment callable for multithreading purposes.
     Args:
@@ -51,8 +51,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             training_agent_ids = []
         elif how_train == 'simple' or how_train == 'dagger':
             training_agent_ids = [rank % 4]
-            # training_agent_ids = [2]
-            # agents = [simple_agent() for _ in range(3)]
+            # training_agent_ids = [3]
             board_size = 8 if '8' in config else 11
             agents = [complex_agent(board_size=board_size) for _ in range(3)]
             agents.insert(training_agent_ids[0], training_agents[0])
@@ -71,14 +70,14 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         elif how_train == 'astar':
             agents = [astar_agent()]
             training_agent_ids = []
-        elif how_train == 'grid':
+        elif how_train == 'grid' or how_train == 'tree':
             agents = training_agents
             training_agent_ids = [0]
         else:
             raise
-
-        env = pommerman.make(config, agents, game_state_file,
-                             render_mode='rgb_pixel')
+ 
+        env = pommerman.make(config, agents, game_state_file)
+                             # render_mode='rgb_pixel')
         if rank != -1:
             env.seed(seed + rank)
         else:
@@ -198,7 +197,7 @@ class WrapPommeEval(gym.ObservationWrapper):
         # )
 
     def step(self, actions):
-        if self._how_train in ['simple', 'dagger', 'astar', 'grid']:
+        if self._how_train in ['simple', 'dagger', 'astar', 'grid', 'tree']:
             obs = self.env.get_observations()
             all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
             training_agents = self.env.training_agents
@@ -259,6 +258,8 @@ class WrapPomme(gym.ObservationWrapper):
         self._acting_agent_ids = acting_agent_ids or self.env.training_agents
         board_size = env.spec._kwargs['board_size']
         if env.spec._kwargs['game_type'] == GameType.Grid:
+            obs_shape = (5, board_size, board_size)
+        elif env.spec._kwargs['game_type'] == GameType.Tree:
             obs_shape = (5, board_size, board_size)
         else:
             obs_shape = (19, board_size, board_size)
