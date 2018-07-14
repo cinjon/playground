@@ -674,30 +674,37 @@ def train():
                 if args.eval_only and any([done_ for done_ in done]):
                     print("Num completed %d --> %d success." % (
                         running_num_episodes, success_rate))
+                    using_opt = False
                     if 'optimal_num_steps' in info[0]:
+                        using_opt = True
                         num_optimal = len([k for k in running_optimal_info \
                                            if k[2] == 0])
                         avg_over = np.mean([k[2] for k in running_optimal_info])
                         std_over = np.std([k[2] for k in running_optimal_info])
-                    if running_num_episodes >= 1000:
+                    if running_num_episodes >= 5000:
                         print("Num completed %d --> %d success." % (
                             running_num_episodes, success_rate))
-                        print('Num optimal %d / Avg optimal %.3f / Std optimal %.3f.' % (
-                            num_optimal, avg_over, std_over))
+                        if using_opt:
+                            print('Num optimal %d / Avg optimal %.3f / Std optimal %.3f.' % (
+                                num_optimal, avg_over, std_over))
                         if optimal_by_file:
                             print("\n")
-                            counts = {f: np.mean([k[0] for k in lst])
-                                      for f, lst in sorted(optimal_by_file.items())}
+                            means = {f: np.mean([k[0] for k in lst])
+                                     for f, lst in sorted(optimal_by_file.items())}
                             is_wins = {f: 1.0*sum([k[1] for k in lst])/len(lst)
                                        for f, lst in sorted(optimal_by_file.items())}
+                            counts = {f: len(lst) for f, lst in sorted(optimal_by_file.items())}
                             buckets = defaultdict(int)
                             for f in sorted(optimal_by_file):
-                                # print(f, ", avg over optimal: %.3f, " % counts[f],
-                                #       "percent wins %.3f." % is_wins[f])
-                                if counts[f] == 0:
+                                if not using_opt:
+                                    print(f,
+                                          ", avg over optimal: %.3f, " % means[f],
+                                          "percent wins %.3f, " % is_wins[f],
+                                          "num ran %d." % counts[f])
+                                elif means[f] == 0:
                                     buckets[0] += 1
                                 else:
-                                    next_five = ((counts[f] // 5) + 1) * 5
+                                    next_five = ((means[f] // 5) + 1) * 5
                                     buckets[next_five] += 1
                             for bucket, count in sorted(buckets.items()):
                                 print("Bucket %d: %d" % (bucket, count))
