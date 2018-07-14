@@ -45,9 +45,27 @@ def grid_walls_env():
         'num_rigid': constants.GRIDWALLS_NUM_RIGID,
         'max_steps': constants.GRID_MAX_STEPS,
         'render_fps': 1000,
-        'character': characters.Walker,        
+        'character': characters.Walker,
     }
     agent = characters.Walker
+    return locals()
+
+
+def tree_env():
+    """Start up a grid with an agent and a goal,
+    plus some rigid walls."""
+    env = envs.v5.Tree
+    game_type = constants.GameType.Tree
+    env_entry_point = 'pommerman.envs.v5:Tree'
+    env_id = 'Tree-v5'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': constants.TREE_SIZE,
+        'max_steps': constants.TREE_MAX_STEPS,
+        'render_fps': 1000,
+        'character': characters.TreeWalker,
+    }
+    agent = characters.TreeWalker
     return locals()
 
 

@@ -81,8 +81,8 @@ class ForwardModel(object):
                 break
         return steps, board, agents, bombs, items, flames, done, info
 
-    # @staticmethod
-    def act(self, agents, obs, action_space, is_communicative=False):
+    @staticmethod
+    def act(agents, obs, action_space, is_communicative=False):
         """Returns actions for each agent in this list.
         Args:
           agents: A list of agent objects.
@@ -120,9 +120,8 @@ class ForwardModel(object):
 
         return ret
 
-
-    # @staticmethod
-    def act_grid(self, agents, obs, action_space):
+    @staticmethod
+    def act_grid(agents, obs, action_space):
         """Returns actions for each agent in this list.
         Args:
           agents: A list of agent objects.
@@ -144,6 +143,28 @@ class ForwardModel(object):
 
         return ret
 
+    @staticmethod
+    def act_tree(agents, obs, action_space):
+        """Returns actions for each agent in this list.
+        Args:
+          agents: A list of agent objects.
+          obs: A list of matching observations per agent.
+          action_space: The action space for the environment using this model.
+
+        Returns a list of actions.
+        """
+        def act_ex_communication(agent):
+            if agent.is_alive:
+                return agent.act(obs[agent.agent_id], action_space=action_space)
+            else:
+                return constants.Action.Stop.value
+
+        ret = []
+        for agent in agents:
+            with utility.Timer() as t:
+                ret.append(act_ex_communication(agent))
+
+        return ret
 
     @staticmethod
     def expert_act(expert, obs, action_space):
@@ -519,7 +540,6 @@ class ForwardModel(object):
         return curr_board, curr_agents, curr_bombs, curr_items, curr_flames
 
     def step_grid(self, actions, curr_board, curr_agents):
-        # TODO: make sure it works for GridWalls
         agent = curr_agents[0]
         position = agent.position
         x, y = position
@@ -536,7 +556,27 @@ class ForwardModel(object):
             curr_board[x, y] = constants.GridItem.Passage.value
             curr_board[x_next, y_next] = constants.GridItem.Agent.value
             agent.move(direction)
-        
+
+        return curr_board, curr_agents
+
+    def step_tree(self, actions, curr_board, curr_agents):
+        agent = curr_agents[0]
+        position = agent.position
+        x = position
+        if not actions:
+            action = agent.act()[0]
+        else:
+            action = actions[0]
+
+        # Take a step with the agent in the env
+        # accroding to given action or that from A*
+        if utility.is_valid_direction_grid(curr_board, position, action):
+            direction = constants.Action(action)
+            npos = utility.get_next_position_tree(position, direction)
+            curr_board[position] = constants.GridItem.Passage.value
+            curr_board[npos] = constants.GridItem.Agent.value
+            agent.move(npos)
+
         return curr_board, curr_agents
 
     def get_observations(self, curr_board, agents, bombs,
@@ -628,6 +668,18 @@ class ForwardModel(object):
 
         return observations
 
+    def get_observations_tree(self, curr_board, agents, max_steps, step_count=None):
+        """Gets the observations as an np.array of the visible squares."""
+        observations = []
+        agent_obs = {'board': curr_board, 'is_alive': True, 'is_tree': True}
+        pos_agent = curr_board.index(constants.GridItem.Agent.value)
+        agent_obs['position'] = pos_agent
+        if step_count is not None:
+            agent_obs['step'] = step_count
+
+        observations.append(agent_obs)
+        return observations
+
     @staticmethod
     def get_done(agents, step_count, max_steps, game_type, training_agents,
                  all_agents=False, agent_pos=None, goal_pos=None):
@@ -681,6 +733,12 @@ class ForwardModel(object):
     def get_done_grid(agent_pos, goal_pos, step_count, max_steps):
         ret = agent_pos == goal_pos or step_count >= max_steps
         return [ret]
+
+    @staticmethod
+    def get_done_tree(agent_pos, size, max_steps):
+        if step_count >= max_steps:
+            return [True]
+        return [agent_pos + 2**(size - 1) >= 2**size - 1]
 
     @staticmethod
     def get_info(done, rewards, game_type, agents, training_agents=None):
@@ -756,6 +814,23 @@ class ForwardModel(object):
             }
 
     @staticmethod
+    def get_info_tree(done, agent_loc, size):
+        is_leaf = agent_pos + 2**(size - 1) >= 2**size - 1
+        if not done:
+            return {
+                'result': constants.Result.Incomplete
+            }
+        elif is_leaf:
+            return {
+                'result': constants.Result.Win,
+                'winners': [0]
+            }
+        else:
+            return {
+                'result': constants.Result.Loss
+            }
+
+    @staticmethod
     def get_rewards(agents, game_type, step_count, max_steps):
 
         def any_lst_equal(lst, values):
@@ -792,3 +867,7 @@ class ForwardModel(object):
     @staticmethod
     def get_rewards_grid(agent_pos, goal_pos):
         return [1] if agent_pos == goal_pos else [0]
+
+    @staticmethod
+    def get_rewards_tree(agent_pos, size):
+        return [1] if agent_pos + 2**(size - 1) >= 2**size - 1 else [0]

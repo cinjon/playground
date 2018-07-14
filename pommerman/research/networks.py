@@ -629,7 +629,7 @@ def featurize3D(obs, use_step=True):
         mx, my = obs["position"]
         goal_position = np.zeros((1, map_size, map_size)).astype(np.float32)
         goal_position[0, gx, gy] = 1
-        
+
         passages = board.copy()[None, :, :]
         passages[0, gx, gy] = 1
         passages[0, mx, my] = 1
@@ -639,12 +639,12 @@ def featurize3D(obs, use_step=True):
         walls[0, gx, gy] = 0
         walls[0, mx, my] = 0
         feature_maps.extend([goal_position, passages, walls])
-        
+
     # ammo of self agent: constant feature map.
     if "ammo" in obs:
         ammo = np.ones((1, map_size, map_size)).astype(np.float32) * obs["ammo"]
         feature_maps.append(ammo)
-        
+
     # blast strength of self agent: constant feature map
     if "blast_strength" in obs:
         blast_strength = np.ones((1, map_size, map_size)).astype(np.float32)

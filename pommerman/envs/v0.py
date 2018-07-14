@@ -450,6 +450,7 @@ class Pomme(gym.Env):
             return
 
         mode = mode or self._mode or 'human'
+        # mode = 'human'
 
         if mode == 'rgb_array':
             rgb_array = graphics.PixelViewer.rgb_array(

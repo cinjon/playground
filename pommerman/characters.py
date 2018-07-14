@@ -96,6 +96,7 @@ class Bomber(object):
             "bomb_life": self.bomb_life,
         }
 
+
 class Walker(Bomber):
     """Container to keep the agent state."""
     # TODO: should we add a goal as argument?
@@ -130,6 +131,40 @@ class Walker(Bomber):
             "agent_id": self.agent_id,
             "position": self.position,
             "goal_position": self.goal_position,
+            "step": self.step,
+        }
+
+
+class TreeWalker(Bomber):
+    """Container to keep the agent state."""
+    # TODO: should we add a goal as argument?
+    # TODO: do we need an agent id in this case?
+    def __init__(self, agent_id=None, game_type=None):
+        super(TreeWalker, self).__init__(agent_id, game_type)
+        self._game_type = game_type
+        if agent_id is not None:
+            self.set_agent_id(agent_id)
+
+    def set_agent_id(self, agent_id):
+        self.agent_id = agent_id
+
+    def set_start_position(self, start_position):
+        self.start_position = start_position
+
+    def reset(self, step=0):
+        self.step = step
+        self.position = self.start_position
+
+    def move(self, position):
+        self.position = position
+
+    def increment_step(self):
+        self.step += 1
+
+    def to_json(self):
+        return {
+            "agent_id": self.agent_id,
+            "position": self.position,
             "step": self.step,
         }
 

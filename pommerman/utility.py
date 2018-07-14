@@ -220,6 +220,42 @@ def make_board_grid(size, num_rigid=0, min_length=1, extra=False):
         return board
 
 
+def make_board_tree(size, num_exits=2):
+    """Make a tree of size <size>. It is random which entries are included but
+    there is a guaranteed path to a leaf of full depth. In addition, we guarantee
+    that there are at least <exits> exits down."""
+    num_leaves = 2**(size - 1)
+
+    def recurse_tree(board, root):
+        if random.rand() > .8:
+            return
+
+        if root + num_leaves >= len(board):
+            # We are at a leaf.
+            board[root] = constants.GridItem.Goal.value
+            return
+
+        board[root] = constants.GridItem.Passage.value
+        recurse_tree(board, 2*root + 1)
+        recurse_tree(board, 2*root + 2)
+
+    def make_tree():
+        # Initialize everything as a passage.
+        board = [constants.GridImte.Wall.value]*(2**size - 1)
+        print("BEF BOARD")
+        recurse_tree(board, 0)
+        print(board)
+        return board
+
+    # Board is a <2^size - 1> array where the last 2^(size-1) entries are leaves.
+    board = make_tree()
+    while sum(board[-num_leaves:]) - num_leaves >= num_exits:
+        board = make_grid(size)
+    board[0] = constants.GridItem.Agent.value
+
+    return board
+
+
 def accessible_grid(board, agent_pos, goal_pos):
     seen = set()
     passage_positions = np.where(board == constants.GridItem.Passage.value)
@@ -323,6 +359,22 @@ def is_valid_direction_grid(board, position, direction, invalid_values=None):
     raise constants.InvalidAction("We did not receive a valid direction: ",
                                   direction)
 
+def is_valid_direction_tree(board, position, direction, invalid_values=None):
+    invalid_values = invalid_values or [constants.GridItem.Wall.value]
+    if constants.Action(direction) == constants.Action.Up:
+        return position != 0
+    elif constants.Action(direction) == constants.Action.Left:
+        npos = 2*position + 1
+        return npos < len(board) and board[npos] not in invalid_values
+    elif constants.Action(direction) == constants.Action.Right:
+        npos = 2*position + 2
+        return npos < len(board) and board[npos] not in invalid_values
+    elif constants.Action(direction) in [
+            constants.Action.Down, constants.Action.Stop
+    ]:
+        return False
+    raise constants.InvalidAction("We did not receive a valid direction: ",
+                                  direction)
 
 def _position_is_item(board, position, item):
     return board[position] == item.value
@@ -452,6 +504,17 @@ def get_next_position(position, direction):
         return (x - 1, y)
     elif direction == constants.Action.Stop:
         return (x, y)
+    raise constants.InvalidAction("We did not receive a valid direction: ",
+                                   position, direction)
+
+
+def get_next_position_tree(position, direction):
+    if direction == constants.Action.Right:
+        return 2*position + 2
+    elif direction == constants.Action.Left:
+        return 2*position + 1
+    elif direction == constants.Action.Up:
+        return (position - 1) // 2
     raise constants.InvalidAction("We did not receive a valid direction: ",
                                    position, direction)
 

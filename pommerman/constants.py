@@ -85,6 +85,10 @@ GRID_NUM_RIGID = 0         # no walls
 # 150 --> 6.6 / 7.2, 180 --> 3.2 / 4.1
 GRIDWALLS_NUM_RIGID = 120 #  was 180 # some rigid walls
 
+TREE_SIZE = 8
+TREE_MAX_STEPS = 100
+
+
 
 class Item(Enum):
     """The Items in the game.
@@ -113,7 +117,7 @@ class Item(Enum):
     Agent3 = 13
     Goal = 14
 
-    
+
 class GridItem(Enum):
     """The Items for the Grid env."""
     Passage = 0
@@ -121,7 +125,7 @@ class GridItem(Enum):
     Goal = 2
     Agent = 3
 
-    
+
 class GameType(Enum):
     """The Game Types.
 
@@ -135,6 +139,8 @@ class GameType(Enum):
     Team = 2
     TeamRadio = 3
     Grid = 4
+    Tree = 5
+
 
 class Action(Enum):
     Stop = 0

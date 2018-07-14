@@ -144,8 +144,8 @@ def eval(args=None, targets=None, opponents=None):
 
     torch.manual_seed(args.seed)
     mode = args.eval_mode
-    obs_shape, action_space = env_helpers.get_env_shapes(args.config,
-                                                         args.num_stack)
+    obs_shape, action_space, character, board_size = env_helpers.get_env_info(
+        args.config, args.num_stack)
 
     if not targets and not opponents:
         targets = args.eval_targets
