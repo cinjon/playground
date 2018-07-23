@@ -178,12 +178,6 @@ def train():
         uniform_v_incr = 1000
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
-    elif args.state_directory_distribution == 'uniformBoundsBTst':
-        uniform_v = 512
-        uniform_v_factor = 2
-        uniform_v_incr = 100
-        uniform_v_prior = 0
-        envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'uniformBoundsC':
         uniform_v = 32
         uniform_v_factor = 2
@@ -304,48 +298,6 @@ def train():
         uniform_v_incr = 1000
         uniform_v_prior = 0
         envs.set_uniform_v(uniform_v)
-    elif args.state_directory_distribution == 'setBoundsTst':
-        uniform_v = 64
-        uniform_v_incrs = [2]
-        uniform_v_vals = [128]
-        uniform_v_prior = 0
-        envs.set_uniform_v(uniform_v)
-    elif args.state_directory_distribution == 'setBoundsA':
-        uniform_v = 64
-        uniform_v_incrs = [500, 500, 500, 500, 1000, 1500]
-        uniform_v_vals = [128, 256, 384, 512, 640, 800]
-        uniform_v_prior = 0
-        envs.set_uniform_v(uniform_v)
-    elif args.state_directory_distribution == 'setBoundsB':
-        uniform_v = 64
-        uniform_v_incrs = [500, 500, 500, 500, 1000, 1500, 1500]
-        uniform_v_vals = [128, 256, 384, 512, 640, 800, 810]
-        uniform_v_prior = 0
-        envs.set_uniform_v(uniform_v)
-    elif args.state_directory_distribution == 'setBoundsC':
-        uniform_v = 64
-        uniform_v_incrs = [500, 500, 500, 500, 1000, 1500, 1500]
-        uniform_v_vals = [128, 256, 384, 512, 640, 800, 820]
-        uniform_v_prior = 0
-        envs.set_uniform_v(uniform_v)
-    elif args.state_directory_distribution == 'setBoundsD':
-        uniform_v = 32
-        uniform_v_incrs = [250, 250, 500, 500, 500, 1000, 1500, 1500]
-        uniform_v_vals = [64, 128, 256, 384, 512, 640, 800, 820]
-        uniform_v_prior = 0
-        envs.set_uniform_v(uniform_v)
-    elif args.state_directory_distribution == 'setBoundsE':
-        uniform_v = 64
-        uniform_v_incrs = [500, 500, 500, 500, 1000, 1000, 1000]
-        uniform_v_vals = [128, 256, 384, 512, 640, 750, 830]
-        uniform_v_prior = 0
-        envs.set_uniform_v(uniform_v)
-    elif args.state_directory_distribution == 'setBoundsF':
-        uniform_v = 32
-        uniform_v_incrs = [250, 250, 500, 500, 500, 1000, 1500, 1500]
-        uniform_v_vals = [64, 128, 256, 384, 512, 640, 800, 830]
-        uniform_v_prior = 0
-        envs.set_uniform_v(uniform_v)
 
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
@@ -418,7 +370,7 @@ def train():
             while uniform_v_vals and uniform_v_vals[0] < uniform_v:
                 uniform_v_vals.pop(0)
                 uniform_v_incrs.pop(0)
-            
+
     start_step_wins = defaultdict(int)
     start_step_all = defaultdict(int)
     start_step_wins_beg = defaultdict(int)
