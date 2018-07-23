@@ -71,7 +71,8 @@ def make_success_chart(directories, bins, save_tos, max_step, ret_data=False):
         chart.save(save_to)
 
 
-def make_dual_chart(directories, names, bins, save_to, max_step, ret_data=False):
+def make_dual_chart(directories, names, bins, save_to, max_step, mark_bars=None, legend=True,
+                    width=0, height=0, ret_data=False):
     chart = None
 
     dataframes = []
@@ -113,17 +114,45 @@ def make_dual_chart(directories, names, bins, save_to, max_step, ret_data=False)
         dataframes.append((directory, newdata, name))
 
     bigdataframe = pd.concat([nd for _, nd, _ in dataframes])
+    if legend:
+        color = alt.Color('Model')
+    else:
+        color = alt.Color('Model', legend=None)
     line = alt.Chart(bigdataframe) \
               .mark_line() \
-              .encode(x='Epoch', y='Value', color='Model')
+              .encode(x='Epoch',
+                      y=alt.Y('Value', scale=alt.Scale(domain=[0., 1.])),
+                      color=color,
+              )
+    if mark_bars:
+        bars = pd.DataFrame([
+            {"bar": int(bar), "color": num} for num, bar in enumerate(mark_bars)
+        ])
+        bar = alt.Chart(bars).mark_rule().encode(
+            x=alt.X('bar', axis=None),# alt.Axis(title=None)
+            # size=alt.value(32),
+            color=alt.Color('color', legend=None,  
+                            scale=alt.Scale(domain=['0', '1'],
+                                            range=['red', 'green']))
+        )
+    color = alt.Color('Model', legend=None) # if not legend else alt.Color('Model')
     conf = alt.Chart(bigdataframe) \
               .mark_area(opacity=0.3) \
               .encode(
                   x='Epoch',
-                  y=alt.Y('Low', axis=alt.Axis(title='Success Rate')),
+                  y=alt.Y('Low', scale=alt.Scale(domain=[0., 1.]),
+                          axis=alt.Axis(title='Success Rate')),
                   y2='High',
-                  color='Model')
+                  # y2=alt.Y('High', scale=alt.Scale(domain=[0., 1.])),
+                  color=color)
     chart = conf + line
+    if mark_bars:
+        chart += bar
+
+    if width and height:
+        chart = chart.properties(width=width, height=height)
+    # if legend:
+    #     chart.configure_legend(labelFontSize=3, titleFontSize=3)
     chart.save(save_to)
 
 
@@ -136,15 +165,24 @@ if __name__ == "__main__":
     parser.add_argument('--names', type=str, default='')
     parser.add_argument('--save-tos', type=str, default='')
     parser.add_argument('--max-step', type=int, default=0)
+    parser.add_argument('--width', type=int, default=0)
+    parser.add_argument('--height', type=int, default=0)
+    parser.add_argument('--mark-bar', type=str, default='')
+    parser.add_argument('--legend', action='store_true',
+                        default=False) 
     parser.add_argument('--ret-data', action='store_true',
                         default=False)
     args = parser.parse_args()
     directories = args.directories.split(',')
     save_tos = args.save_tos.split(',')
     names = args.names.split(',')
+    bars = args.mark_bar.split(',') if args.mark_bar else None
+    print(bars)
     if args.func == 0:
         make_success_chart(directories, args.bins, save_tos,
                            args.max_step, args.ret_data)
     else:
         make_dual_chart(directories, names, args.bins, save_tos[0],
-                        args.max_step, args.ret_data)
+                        args.max_step, bars, args.legend, args.width,
+                        args.height, args.ret_data)
+                        
