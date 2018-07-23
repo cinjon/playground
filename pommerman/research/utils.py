@@ -298,30 +298,6 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        mean_running_success_rate=None,
                        running_total_game_step_counts=[],
                        running_optimal_info=None):
-    # writer.add_scalar('entropy', {
-    #     'mean' : mean_dist_entropy,
-    #     'std_max': mean_dist_entropy + std_dist_entropy,
-    #     'std_min': mean_dist_entropy - std_dist_entropy,
-    # }, num_episodes)
-    #
-    # writer.add_scalar('reward', {
-    #     'mean': final_rewards.mean(),
-    #     'std_max': final_rewards.mean() + final_rewards.std(),
-    #     'std_min': final_rewards.mean() - final_rewards.std(),
-    # }, num_episodes)
-    #
-    # writer.add_scalars('action_loss', {
-    #     'mean': mean_action_loss,
-    #     'std_max': mean_action_loss + std_action_loss,
-    #     'std_min': mean_action_loss - std_action_loss,
-    # }, num_episodes)
-    #
-    # writer.add_scalars('value_loss', {
-    #     'mean': mean_value_loss,
-    #     'std_max': mean_value_loss + std_value_loss,
-    #     'std_min': mean_value_loss - std_value_loss,
-    # }, num_episodes)
-
     # x-axis: # steps
     if mean_kl_loss and not np.isnan(mean_kl_loss):
         writer.add_scalar('kl_loss_step', mean_kl_loss, total_steps)
@@ -331,60 +307,14 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                     1.0 * success_rate / running_num_episodes, total_steps)
 
     writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
-    # writer.add_scalar('bomb_penalty_lambda', bomb_penalty_lambda, num_epoch)
-
-    # if array_stats.get('rank'):
-    #     writer.add_scalar('mean_rank_step', np.mean(array_stats['rank']),
-    #                       total_steps)
-
-    # if array_stats.get('dead'):
-    #     writer.add_scalar('mean_dying_step_step', np.mean(array_stats['dead']),
-    #                       total_steps)
-    #     writer.add_scalar(
-    #         'percent_dying_per_episode_step',
-    #         1.0 * len(array_stats['dead']) / running_num_episodes,
-    #         total_steps)
 
     writer.add_histogram('action_choices_epoch', action_choices, num_epoch, bins='doane')
-    # writer.add_histogram('action_choices_steps', action_choices, total_steps, bins='doane')
-    # for num in range(len(action_probs)):
-    #     writer.add_histogram('action_probs_epoch/%d' % num, action_probs[num],
-    #                          num_epoch, bins='doane')
-    #     writer.add_histogram('action_probs_steps/%d' % num, action_probs[num],
-    #                          total_steps, bins='doane')
 
     if uniform_v is not None:
         writer.add_scalar('uniform_v_epoch', uniform_v, num_epoch)
     if mean_running_success_rate is not None and not np.isnan(mean_running_success_rate):
         writer.add_scalar('mean_running_success_rate', mean_running_success_rate,
                           num_epoch)
-    # if running_total_game_step_counts:
-    #     avg = np.mean(running_total_game_step_counts)
-    #     std = np.std(running_total_game_step_counts)
-    #     writer.add_scalar('game_step_counts/mean', avg, num_epoch)
-    #     writer.add_scalar('game_step_counts/std', std, num_epoch)
-    
-    # x-axis: # episodes
-    # if reinforce_only:
-    #     writer.add_scalar('pg_loss_epi', mean_pg_loss, num_episodes)
-    # else:
-    #     writer.add_scalar('entropy_epi', mean_dist_entropy, num_episodes)
-    #     writer.add_scalar('action_loss_epi', mean_action_loss, num_episodes)
-    #     writer.add_scalar('value_loss_epi', mean_value_loss, num_episodes)
-    # if mean_kl_loss and not np.isnan(mean_kl_loss):
-    #     writer.add_scalar('kl_loss_epi', mean_kl_loss, num_episodes)
-    # writer.add_scalar('total_loss_epi', mean_total_loss, num_episodes)
-
-    # writer.add_scalar('final_reward_epi', final_rewards.mean(), num_episodes)
-    # writer.add_scalar('cumulative_reward_epi',
-    #                 1.0 * cumulative_reward / running_num_episodes, num_episodes)
-    # writer.add_scalar('terminal_reward_epi',
-    #                 1.0 * terminal_reward / running_num_episodes, num_episodes)
-    # writer.add_scalar('success_rate_epi',
-    #                 1.0 * success_rate / running_num_episodes, num_episodes)
-    # writer.add_scalar('success_rate_alive_epi',
-    #                 1.0 * success_rate_alive / running_num_episodes,
-    #                 num_episodes)
 
     for start_step, ratio in start_step_ratios.items():
         writer.add_scalar("win_startstep_epoch/%d" % start_step, ratio,
@@ -421,8 +351,6 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     writer.add_scalar('final_reward_epoch', final_rewards.mean(), num_epoch)
     writer.add_scalar('cumulative_reward_epoch',
                       1.0 * cumulative_reward / running_num_episodes, num_epoch)
-    # writer.add_scalar('terminal_reward_epoch',
-    #                 1.0 * terminal_reward / running_num_episodes, num_epoch)
     writer.add_scalar('success_rate_epoch',
                       1.0 * success_rate / running_num_episodes, num_epoch)
 
@@ -435,35 +363,6 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                           num_epoch)
         writer.add_scalar('avg_optimal_over_epoch', avg_over, num_epoch)
         writer.add_scalar('std_optimal_over_epoch', std_over, num_epoch)
-
-    # writer.add_scalar('success_rate_alive_epoch',
-    #                 1.0 * success_rate_alive / running_num_episodes,
-    #                 num_epoch)
-
-
-    # for title, count in count_stats.items():
-    #     if title.startswith('bomb:'):
-    #         continue
-    #     writer.add_scalar(title, 1.0 * count / running_num_episodes,
-    #                       num_epoch)
-
-    # writer.add_scalars('bomb_distances_epoch', {
-    #     key.split(':')[1]: 1.0 * count / running_num_episodes
-    #     for key, count in count_stats.items() \
-    #     if key.startswith('bomb:')
-    # }, num_epoch)
-
-    # if array_stats.get('rank'):
-    #     writer.add_scalar('mean_rank_epoch', np.mean(array_stats['rank']),
-    #                       num_epoch)
-
-    # if array_stats.get('dead'):
-    #     writer.add_scalar('mean_dying_step_epoch', np.mean(array_stats['dead']),
-    #                       num_epoch)
-    #     writer.add_scalar(
-    #         'percent_dying_per_episode_epoch',
-    #         1.0 * len(array_stats['dead']) / running_num_episodes,
-    #         num_epoch)
 
 
 def validate_how_train(args):
