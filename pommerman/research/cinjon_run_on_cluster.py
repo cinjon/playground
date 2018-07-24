@@ -120,7 +120,7 @@ def train_dagger_job(flags, jobname=None, is_fb=False, partition="uninterrupted"
     else:
         s = "sbatch --qos batch --gres=gpu:1 --nodes=1 "        
     s += "--cpus-per-task=%s " % num_processes
-    s += "--mem=64000 --time=48:00:00 %s &" % os.path.join(
+    s += "--mem=64000 --time=72:00:00 %s &" % os.path.join(
         slurm_scripts, jobnameattrs + ".slurm")
     os.system(s)
 
@@ -2448,38 +2448,77 @@ def train_dagger_job(flags, jobname=None, is_fb=False, partition="uninterrupted"
 #                     counter += 1
 
 
-# Dagger
+# Dagger, the 102400 ones didn't work because we ran out of memory... I'm going to have to restart these to be have more time...
+# job = {
+#     "num-processes": 60, "how-train": "dagger", "num-episodes-dagger": 10, "log-interval": 25,
+#     "save-interval": 25, "num-steps-eval": 100,
+#     "log-dir": os.path.join(directory, "dagger", "logs"),
+#     "save-dir": os.path.join(directory, "dagger", "models"),
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall",
+#     "expert-prob": 0.5,
+# }
+# counter = 0
+# for learning_rate in [3e-3, 1e-3, 3e-4]:
+#     for minibatch_size in [5120]:
+#         for maxaggr_size in [102400, 51200]:
+#             for numgames in [110, 5]:
+#                 for gamma in [.995, 1.]:
+#                     for seed in [1, 2]:
+#                         j = {k:v for k,v in job.items()}
+#                         subdir = "fx-ffacompetition%d-s100-complex" % numgames
+#                         run_name = "dagfx%d-%d" % (numgames, counter)
+#                         j["state-directory"] = os.path.join(
+#                             directory,
+#                             "pomplays",
+#                             subdir,
+#                             "train")
+#                         j["run-name"] = run_name
+#                         j["seed"] = seed
+#                         j["gamma"] = gamma
+#                         j["minibatch-size"] = minibatch_size
+#                         j["max-aggregate-agent-states"] = maxaggr_size
+#                         j["seed"] = seed
+#                         j["state-directory-distribution"] = "genesis"
+#                         j["lr"] = learning_rate
+#                         train_dagger_job(j, j["run-name"], is_fb=True, partition="uninterrupted")
+#                         counter += 1
+
+
 job = {
-    "num-processes": 60, "how-train": "dagger", "num-episodes-dagger": 25, "log-interval": 25,
-    "save-interval": 25, "num-steps-eval": 250,
+    "num-processes": 60, "how-train": "dagger", "num-episodes-dagger": 10, "log-interval": 75,
+    "save-interval": 75, "num-steps-eval": 100,
     "log-dir": os.path.join(directory, "dagger", "logs"),
     "save-dir": os.path.join(directory, "dagger", "models"),
     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall",
     "expert-prob": 0.5,
 }
 counter = 0
-for learning_rate in [3e-3, 1e-3, 3e-4]:
+for learning_rate in [3e-3, 1e-3]:
     for minibatch_size in [5120]:
-        for maxaggr_size in [102400, 51200]:
+        for maxaggr_size in [51200]:
             for numgames in [110, 5]:
-                for gamma in [.995, .99]:
-                    for seed in [1, 2]:
-                        j = {k:v for k,v in job.items()}
-                        subdir = "fx-ffacompetition%d-s100-complex" % numgames
-                        run_name = "dagfx%d-%d" % (numgames, counter)
-                        j["state-directory"] = os.path.join(
-                            directory,
-                            "pomplays",
-                            subdir,
-                            "train")
-                        j["run-name"] = run_name
-                        j["seed"] = seed
-                        j["gamma"] = gamma
-                        j["minibatch-size"] = minibatch_size
-                        j["max-aggregate-agent-states"] = maxaggr_size
-                        j["seed"] = seed
-                        j["state-directory-distribution"] = "genesis"
-                        j["lr"] = learning_rate
-                        train_dagger_job(j, j["run-name"], is_fb=True, partition="uninterrupted")
-                        counter += 1
+                for gamma in [.995, 1.]:
+                    for seed in [3, 4, 5, 6]:
+                        for item_reward in [0., 0.1]:
+                            j = {k:v for k,v in job.items()}
+                            subdir = "fx-ffacompetition%d-s100-complex" % numgames
+                            run_name = "dag2fx%d-%d" % (numgames, counter)
+                            j["state-directory"] = os.path.join(
+                                directory,
+                                "pomplays",
+                                subdir,
+                                "train")
+                            j["run-name"] = run_name
+                            if item_reward:
+                                j["item-reward"] = item_reward
+                            j["seed"] = seed
+                            j["gamma"] = gamma
+                            j["minibatch-size"] = minibatch_size
+                            j["max-aggregate-agent-states"] = maxaggr_size
+                            j["seed"] = seed
+                            j["state-directory-distribution"] = "genesis"
+                            j["lr"] = learning_rate
+                            train_dagger_job(j, j["run-name"], is_fb=True, partition="uninterrupted")
+                            counter += 1
 
+                        

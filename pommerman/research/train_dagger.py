@@ -59,11 +59,12 @@ def train():
 
     #####
     # Logging helpers.
-    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ned{}.prob{}.nopt{}.seed{}.pt" \
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.ned{}.prob{}.nopt{}.seed{}.maxaggr{}.pt" \
              .format(args.run_name, args.how_train, config, args.model_str,
                      args.num_channels, args.lr, args.minibatch_size,
                      args.num_episodes_dagger, args.expert_prob,
-                     args.dagger_epoch, args.seed)
+                     args.dagger_epoch, args.seed,
+                     args.max_aggregate_agent_states)
     if args.state_directory_distribution:
         suffix += ".%s" % args.state_directory_distribution
 
@@ -287,8 +288,6 @@ def train():
                     Variable(dummy_masks).detach())
                 action_loss = cross_entropy_loss(
                     action_scores, Variable(expert_actions_minibatch))
-
-
                 value_loss = (Variable(returns_minibatch) - values) \
                                 .pow(2).mean()
 
