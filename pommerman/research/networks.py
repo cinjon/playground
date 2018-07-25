@@ -607,7 +607,7 @@ def featurize3D(obs, use_step=True):
     map_size = len(board)
 
     feature_maps = []
-    
+
     # feature maps with ints for bomb blast strength and life.
     if "bomb_blast_strength" in obs:
         bomb_blast_strength = obs["bomb_blast_strength"] \

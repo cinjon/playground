@@ -222,7 +222,9 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                    success_rate_alive, running_num_episodes, mean_total_loss,
                    mean_kl_loss=None, mean_pg_loss = None, distill_factor=0,
                    reinforce_only=False, start_step_ratios=None,
-                   start_step_beg_ratios=None, running_optimal_info=None):
+                   start_step_beg_ratios=None, running_optimal_info=None,
+                   start_step_position_ratios=None,
+                   start_step_position_beg_ratios=None):
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "
@@ -253,6 +255,15 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
     if start_step_beg_ratios:
         print("Start Step Beg Win Ratios: %s" % ", ".join(
             ["%d: %.3f" % (k, v) for k, v in sorted(start_step_beg_ratios.items())])
+        )
+    if start_step_position_ratios:
+        print("Start Step Position Win Ratios: %s" % ", ".join(
+            ["Pos %d, Step %d: %.3f" % (pos, sb, v) for (pos, sb), v in sorted(start_step_position_ratios.items(), key=lambda k: (k[1], k[0]))])
+        )
+    if start_step_position_beg_ratios:
+        print("Start Step Position Beg Win Ratios: %s" % ", ".join(
+            ["Pos %d, Step %d: %.3f" % (pos, sb, v) for (pos, sb), v in \
+             sorted(start_step_position_beg_ratios.items(), key=lambda k: (k[1], k[0]))])
         )
     if running_optimal_info:
         num_optimal = len([k for k in running_optimal_info if k[2] == 0])
@@ -297,14 +308,16 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        action_probs=None, uniform_v=None,
                        mean_running_success_rate=None,
                        running_total_game_step_counts=[],
-                       running_optimal_info=None):
+                       running_optimal_info=None,
+                       start_step_position_ratios=None,
+                       start_step_position_beg_ratios=None):
     # x-axis: # steps
     if mean_kl_loss and not np.isnan(mean_kl_loss):
         writer.add_scalar('kl_loss_step', mean_kl_loss, total_steps)
     writer.add_scalar('total_loss_step', mean_total_loss, total_steps)
 
     writer.add_scalar('success_rate_step',
-                    1.0 * success_rate / running_num_episodes, total_steps)
+                      1.0 * success_rate / running_num_episodes, total_steps)
 
     writer.add_scalar('steps_per_sec', steps_per_sec, total_steps)
 
@@ -324,6 +337,14 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
             continue
         writer.add_scalar("win_startstep_beg_epoch/%d" % start_step, ratio,
                           num_epoch)
+    for (position, start_step), ratio in start_step_position_ratios.items():
+        writer.add_scalar("win_startstep_position_epoch/%d_%d" % (start_step, position),
+                          ratio, num_epoch)
+    for (position, start_step), ratio in start_step_position_beg_ratios.items():
+        if start_step > 5:
+            continue
+        writer.add_scalar("win_startstep_position_beg_epoch/%d_%d" % (start_step, position),
+                          ratio, num_epoch)
 
     for start_step, count in start_step_all.items():
         writer.add_scalar("all_startstep_epoch/%d" % start_step, count, num_epoch)
@@ -381,6 +402,11 @@ def validate_how_train(args):
         # the other two agents being prior versions. The initial opponents are
         # the initialized versions.
         assert(nagents == 1), "Homogenous training should have one agent."
+        return 2
+    elif how_train == 'backselfplay':
+        # Backselfplay trains a single agent alongside itself (self-play), with
+        # the other two agents being complex agents.
+        assert(nagents == 1), "Backselfplay training should have one agent."
         return 2
     elif how_train == 'qmix':
         assert nagents == 2

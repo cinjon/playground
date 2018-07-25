@@ -126,7 +126,7 @@ def get_args():
                         'randomly. for the others, see envs.py.')
     parser.add_argument('--how-train', type=str, default='simple',
                         help='how to train: simple, homogenous, heterogenous, '
-                        'dagger.')
+                        'dagger, backselfplay.')
     parser.add_argument('--homogenous-init', type=str, default='self',
                         help='whether the initial opponent for homomgeous is '
                         'self or simple agent.')

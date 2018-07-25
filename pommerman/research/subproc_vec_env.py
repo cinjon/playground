@@ -50,6 +50,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.get_global_obs()))
         elif cmd == 'get_non_training_obs':
             remote.send((env.get_non_training_obs()))
+        elif cmd == 'get_dead_agents':
+            remote.send((env.get_dead_agents()))
         elif cmd == 'get_game_type':
             remote.send((env.get_game_type()))
         elif cmd == 'record_json':
@@ -271,6 +273,11 @@ class SubprocVecEnv(_VecEnv):
     def get_non_training_obs(self):
         for remote in self.remotes:
             remote.send(('get_non_training_obs', None))
+        return [remote.recv() for remote in self.remotes]
+
+    def get_dead_agents(self):
+        for remote in self.remotes:
+            remote.send(('get_dead_agents', None))
         return [remote.recv() for remote in self.remotes]
 
     def set_bomb_penalty_lambda(self, l):

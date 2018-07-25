@@ -373,12 +373,16 @@ def train():
 
     start_step_wins = defaultdict(int)
     start_step_all = defaultdict(int)
+    start_step_position_wins = defaultdict(int)
     start_step_wins_beg = defaultdict(int)
     start_step_all_beg = defaultdict(int)
+    start_step_position_wins_beg = defaultdict(int)
 
     running_num_episodes = 0
     cumulative_reward = 0
     terminal_reward = 0
+    all_agent_success_rate = 0
+    per_agent_success_rate = [0]*4
     success_rate = 0
     success_rate_alive = 0
     prev_epoch = start_epoch
@@ -426,10 +430,43 @@ def train():
     if how_train == 'simple' or how_train == 'grid':
         expert_actions_onehot = torch.FloatTensor(
             num_processes, action_space.n)
+    elif how_train in ['homogenous', 'backselfplay']:
+        expert_actions_onehot = torch.FloatTensor(
+            num_processes, num_training_per_episode, action_space.n)
     else:
         raise ValueError("Only Simple and Homogenous training regimes have been \
             implemented.")
     onehot_dim = len(expert_actions_onehot.shape) - 1
+
+    if how_train == 'homogenous':
+        good_guys = [
+            ppo_agent.PPOAgent(training_agents[0].model,
+                               num_stack=args.num_stack, cuda=args.cuda,
+                               num_processes=args.num_processes // 2,
+                               recurrent_policy=args.recurrent_policy)
+            for _ in range(2)
+        ]
+        if args.cuda:
+            for guy in good_guys:
+                guy.cuda()
+        saved_paths = utils.save_agents(
+            "ppo", 0, training_agents, total_steps,
+            num_episodes, args, suffix, uniform_v, uniform_v_prior)
+        if args.homogenous_init == 'self':
+            bad_guys_eval = [
+                utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
+                                           "ppo", action_space, obs_shape,
+                                           args.num_processes // 2, args)
+                for _ in range(2)
+            ]
+            bad_guys_train = [
+                    utils.load_inference_agent(saved_paths[0], ppo_agent.PPOAgent,
+                                               "ppo", action_space, obs_shape,
+                                               args.num_processes, args)
+                for _ in range(2)
+            ]
+        eval_round = 0
+
 
     # NOTE: only works for how_train simple because we assume training_ids
     # has a single element
@@ -469,16 +506,38 @@ def train():
                 alive_list.append(False)  # True iff training won and alive
         return np.array(win_list), np.array(alive_list)
 
+    def get_wins(info, envs):
+        training_ids = envs.get_training_ids()
+        position_wins = defaultdict(int)
+        position_games = defaultdict(int)
+        game_results = []
+
+        for info_, ids in zip(info, training_ids):
+            result = info_.get('result', {})
+            game_result = None
+            if result == constants.Result.Win:
+                winners = inf.get('winners', {})
+                for id_ in ids:
+                    position_games[id_] += 1
+                    if id_ in winners:
+                        position_wins[id_] += 1
+                        game_result = id_
+            game_results.append(game_result)
+
+        return position_wins, game_results
+
 
     # TODO: make the function below less hacky
     def make_onehot(actions):
         actions_tensor = torch.from_numpy(actions)
+        if how_train in ['homogenous', 'backselfplay']:
+            actions_tensor = torch.from_numpy(actions).unsqueeze(onehot_dim)
         expert_actions_onehot.zero_()
         expert_actions_onehot.scatter_(onehot_dim, actions_tensor, 1)
 
     # Start the environment and set the current_obs appropriately.
     current_obs = update_current_obs(envs.reset())
-    if how_train in ['simple', 'homogenous', 'grid']:
+    if how_train in ['simple', 'homogenous', 'grid', 'backselfplay']:
         # NOTE: Here, we put the first observation into the rollouts.
         training_agents[0].update_rollouts(obs=current_obs, timestep=0)
 
@@ -495,6 +554,14 @@ def train():
         if do_distill and distill_expert == 'DaggerAgent':
             distill_agent.cuda()
 
+    if how_train == 'homogenous':
+        win_rate, tie_rate, loss_rate = evaluate_homogenous(
+                args, good_guys, bad_guys_eval, 0, writer, 0)
+        print("Homog test before: (%d) --> Win %.3f, Tie %.3f, Loss %.3f" % (
+                args.num_battles_eval, win_rate, tie_rate, loss_rate))
+        for agent in good_guys + bad_guys_eval:
+            agent.clear_obs_stack()
+
     start = time.time()
     # NOTE: assumes just one agent.
     action_choices = []
@@ -507,13 +574,8 @@ def train():
         if num_epoch >= args.begin_selfbombing_epoch:
             envs.enable_selfbombing()
 
-        if anneal_bomb_penalty_epochs > 0:
-            bomb_penalty_lambda = 1.0 * num_epoch / anneal_bomb_penalty_epochs
-            bomb_penalty_lambda = min(1.0, bomb_penalty_lambda)
-            envs.set_bomb_penalty_lambda(bomb_penalty_lambda)
-
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval) \
-           and how_train in ['simple', 'grid']:
+           and how_train in ['simple', 'grid', 'backselfplay']:
             # Only save at regular epochs if using "simple" or "grid". The others save
             # upon successful evaluation.
             utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
@@ -568,8 +630,153 @@ def train():
                 # [num_processor,] ..., [num_processor, 6]
                 cpu_actions_agents, cpu_probs = update_actor_critic_results(result)
                 action_choices.extend(cpu_actions_agents)
-                for num in range(6):
+                for num in range(action_space.n):
                     action_probs[num].extend([p[num] for p in cpu_probs])
+            elif how_train == 'backselfplay':
+                # Reshape to do computation once rather than four times.
+                cpu_actions_agents = [[] for _ in range(num_processes)]
+                data = training_agents[0].get_rollout_data(
+                    step=step,
+                    num_agent=0,
+                    num_agent_end=num_training_per_episode)
+                observations, states, masks = data
+                observations = observations.view([
+                    num_processes * num_training_per_episode,
+                    *observations.shape[2:]
+                ])
+                states = states.view([
+                    num_processes * num_training_per_episode,
+                    *states.shape[2:]
+                ])
+                masks = masks.view([
+                    num_processes * num_training_per_episode,
+                    *masks.shape[2:]
+                ])
+
+                training_acts = training_agents[0].act_on_data(
+                    observations, states, masks, deterministic=False)
+                training_acts = [
+                    datum.view([
+                        num_processes, num_training_per_episode,
+                        *datum.shape[1:]
+                    ])
+                    for datum in training_acts
+                ]
+
+                dead_agents = envs.get_dead_agents()
+                for num_agent in range(2):
+                    agent_results = [datum[:, num_agent]
+                                     for datum in training_acts]
+                    # NOTE: Right here, if the agent is not alive, we need to
+                    # change the action to Pass.
+                    print("TPPO BEF: ", agent_results)
+                    for num_agent_results in range(len(agent_results)):
+                        for dead_agent in dead_agents[num_agent_results]:
+                            agent_results[num_agent_results][1] = constants.Action.Stop.value
+                    print("TPPO AFT: ", agent_results)
+
+                    actions, probs = update_actor_critic_results(agent_results)
+                    for num_process in range(num_processes):
+                        cpu_actions_agents[num_process].append(
+                            actions[num_process])
+
+                    action_choices.extend(actions)
+                    for num in range(action_space.n):
+                        action_probs[num].extend([p[num] for p in probs])
+            elif how_train == 'homogenous':
+                # Reshape to do computation once rather than four times.
+                cpu_actions_agents = [[] for _ in range(num_processes)]
+                data = training_agents[0].get_rollout_data(
+                    step=step,
+                    num_agent=0,
+                    num_agent_end=num_training_per_episode)
+                observations, states, masks = data
+                observations = observations.view([
+                    num_processes * num_training_per_episode,
+                    *observations.shape[2:]
+                ])
+                states = states.view([
+                    num_processes * num_training_per_episode,
+                    *states.shape[2:]
+                ])
+                masks = masks.view([
+                    num_processes * num_training_per_episode,
+                    *masks.shape[2:]
+                ])
+                if do_distill:
+                    if distill_expert == 'DaggerAgent':
+                        _, _, _, _, probs, _ = distill_agent.act_on_data(
+                            observations, states, masks,
+                            deterministic=True)
+                        probs = probs.view([
+                            num_processes, num_training_per_episode,
+                            *probs.shape[1:]
+                        ])
+                        for num_agent in range(num_training_per_episode):
+                            dagger_prob_distr.append(probs[:, num_agent])
+                    elif distill_expert in ['SimpleAgent', 'ComplexAgent']:
+                        # TODO: change this so that you get actions for all the agents
+                        expert_obs = envs.get_expert_obs()
+                        expert_actions = envs.get_expert_actions(
+                            expert_obs, distill_expert)
+                        make_onehot(expert_actions)
+                        for num_agent in range(num_training_per_episode):
+                            dagger_prob_distr.append(
+                                expert_actions_onehot[:, num_agent])
+                    else:
+                        raise ValueError("We only support distilling from \
+                        DaggerAgent, SimpleAgent, or ComplexAgent")
+
+                training_acts = training_agents[0].act_on_data(
+                    observations, states, masks, deterministic=False)
+                training_acts = [
+                    datum.view([
+                        num_processes, num_training_per_episode,
+                        *datum.shape[1:]
+                    ])
+                    for datum in training_acts
+                ]
+                # cpu_training_actions: num_process x 2 list of actions
+                training_actions = [[] for _ in range(num_processes)]
+                training_probs = [[] for _ in range(num_processes)]
+                for num_agent in range(2):
+                    agent_results = [datum[:, num_agent]
+                                     for datum in training_acts]
+                    actions, probs = update_actor_critic_results(agent_results)
+                    for num_process in range(num_processes):
+                        training_actions[num_process].append(
+                            actions[num_process])
+                        training_probs[num_process].append(
+                            probs[num_process])
+
+                    action_choices.extend(actions)
+                    for num in range(action_space.n):
+                        action_probs[num].extend([p[num] for p in probs])
+
+                non_training_obs = envs.get_non_training_obs()
+                if hasattr(bad_guys_train[0], 'is_simple_agent'):
+                    non_training_actions = envs.get_expert_actions(
+                        non_training_obs)
+                else:
+                    non_training_actions = bad_guys_train[0].act(
+                        non_training_obs, action_space)
+                    non_training_actions = non_training_actions.reshape(
+                        (num_processes, 2))
+
+                for num_agent in range(4):
+                    for num_process in range(num_processes):
+                        is_training_agent = any([
+                            num_process % 2 == 0 and num_agent in [0, 2],
+                            num_process % 2 == 1 and num_agent in [1, 3]
+                        ])
+                        if is_training_agent:
+                            actions = training_actions[num_process]
+                            action = actions[num_agent // 2]
+                            cpu_actions_agents[num_process].append(action)
+                        else:
+                            actions = non_training_actions[num_process]
+                            action = actions[num_agent // 2]
+                            cpu_actions_agents[num_process].append(action)
             elif how_train == 'grid':
                 training_agent = training_agents[0]
                 result = training_agent.actor_critic_act(
@@ -604,7 +811,11 @@ def train():
                     # if args.eval_only and num_process == 0:
                     #     print("TPPO FINI: ", num_process, info_)
 
-            win, alive_win = get_win_alive(info, envs)
+            if how_train == 'simple':
+                win, alive_win = get_win_alive(info, envs)
+            elif how_train == 'backselfplay':
+                position_wins, game_results = get_wins(info, envs)
+
             game_state_start_steps = np.array([
                 info_.get('game_state_step_start') for info_ in info])
             game_state_start_steps_beg = np.array([
@@ -720,18 +931,94 @@ def train():
                 #     print("DEL THAT SHIT")
                 #     os.rmdir(args.record_pngs_dir)
 
-                for e, w, ss, sb in zip(game_ended, win, game_state_start_steps,
+                 for e, w, ss, sb in zip(game_ended, win, game_state_start_steps,
                                         game_state_start_steps_beg):
                     if not e or ss is None or sb is None:
                         continue
                     if w:
                         start_step_wins[ss] += 1
-                        start_step_wins_beg[sb] += 1                        
+                        start_step_wins_beg[sb] += 1
                     start_step_all[ss] += 1
-                    start_step_all_beg[sb] += 1                    
+                    start_step_all_beg[sb] += 1
+            elif how_train == 'backselfplay':
+                running_num_episodes += sum([int(done_.all())
+                                             for done_ in done])
+                per_agent_success_rates = [
+                    per_agent_success_rates[id_] + sum(position_wins[id_])
+                    for id_ in range(4)
+                ]
+                all_agent_success_rate += sum([position_wins[id_] for id_ in range(4)])
+
+                # NOTE: The masking for backselfplay should be such that:
+                # 1. If the agent is alive, then it follows the same process as
+                # in `simple`. This means that it's 1.0.
+                # 2. If the agent died, then it's not going to get rewards.
+                # This means the masking should be 0.0. Note that this
+                # could be problematic for the rollout if the agent's
+                # observations don't specify that it's dead. That's why we
+                # amended the featurize3D function in networks to be a zero map
+                # for the agent's position if it's not alive.
+                # TODO: Consider additionally changing the agent's action and
+                # associated log probs to be the Stop action.
+                masks = torch.FloatTensor([[int(d) for d in done_]
+                                           for done_ in done]) \
+                             .transpose(0, 1).unsqueeze(2).unsqueeze(2)
+
+                for e, pos, ss, sb in zip(game_ended,
+                                          game_results,
+                                          game_state_start_steps,
+                                          game_state_start_steps_beg):
+                    if not e or ss is None or sb is None:
+                        continue
+                    if pos:
+                        start_step_wins[ss] += 1
+                        start_step_wins_beg[sb] += 1
+                        start_step_position_wins[(pos, ss)] += 1
+                        start_step_position_wins_beg[(pos, sb)] += 1
+                    start_step_all[ss] += 1
+                    start_step_all_beg[sb] += 1
+            elif how_train == 'homogenous':
+                # We have to clear any observations from done so that the stacks are pure.
+                for num, done_ in enumerate(done):
+                    if done_.all():
+                        bad_guys_train[0].clear_obs_stack(num)
+
+                running_num_episodes += sum([int(done_.all())
+                                             for done_ in done])
+                # NOTE: The masking for homogenous should be such that:
+                # 1. If the agent is alive, then it follows the same process as
+                # in `simple`. This means that it's 1.0.
+                # 2. If the agent died, then it's still going to get rewards
+                # according to the team_reward_sharing attribute. This means
+                # that masking should be 1.0 as well. However, note that this
+                # could be problematic for the rollout if the agent's
+                # observations don't specify that it's dead. That's why we
+                # amended the featurize3D function in networks to be a zero map
+                # for the agent's position if it's not alive.
+                # TODO: Consider additionally changing the agent's action and
+                # associated log probs to be the Stop action.
+                masks = torch.FloatTensor([[0.0]*2 if done_.all() else [1.0]*2
+                                           for done_ in done]) \
+                             .transpose(0, 1).unsqueeze(2).unsqueeze(2)
+                masks_kl = [[0.0]*2 for _ in range(num_processes)]
+                for num_process in range(num_processes):
+                    temp_rewards = []
+                    for id_ in range(2):
+                        tid = (id_ + 1) % 2
+                        self_reward = reward[num_process][id_]
+                        teammate_reward = reward[num_process][tid]
+                        my_reward = (1 - reward_sharing) * self_reward + \
+                                        reward_sharing * teammate_reward
+                        temp_rewards.append(my_reward)
+                        if not done[num_process][id_]:
+                            masks_kl[num_process][id_] = 1.0
+                    reward[num_process] = temp_rewards
+
+                # NOTE: masks_kl is 0 if the agent died.
+                masks_kl = torch.FloatTensor(masks_kl).transpose(0, 1) \
+                                                      .unsqueeze(2)
 
             reward = torch.from_numpy(np.stack(reward)).float().transpose(0, 1)
-            # NOTE: These don't mean anything for homogenous training
             episode_rewards += reward[:, :, None]
             final_rewards *= masks
             final_rewards += (1 - masks) * episode_rewards
@@ -741,6 +1028,11 @@ def train():
             if how_train in ['simple', 'grid']:
                 final_sum = final_reward_arr[done.squeeze() == True].sum()
                 cumulative_reward += final_sum
+            elif how_train in ['homogenous', 'backselfplay']:
+                where_done = np.array([done_.all() for done_ in done]) == True
+                final_sum = final_reward_arr.squeeze().transpose()
+                final_sum = final_sum[where_done].sum()
+                cumulative_reward += final_sum
 
             current_obs = update_current_obs(obs)
             if args.cuda:
@@ -749,6 +1041,8 @@ def train():
 
             if how_train in ['simple', 'grid']:
                 masks_all = masks.transpose(0,1).unsqueeze(2)
+            elif how_train in ['homogenous', 'backselfplay']:
+                masks_all = masks
 
             reward_all = reward.unsqueeze(2)
             states_all = utils.torch_numpy_stack(states_agents)
@@ -777,14 +1071,14 @@ def train():
 
             value_all = utils.torch_numpy_stack(value_agents)
 
-            if how_train in ['simple', 'homogenous', 'grid']:
+            if how_train in ['simple', 'homogenous', 'grid', 'backselfplay']:
                 training_agents[0].insert_rollouts(
                     step, current_obs, states_all, action_all,
                     action_log_prob_all, value_all, reward_all, masks_all,
                     action_log_prob_distr, dagger_prob_distr)
 
         # Compute the advantage values.
-        if not args.eval_only and how_train in ['simple', 'homogenous', 'grid']:
+        if not args.eval_only and how_train in ['simple', 'homogenous', 'grid', 'backselfplay']:
             training_agent = training_agents[0]
             next_value_agents = [
                 training_agent.actor_critic_call(step=-1, num_agent=num_agent)
@@ -891,6 +1185,34 @@ def train():
             std_total_loss = np.std([
                 total_loss for total_loss in final_total_losses])
 
+            # TODO: Compute stats for backselfplay wrt first or second player winning.
+            if how_train == 'homogenous':
+                win_rate, tie_rate, loss_rate = evaluate_homogenous(
+                    args, good_guys, bad_guys_eval, eval_round, writer, num_epoch)
+                for agent in good_guys + bad_guys_eval:
+                    agent.clear_obs_stack()
+                print("Epoch %d (%d)-> Win %.3f, Tie %.3f, Loss %.3f" % (
+                    num_epoch, args.num_battles_eval, win_rate, tie_rate,
+                    loss_rate))
+                if win_rate >= .60:
+                    suffix = suffix + ".wr%.3f.evlrnd%d" % (win_rate, eval_round)
+                    saved_paths = utils.save_agents(
+                            "ppo-", num_epoch, training_agents, total_steps,
+                            num_episodes, args, suffix)
+                    eval_round += 1
+                    bad_guys_eval = [
+                            utils.load_inference_agent(
+                                    saved_paths[0], ppo_agent.PPOAgent, "ppo",
+                                    action_space, obs_shape, args.num_processes // 2, args)
+                            for _ in range(2)
+                    ]
+                    bad_guys_train = [
+                            utils.load_inference_agent(
+                                    saved_paths[0], ppo_agent.PPOAgent, "ppo",
+                                    action_space, obs_shape, args.num_processes, args)
+                            for _ in range(2)
+                    ]
+
             if do_distill and len(final_kl_losses):
                 mean_kl_loss = np.mean([
                     kl_loss for kl_loss in final_kl_losses])
@@ -903,6 +1225,12 @@ def train():
                                  for k, v in start_step_all.items()}
             start_step_beg_ratios = {k:1.0 * start_step_wins_beg.get(k, 0) / v
                                      for k, v in start_step_all_beg.items()}
+            start_step_position_ratios = {
+                (pos, ss):1.0 * v / start_step_all.get(ss, 1)
+                for (pos, ss), v in start_step_position_wins.items()}
+            start_step_position_beg_ratios = {
+                (pos, sb):1.0 * v / start_step_all_beg.get(sb, 1)
+                for (pos, sb), v in start_step_position_wins_beg.items()}
 
             utils.log_to_console(num_epoch, num_episodes, total_steps,
                                  steps_per_sec, epochs_per_sec, final_rewards,
@@ -913,7 +1241,9 @@ def train():
                                  mean_total_loss, mean_kl_loss, mean_pg_loss,
                                  distill_factor, args.reinforce_only,
                                  start_step_ratios, start_step_beg_ratios,
-                                 running_optimal_info)
+                                 running_optimal_info,
+                                 start_step_position_ratios,
+                                 start_step_position_beg_ratios)
 
             utils.log_to_tensorboard(writer, num_epoch, num_episodes,
                                      total_steps, steps_per_sec,
@@ -934,12 +1264,17 @@ def train():
                                      np.array(action_probs), uniform_v,
                                      np.mean(running_success_rate),
                                      running_total_game_step_counts,
-                                     running_optimal_info)
+                                     running_optimal_info,
+                                     start_step_position_ratios,
+                                     start_step_position_beg_ratios)
+
 
             start_step_all = defaultdict(int)
             start_step_wins = defaultdict(int)
             start_step_all_beg = defaultdict(int)
             start_step_wins_beg = defaultdict(int)
+            start_step_positions_wins = defaultdict(int)
+            start_step_position_wins_beg = defaultdict(int)
 
             if args.state_directory_distribution == 'uniformAdapt':
                 rate_ = 1.0 * success_rate / running_num_episodes
@@ -973,6 +1308,8 @@ def train():
             running_num_episodes = 0
             cumulative_reward = 0
             terminal_reward = 0
+            all_agent_success_rate = 0
+            per_agent_success_rate = [0]*4
             success_rate = 0
             success_rate_alive = 0
             prev_epoch = num_epoch
@@ -994,15 +1331,52 @@ def train():
             uniform_v_prior = num_epoch
             uniform_v = min(int(uniform_v * uniform_v_factor), 128)
             envs.set_uniform_v(uniform_v)
-        elif args.state_directory_distribution.startswith('setBounds') and \
-             len(uniform_v_incrs) > 0 and \
-             num_epoch - uniform_v_incrs[0] >= uniform_v_prior:
-            uniform_v_prior = num_epoch
-            uniform_v_incrs.pop(0)
-            uniform_v = uniform_v_vals.pop(0)
-            envs.set_uniform_v(uniform_v)
 
     writer.close()
+
+
+def evaluate_homogenous(args, good_guys, bad_guys, eval_round, writer, epoch):
+    print("Starting homogenous eval at epoch %d..." % epoch)
+    with utility.Timer() as t:
+        wins, one_dead, ties, losses = run_eval(
+                args=args, targets=good_guys, opponents=bad_guys)
+    print("Eval took %.4fs." % t.interval)
+
+    descriptor = 'homogenous_eval_round%d' % eval_round
+    num_battles = args.num_battles_eval
+
+    win_count = len(wins)
+    tie_count = len(ties)
+    loss_count = len(losses)
+    one_dead_count  = len(one_dead)
+
+    mean_win_time = np.mean(wins)
+    mean_tie_time = np.mean(ties)
+    mean_loss_time = np.mean(losses)
+    mean_all_time = np.mean(wins + ties + losses)
+
+    win_rate = 1.0*win_count/num_battles
+    tie_rate = 1.0*tie_count/num_battles
+    loss_rate = 1.0*loss_count/num_battles
+    one_dead_per_battle = 1.0*one_dead_count/num_battles
+    one_dead_per_win = 1.0*one_dead_count/win_count if win_count else 0
+    writer.add_scalar('eval_round', eval_round, epoch)
+    writer.add_scalar('%s/win_rate' % descriptor, win_rate, epoch)
+    writer.add_scalar('%s/tie_rate' % descriptor, tie_rate, epoch)
+    writer.add_scalar('%s/loss_rate' % descriptor, loss_rate, epoch)
+    if not np.isnan(mean_win_time):
+        writer.add_scalar('%s/mean_win_time' % descriptor, mean_win_time, epoch)
+    if not np.isnan(mean_tie_time):
+        writer.add_scalar('%s/mean_tie_time' % descriptor, mean_tie_time, epoch)
+    if not np.isnan(mean_loss_time):
+        writer.add_scalar('%s/mean_loss_time' % descriptor, mean_loss_time, epoch)
+
+    writer.add_scalar('%s/mean_all_time' % descriptor, mean_all_time, epoch)
+    writer.add_scalar('%s/one_dead_per_battle' % descriptor,
+                                             one_dead_per_battle, epoch)
+    writer.add_scalar('%s/one_dead_per_win' % descriptor, one_dead_per_win,
+                                             epoch)
+    return win_rate, tie_rate, loss_rate
 
 
 def evaluate_simple(args, good_guys, bad_guys, eval_round, writer, epoch):

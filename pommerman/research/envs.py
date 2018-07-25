@@ -61,6 +61,18 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             training_agent_ids = [[0, 2], [1, 3]][rank % 2]
             agents = [training_agents[0].copy_ex_model()
                       for _ in range(4)]
+        elif how_train == 'backselfplay':
+            # Here we have two training agents in an FFA, alongside two complex agents.
+            agents = [complex_agent(board_size=board_size) for _ in range(2)]
+            training_agent_ids = [rank % 4]
+            # TODO: This is a hack because we know that our dataset is limited.
+            if state_directory.contains("fx-ffacompetition5-s100-complex/train"):
+                second_id = [3, 0, 0, 1][rank % 4]
+            else:
+                choices = [i for _ in range(4) if i != training_agent_ids[0]]
+                second_id = np.random.choice(choices, 1)[0]
+            training_agent_ids.append(second_id)
+            training_agent_ids = sorted(training_agent_ids)
         elif how_train == 'qmix':
             # randomly pick team [0,2] or [1,3]
             training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)]
@@ -75,7 +87,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             training_agent_ids = [0]
         else:
             raise
- 
+
         env = pommerman.make(config, agents, game_state_file)
                              # render_mode='rgb_pixel')
         if rank != -1:
@@ -297,6 +309,10 @@ class WrapPomme(gym.ObservationWrapper):
         return [obs for num, obs in enumerate(observation) \
                 if num not in self._acting_agent_ids]
 
+    def get_dead_agents(self):
+        return [num for num, agent in enumerate(self._agents) \
+                if not agent.is_alive]
+
     def set_bomb_penalty_lambda(self, l):
         self.env.set_bomb_penalty_lambda(l)
 
@@ -320,7 +336,7 @@ class WrapPomme(gym.ObservationWrapper):
         return self.env._game_type
 
     def step(self, actions):
-        if self._how_train in ['simple', 'dagger', 'astar', 'grid']:
+        if self._how_train in ['simple', 'dagger', 'astar', 'grid', 'backselfplay']:
             obs = self.env.get_observations()
             all_actions = self.env.act(obs)
             if type(actions) == list:
