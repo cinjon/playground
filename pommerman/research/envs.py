@@ -2,6 +2,7 @@
 from collections import deque
 import os
 import random
+import time
 
 import gym
 from gym import spaces
@@ -18,7 +19,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
                     training_agents, num_stack, do_filter_team=True,
                     state_directory=None, state_directory_distribution=None,
                     step_loss=0.0, bomb_reward=0.0, item_reward=0.0,
-                    use_second_place=False):
+                    use_second_place=False, use_both_places=False):
     """Makes an environment callable for multithreading purposes.
     Args:
       config: See the arguments module's config options.
@@ -63,16 +64,19 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
                       for _ in range(4)]
         elif how_train == 'backselfplay':
             # Here we have two training agents in an FFA, alongside two complex agents.
+            board_size = 8 if '8' in config else 11
             agents = [complex_agent(board_size=board_size) for _ in range(2)]
             training_agent_ids = [rank % 4]
             # TODO: This is a hack because we know that our dataset is limited.
-            if state_directory.contains("fx-ffacompetition5-s100-complex/train"):
+            if "fx-ffacompetition5-s100-complex/train" in state_directory:
                 second_id = [3, 0, 0, 1][rank % 4]
             else:
                 choices = [i for _ in range(4) if i != training_agent_ids[0]]
                 second_id = np.random.choice(choices, 1)[0]
             training_agent_ids.append(second_id)
             training_agent_ids = sorted(training_agent_ids)
+            agents.insert(training_agent_ids[0], training_agents[0])
+            agents.insert(training_agent_ids[1], training_agents[0].copy_ex_model())
         elif how_train == 'qmix':
             # randomly pick team [0,2] or [1,3]
             training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)]
@@ -97,8 +101,10 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         env.rank = rank
 
         env.set_training_agents(training_agent_ids)
-        env.set_state_directory(state_directory, state_directory_distribution,
-                                use_second_place=use_second_place)
+        env.set_state_directory(state_directory,
+                                state_directory_distribution,
+                                use_second_place=use_second_place,
+                                use_both_places=use_both_places)
         env.set_reward_shaping(step_loss, bomb_reward, item_reward)
 
         env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
@@ -141,7 +147,7 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
                     num_stack, num_processes, do_filter_team=True,
                     state_directory=None, state_directory_distribution=None,
                     step_loss=None, bomb_reward=None, item_reward=None,
-                    use_second_place=False):
+                    use_second_place=False, use_both_places=False):
     envs = [
         _make_train_env(
             config=config, how_train=how_train, seed=seed, rank=rank,
@@ -150,7 +156,7 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
             state_directory=state_directory,
             state_directory_distribution=state_directory_distribution,
             step_loss=step_loss, bomb_reward=bomb_reward, item_reward=item_reward,
-            use_second_place=use_second_place
+            use_second_place=use_second_place, use_both_places=use_both_places,
         )
         for rank in range(num_processes)
     ]
@@ -310,8 +316,11 @@ class WrapPomme(gym.ObservationWrapper):
                 if num not in self._acting_agent_ids]
 
     def get_dead_agents(self):
-        return [num for num, agent in enumerate(self._agents) \
-                if not agent.is_alive]
+        agent_ids = [agent.agent_id for agent in self.env._agents \
+                     if not agent.is_alive]
+        training_agent_indices = [self.env.training_agents.index(id_)
+                                  for id_ in agent_ids]
+        return training_agent_indices
 
     def set_bomb_penalty_lambda(self, l):
         self.env.set_bomb_penalty_lambda(l)

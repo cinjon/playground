@@ -132,7 +132,7 @@ class Pomme(gym.Env):
         self._uniform_v = v
 
     def set_state_directory(self, directory, distribution,
-                            use_second_place=False):
+                            use_second_place=False, use_both_places=False):
         self._init_game_state_directory = directory
         self._game_state_distribution = distribution
         self._online_backplay = False
@@ -148,7 +148,9 @@ class Pomme(gym.Env):
                 with open(endgame_file, 'r') as f:
                     endgame = json.loads(f.read())
                     if 'grid' not in path:
-                        if use_second_place:
+                        if use_both_places:
+                            players = sorted(endgame['winners'] + endgame['second'])
+                        elif use_second_place:
                             players = endgame['second']
                         else:
                             players = endgame['winners']
@@ -576,8 +578,11 @@ class Pomme(gym.Env):
 
         agent_array = json.loads(game_state['agents'])
         for a in agent_array:
-            agent = next(x for x in self._agents \
-                         if x.agent_id == a['agent_id'])
+            agent = None
+            for x in self._agents:
+                if x.agent_id == a['agent_id']:
+                    agent = x
+                    break
             agent.set_start_position((a['position'][0], a['position'][1]))
             agent.reset(
                 int(a['ammo']), bool(a['is_alive']), int(a['blast_strength']),

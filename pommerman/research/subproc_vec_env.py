@@ -21,6 +21,9 @@ def worker(remote, parent_remote, env_fn_wrapper):
                 done = np.array(done)
                 if done.all():
                     ob = env.reset()
+            elif type(done) == np.ndarray:
+                if done.all():
+                    ob = env.reset()
             elif done:
                 ob = env.reset()
             remote.send((ob, reward, done, info))
@@ -196,6 +199,7 @@ class SubprocVecEnv(_VecEnv):
                     os.makedirs(record_pngs_dir)
                 im = Image.fromarray(img)
                 im.save(os.path.join(record_pngs_dir, '%d.png' % step))
+            time.sleep(1. / self._render_fps)
 
     def reset(self, acting_agent_ids=None):
         for remote in self.remotes:
@@ -210,7 +214,6 @@ class SubprocVecEnv(_VecEnv):
     def step_wait(self):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
-        # print(results)
         obs, rews, dones, infos = zip(*results)
         return np.stack(obs), np.stack(rews), np.stack(dones), infos
 

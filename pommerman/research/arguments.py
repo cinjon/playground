@@ -86,6 +86,8 @@ def get_args():
                         help='run train script but only do eval.')
     parser.add_argument('--use-second-place', action='store_true', default=False,
                         help='whether we run from 2nd place instead of 1st.')
+    parser.add_argument('--use-both-places', action='store_true', default=False,
+                        help='whether we use both positions (1st and 2nd).')
     parser.add_argument('--add-nonlin-valhead', action='store_true', default=False,
                         help='add nonlinearity to value head')
     parser.add_argument('--batch-size', type=int, default=5120,

@@ -101,17 +101,21 @@ def train():
         suffix += ".abpe%d" % args.anneal_bomb_penalty_epochs
     if args.item_reward:
         suffix += ".itemrew%.3f" % args.item_reward
-    if args.use_second_place:
-        suffix += ".usp"
     if args.step_loss:
         suffix += ".stl%.3f" % args.step_loss
+
+    if args.use_second_place:
+        suffix += ".usp"
+    elif args.use_both_places:
+        suffix += ".ubp"
 
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
         num_stack, num_processes, state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution,
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
-        item_reward=args.item_reward, use_second_place=args.use_second_place
+        item_reward=args.item_reward, use_second_place=args.use_second_place,
+        use_both_places=args.use_both_places
     )
     game_type = envs.get_game_type()
 
@@ -663,18 +667,17 @@ def train():
                     for datum in training_acts
                 ]
 
-                dead_agents = envs.get_dead_agents()
+                dead_agent_indices = envs.get_dead_agents()
                 for num_agent in range(2):
+                    # This is: value, action, action_log_prob, states, probs, log_probs
+                    # Each of them are num_processes x <specific shape>
                     agent_results = [datum[:, num_agent]
                                      for datum in training_acts]
-                    # NOTE: Right here, if the agent is not alive, we need to
-                    # change the action to Pass.
-                    print("TPPO BEF: ", agent_results)
-                    for num_agent_results in range(len(agent_results)):
-                        for dead_agent in dead_agents[num_agent_results]:
-                            agent_results[num_agent_results][1] = constants.Action.Stop.value
-                    print("TPPO AFT: ", agent_results)
 
+                    # NOTE: If the agent is not alive, change the action to Pass.
+                    for num_process in range(num_processes):
+                        if num_agent in dead_agent_indices[num_process]:
+                            agent_results[1][num_process] = constants.Action.Stop.value
                     actions, probs = update_actor_critic_results(agent_results)
                     for num_process in range(num_processes):
                         cpu_actions_agents[num_process].append(
@@ -808,8 +811,6 @@ def train():
                     elif game_state_file:
                         optimal_by_file[game_state_file].append((0, is_win))
                     game_step_counts[num_process] = 0
-                    # if args.eval_only and num_process == 0:
-                    #     print("TPPO FINI: ", num_process, info_)
 
             if how_train == 'simple':
                 win, alive_win = get_win_alive(info, envs)
@@ -931,8 +932,9 @@ def train():
                 #     print("DEL THAT SHIT")
                 #     os.rmdir(args.record_pngs_dir)
 
-                 for e, w, ss, sb in zip(game_ended, win, game_state_start_steps,
-                                        game_state_start_steps_beg):
+                for e, w, ss, sb in zip(
+                        game_ended, win, game_state_start_steps,
+                        game_state_start_steps_beg):
                     if not e or ss is None or sb is None:
                         continue
                     if w:
@@ -943,8 +945,8 @@ def train():
             elif how_train == 'backselfplay':
                 running_num_episodes += sum([int(done_.all())
                                              for done_ in done])
-                per_agent_success_rates = [
-                    per_agent_success_rates[id_] + sum(position_wins[id_])
+                per_agent_success_rate = [
+                    per_agent_success_rate[id_] + position_wins[id_]
                     for id_ in range(4)
                 ]
                 all_agent_success_rate += sum([position_wins[id_] for id_ in range(4)])
@@ -962,7 +964,7 @@ def train():
                 # associated log probs to be the Stop action.
                 masks = torch.FloatTensor([[int(d) for d in done_]
                                            for done_ in done]) \
-                             .transpose(0, 1).unsqueeze(2).unsqueeze(2)
+                             .transpose(0, 1).unsqueeze(2)
 
                 for e, pos, ss, sb in zip(game_ended,
                                           game_results,
