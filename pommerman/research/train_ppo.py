@@ -520,7 +520,7 @@ def train():
             result = info_.get('result', {})
             game_result = None
             if result == constants.Result.Win:
-                winners = inf.get('winners', {})
+                winners = info_.get('winners', {})
                 for id_ in ids:
                     position_games[id_] += 1
                     if id_ in winners:

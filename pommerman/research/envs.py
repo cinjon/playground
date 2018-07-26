@@ -319,7 +319,7 @@ class WrapPomme(gym.ObservationWrapper):
         agent_ids = [agent.agent_id for agent in self.env._agents \
                      if not agent.is_alive]
         training_agent_indices = [self.env.training_agents.index(id_)
-                                  for id_ in agent_ids]
+                                  for id_ in agent_ids if id_ in self.env.training_agents]
         return training_agent_indices
 
     def set_bomb_penalty_lambda(self, l):

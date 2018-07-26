@@ -150,25 +150,28 @@ class Pomme(gym.Env):
                     if 'grid' not in path:
                         if use_both_places:
                             players = sorted(endgame['winners'] + endgame['second'])
-                        elif use_second_place:
-                            players = endgame['second']
+                            if not all([agent in players for agent in self.training_agents]):
+                                continue
                         else:
-                            players = endgame['winners']
-                        # An agent must be represented in the players.
-                        if not any([agent in players
-                                    for agent in self.training_agents]):
-                            continue
+                            if use_second_place:
+                                players = endgame['second']
+                            else:
+                                players = endgame['winners']
+                            # An agent must be represented in the players.
+                            if not any([agent in players
+                                        for agent in self.training_agents]):
+                                continue
 
-                        # An agent must be alive.
-                        alive = endgame.get('alive', self.training_agents)
-                        if len(players) == 2 and not any([
-                                agent in alive for agent in self.training_agents]):
-                            continue
+                            # An agent must be alive.
+                            alive = endgame.get('alive', self.training_agents)
+                            if len(players) == 2 and not any([
+                                    agent in alive for agent in self.training_agents]):
+                                continue
 
                     step_count = endgame['step_count']
                     self._applicable_games.append((path, step_count))
-            # print("PRINT Environment has %d applicable games --> rank %d." % (
-            #     len(self._applicable_games), self.rank))
+            print("Environment %d has %d applicable games." % (
+                self.rank, len(self._applicable_games)))
             # if len(self._applicable_games) < 5:
             #     print(self._applicable_games)
             # logging.warn("LOG Environment has %d applicable games --> rank %d" % (
