@@ -677,7 +677,8 @@ def train():
                     # NOTE: If the agent is not alive, change the action to Pass.
                     for num_process in range(num_processes):
                         if num_agent in dead_agent_indices[num_process]:
-                            agent_results[1][num_process] = constants.Action.Stop.value
+                            agent_results[1][num_process].data.fill_(constants.Action.Stop.value)
+                            
                     actions, probs = update_actor_critic_results(agent_results)
                     for num_process in range(num_processes):
                         cpu_actions_agents[num_process].append(
