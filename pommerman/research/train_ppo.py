@@ -950,6 +950,7 @@ def train():
                     for id_ in range(4)
                 ]
                 all_agent_success_rate += sum([position_wins[id_] for id_ in range(4)])
+                success_rate = all_agent_success_rate
 
                 # NOTE: The masking for backselfplay should be such that:
                 # 1. If the agent is alive, then it follows the same process as
@@ -1268,7 +1269,8 @@ def train():
                                      running_total_game_step_counts,
                                      running_optimal_info,
                                      start_step_position_ratios,
-                                     start_step_position_beg_ratios)
+                                     start_step_position_beg_ratios
+                                     per_agent_success_rate)
 
 
             start_step_all = defaultdict(int)

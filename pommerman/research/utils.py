@@ -310,7 +310,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        running_total_game_step_counts=[],
                        running_optimal_info=None,
                        start_step_position_ratios=None,
-                       start_step_position_beg_ratios=None):
+                       start_step_position_beg_ratios=None,
+                       per_agent_success_rate=None):
     # x-axis: # steps
     if mean_kl_loss and not np.isnan(mean_kl_loss):
         writer.add_scalar('kl_loss_step', mean_kl_loss, total_steps)
@@ -374,6 +375,10 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                       1.0 * cumulative_reward / running_num_episodes, num_epoch)
     writer.add_scalar('success_rate_epoch',
                       1.0 * success_rate / running_num_episodes, num_epoch)
+    if per_agent_success_rate:
+        for num, sr in enumerate(per_agent_success_rate):
+            writer.add_scalar('per_agent_success_rate_epoch/%d' % num,
+                              1.0 * sr / running_num_episodes, num_epoch)
 
     if running_optimal_info:
         num_optimal = len([k for k in running_optimal_info if k[2] == 0])
