@@ -2525,6 +2525,52 @@ def train_dagger_job(flags, jobname=None, is_fb=False, partition="uninterrupted"
 
 
 ### Backselfplay First runs.
+# These didn't work. Some hypothesis:
+# 1. The agents were dumb at the beginning and so they just learned useless policies that didn't translate
+#    when they then were introduced to complex agents later on.
+# 2. The value loss is way off because it's an unstable and changing policy.
+# job = {
+#     "how-train": "backselfplay",  "log-interval": 7500, "save-interval": 100,
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 60, "gamma": 1.0, "batch-size": 102400, "num-mini-batch": 20,
+#     "num-frames": 2000000000,
+# }
+# counter = 0
+# for learning_rate in [3e-4, 1e-4]:
+#     for (name, distro) in [
+#             ("uBnG", "uniformBoundsG"), #50
+#             ("uBnJ", "uniformBoundsJ"), #75
+#             ("uniform", "uniform"),
+#     ]:
+#         for numgames in [5]:
+#             for itemreward in [0, .1]:
+#                 for seed in [1, 2]:
+#                     runng = 4
+#                     j = {k:v for k,v in job.items()}
+#                     subdir = "fx-ffacompetition%d-s100-complex" % numgames
+#                     log_dir = os.path.join(directory, "logs-fx%d-ubp" % runng)
+#                     save_dir = os.path.join(directory, "models-fx%d-ubp" % runng)
+#                     run_name = "bspubp-fx%d-%s-%d" % (runng, name, counter)
+
+#                     j["use-both-places"] = ""
+#                     j["state-directory"] = os.path.join(
+#                         directory,
+#                         "pomplays",
+#                         subdir,
+#                         "train")
+#                     j["log-dir"] = log_dir
+#                     j["save-dir"] = save_dir
+#                     j["run-name"] = run_name
+#                     if itemreward:
+#                         j["item-reward"] = itemreward
+#                     j["seed"] = seed
+#                     j["state-directory-distribution"] = distro
+#                     j["lr"] = learning_rate
+#                     train_ppo_job(j, j["run-name"], is_fb=True)
+#                     counter += 1
+
+
+### The above but with already trained policies. Note that we are using a policy that was trained only for the single agent. Will it do ok on the 2nd agent??? Unclear.
 job = {
     "how-train": "backselfplay",  "log-interval": 7500, "save-interval": 100,
     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
@@ -2537,16 +2583,17 @@ for learning_rate in [3e-4, 1e-4]:
             ("uBnG", "uniformBoundsG"), #50
             ("uBnJ", "uniformBoundsJ"), #75
             ("uniform", "uniform"),
+            ("genesis", "genesis"),            
     ]:
         for numgames in [5]:
             for itemreward in [0, .1]:
-                for seed in [1, 2]:
+                for seed in [3]:
                     runng = 4
                     j = {k:v for k,v in job.items()}
                     subdir = "fx-ffacompetition%d-s100-complex" % numgames
                     log_dir = os.path.join(directory, "logs-fx%d-ubp" % runng)
                     save_dir = os.path.join(directory, "models-fx%d-ubp" % runng)
-                    run_name = "bspubp-fx%d-%s-%d" % (runng, name, counter)
+                    run_name = "bspubpld-fx%d-%s-%d" % (runng, name, counter)
 
                     j["use-both-places"] = ""
                     j["state-directory"] = os.path.join(
@@ -2559,8 +2606,12 @@ for learning_rate in [3e-4, 1e-4]:
                     j["run-name"] = run_name
                     if itemreward:
                         j["item-reward"] = itemreward
+                        j["saved-paths"] = os.path.join(directory, "models-fx4", "agent0-2fx4-uBnG-3.simple.FFACmp.Small.nc256.lr0.0003.bs102400.ns1707.gam1.0.seed3.gae.uniformBoundsG.itemrew0.100.epoch500.steps51210000.pt")
+                    else:
+                        j["saved-paths"] = os.path.join(directory, "models-fx4", "agent0-2fx4-uBnG-0.simple.FFACmp.Small.nc256.lr0.0003.bs102400.ns1707.gam1.0.seed3.gae.uniformBoundsG.epoch500.steps51210000.pt")
                     j["seed"] = seed
                     j["state-directory-distribution"] = distro
                     j["lr"] = learning_rate
                     train_ppo_job(j, j["run-name"], is_fb=True)
                     counter += 1
+                    

@@ -1270,7 +1270,7 @@ def train():
                                      running_total_game_step_counts,
                                      running_optimal_info,
                                      start_step_position_ratios,
-                                     start_step_position_beg_ratios
+                                     start_step_position_beg_ratios,
                                      per_agent_success_rate)
 
 
