@@ -64,8 +64,16 @@ def load_agents(obs_shape, action_space, num_training_per_episode, num_steps,
                          num_epoch, optimizer_state_dict, num_steps, uniform_v,
                          uniform_v_prior)
         training_agents.append(agent)
-
     return training_agents
+
+
+def get_new_model(path, args, obs_shape, action_space, board_size):
+    net = lambda state: networks.get_actor_critic(args.model_str)(
+        state, obs_shape[0], action_space, board_size,
+        args.num_channels, args.recurrent_policy)
+    loaded_model = torch_load(path, args.cuda, args.cuda_device)
+    model = net(loaded_model['state_dict'])
+    return model
 
 
 def load_inference_agent(path, agent_type, network_type, action_space,
@@ -311,7 +319,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        running_optimal_info=None,
                        start_step_position_ratios=None,
                        start_step_position_beg_ratios=None,
-                       per_agent_success_rate=None):
+                       per_agent_success_rate=None, eval_round=None):
     # x-axis: # steps
     if mean_kl_loss and not np.isnan(mean_kl_loss):
         writer.add_scalar('kl_loss_step', mean_kl_loss, total_steps)
@@ -325,7 +333,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
     writer.add_histogram('action_choices_epoch', action_choices, num_epoch, bins='doane')
 
     if uniform_v is not None:
-        writer.add_scalar('uniform_v_epoch', uniform_v, num_epoch)
+        writer.add_scalar('uniform_v_epoch', min(uniform_v, 2048), num_epoch)
     if mean_running_success_rate is not None and not np.isnan(mean_running_success_rate):
         writer.add_scalar('mean_running_success_rate', mean_running_success_rate,
                           num_epoch)
@@ -379,6 +387,8 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
         for num, sr in enumerate(per_agent_success_rate):
             writer.add_scalar('per_agent_success_rate_epoch/%d' % num,
                               1.0 * sr / running_num_episodes, num_epoch)
+    if eval_round is not None:
+        writer.add_scalar('eval_round', eval_round, num_epoch)
 
     if running_optimal_info:
         num_optimal = len([k for k in running_optimal_info if k[2] == 0])
@@ -413,6 +423,12 @@ def validate_how_train(args):
         # the other two agents being complex agents.
         assert(nagents == 1), "Backselfplay training should have one agent."
         return 2
+    elif how_train == 'frobackselfplay':
+        # Frozen Backselfplay trains a single agent alongside itself (self-play), with
+        # the other two agents being complex agents. There is only one agent
+        # that is training.
+        assert(nagents == 1), "Frozen Backselfplay training should have one agent."
+        return 1
     elif how_train == 'qmix':
         assert nagents == 2
         return 2

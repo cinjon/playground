@@ -212,5 +212,12 @@ class PPOAgent(ResearchAgent):
         """Creates a copy without the model. This is for operating with homogenous training."""
         return PPOAgent(None, self._character, num_processes=self._num_processes)
 
+    def copy_with_model(self):
+        """Creates a copy with the model. This is for operating with frozen backplay."""
+        return PPOAgent(self._actor_critic, self._character, num_processes=self._num_processes)
+
     def after_epoch(self):
         self._rollout.after_epoch()
+
+    def set_new_model(self, model):
+        self._actor_critic = model

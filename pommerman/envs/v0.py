@@ -81,6 +81,7 @@ class Pomme(gym.Env):
         self.simple_expert = SimpleAgent()
         self.complex_expert = ComplexAgent(board_size=board_size)
         self.astar_expert = AstarAgent()
+        self.frozen_agent = None
 
     def _set_action_space(self):
         self.action_space = spaces.Discrete(6)
@@ -220,6 +221,9 @@ class Pomme(gym.Env):
             # TODO: Replace this hack with something more reasonable.
             agents = [agent for agent in agents if \
                       agent.agent_id not in acting_agent_ids]
+        if self.frozen_agent_id is not None:
+            agents = [agent for agent in agents if \
+                      agent.agent_id != self.frozen_agent_id]
         return self.model.act(agents, obs, self.action_space)
 
     def get_expert_actions(self, data):
@@ -364,6 +368,16 @@ class Pomme(gym.Env):
                 step = 0
             elif self._game_state_distribution.startswith('uniformForward'):
                 step = random.choice(range(min(self._uniform_v, step_count - 1)))
+            elif self._game_state_distribution.startswith('uniformBndAdpt'):
+                lb = self._uniform_v
+                if self._uniform_v < 40:
+                    ub = 1
+                else:
+                    ub = int(lb / 2) - 8
+
+                minrange = max(0, step_count - lb)
+                maxrange = max(minrange + 1, step_count - ub)
+                step = random.choice(range(minrange, maxrange))
             else:
                 raise
             return os.path.join(directory, '%03d.json' % step), step

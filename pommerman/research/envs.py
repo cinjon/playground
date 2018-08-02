@@ -19,7 +19,8 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
                     training_agents, num_stack, do_filter_team=True,
                     state_directory=None, state_directory_distribution=None,
                     step_loss=0.0, bomb_reward=0.0, item_reward=0.0,
-                    use_second_place=False, use_both_places=False):
+                    use_second_place=False, use_both_places=False,
+                    frozen_agent=None):
     """Makes an environment callable for multithreading purposes.
     Args:
       config: See the arguments module's config options.
@@ -47,6 +48,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
     astar_agent = pommerman.agents.AstarAgent
 
     def _thunk():
+        frozen_agent_id = None
         if how_train == 'dummy':
             agents = [simple_agent() for _ in range(4)]
             training_agent_ids = []
@@ -77,6 +79,32 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             training_agent_ids = sorted(training_agent_ids)
             agents.insert(training_agent_ids[0], training_agents[0])
             agents.insert(training_agent_ids[1], training_agents[0].copy_ex_model())
+        elif how_train == 'frobackselfplay':
+            # Here we have two training agents in an FFA, alongside two complex agents.
+            # There is only one agent that is actually though. If the rank is 0-3 mod 8,
+            # then we use the rank mod 4. if the rank is 4-7 mod 8, then we use the
+            # corresponding second id to the rank mod 4.
+            board_size = 8 if '8' in config else 11
+            agents = [complex_agent(board_size=board_size) for _ in range(2)]
+            rank_8 = rank % 8
+            if rank_8 in range(4):
+                training_agent_ids = [rank % 4]
+                if "fx-ffacompetition5-s100-complex/train" in state_directory:
+                    frozen_agent_id = [3, 0, 0, 1][rank % 4]
+                else:
+                    raise
+            else:
+                if "fx-ffacompetition5-s100-complex/train" in state_directory:
+                    training_agent_ids = [[3, 0, 0, 1][rank % 4]]
+                    frozen_agent_id = rank % 4
+                else:
+                    raise
+            if training_agent_ids[0] > frozen_agent_id:
+                agents.insert(frozen_agent_id, frozen_agent)
+                agents.insert(training_agent_ids[0], training_agents[0])
+            else:
+                agents.insert(training_agent_ids[0], training_agents[0])
+                agents.insert(frozen_agent_id, frozen_agent)
         elif how_train == 'qmix':
             # randomly pick team [0,2] or [1,3]
             training_agent_ids = [[0, 2], [1, 3]][random.randint(0, 1)]
@@ -106,6 +134,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
                                 use_second_place=use_second_place,
                                 use_both_places=use_both_places)
         env.set_reward_shaping(step_loss, bomb_reward, item_reward)
+        env.frozen_agent_id = frozen_agent_id
 
         env = WrapPomme(env, how_train, do_filter_team=do_filter_team)
         env = MultiAgentFrameStack(env, num_stack)
@@ -147,7 +176,7 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
                     num_stack, num_processes, do_filter_team=True,
                     state_directory=None, state_directory_distribution=None,
                     step_loss=None, bomb_reward=None, item_reward=None,
-                    use_second_place=False, use_both_places=False):
+                    use_second_place=False, use_both_places=False, frozen_agent=None):
     envs = [
         _make_train_env(
             config=config, how_train=how_train, seed=seed, rank=rank,
@@ -157,6 +186,7 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
             state_directory_distribution=state_directory_distribution,
             step_loss=step_loss, bomb_reward=bomb_reward, item_reward=item_reward,
             use_second_place=use_second_place, use_both_places=use_both_places,
+            frozen_agent=frozen_agent
         )
         for rank in range(num_processes)
     ]
@@ -353,6 +383,19 @@ class WrapPomme(gym.ObservationWrapper):
                     all_actions.insert(agent_id, action)
             else:
                 all_actions.insert(self.env.training_agents[0], actions)
+        elif self._how_train == 'frobackselfplay':
+            obs = self.env.get_observations()
+            all_actions = self.env.act(obs)
+            fid = self.env.frozen_agent_id
+            tid = self.env.training_agents[0]
+            if tid > fid:
+                all_actions.insert(self.env.frozen_agent_id, actions[1])
+                all_actions.insert(self.env.training_agents[0], actions[0])
+            else:
+                all_actions.insert(self.env.training_agents[0], actions[0])
+                all_actions.insert(self.env.frozen_agent_id, actions[1])
+            if self.env.rank == 0:
+                print("AFT FRO ALL ACTS: ", self.env.rank, all_actions, actions, self.env.training_agents[0], self.env.frozen_agent_id, "\n\n")
         elif self._how_train == 'homogenous':
             all_actions = actions
         elif self._how_train == 'qmix':
