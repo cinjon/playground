@@ -129,6 +129,9 @@ def get_args():
     parser.add_argument('--how-train', type=str, default='simple',
                         help='how to train: simple, homogenous, heterogenous, '
                         'dagger, backselfplay.')
+    parser.add_argument('--mix-frozen-complex', default=False, action='store_true',
+                        help='when using frobackselfplay, whether we use the complex '
+                        'agent half the time.')
     parser.add_argument('--homogenous-init', type=str, default='self',
                         help='whether the initial opponent for homomgeous is '
                         'self or simple agent.')

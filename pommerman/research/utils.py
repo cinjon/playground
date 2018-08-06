@@ -256,23 +256,23 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
     if distill_factor > 0:
         print(" mean kl loss {} ".format(mean_kl_loss))
 
-    if start_step_ratios:
-        print("Start Step Win Ratios: %s" % ", ".join(
-            ["%d: %.3f" % (k, v) for k, v in sorted(start_step_ratios.items())])
-        )
-    if start_step_beg_ratios:
-        print("Start Step Beg Win Ratios: %s" % ", ".join(
-            ["%d: %.3f" % (k, v) for k, v in sorted(start_step_beg_ratios.items())])
-        )
-    if start_step_position_ratios:
-        print("Start Step Position Win Ratios: %s" % ", ".join(
-            ["Pos %d, Step %d: %.3f" % (pos, sb, v) for (pos, sb), v in sorted(start_step_position_ratios.items(), key=lambda k: (k[1], k[0]))])
-        )
-    if start_step_position_beg_ratios:
-        print("Start Step Position Beg Win Ratios: %s" % ", ".join(
-            ["Pos %d, Step %d: %.3f" % (pos, sb, v) for (pos, sb), v in \
-             sorted(start_step_position_beg_ratios.items(), key=lambda k: (k[1], k[0]))])
-        )
+    # if start_step_ratios:
+    #     print("Start Step Win Ratios: %s" % ", ".join(
+    #         ["%d: %.3f" % (k, v) for k, v in sorted(start_step_ratios.items())])
+    #     )
+    # if start_step_beg_ratios:
+    #     print("Start Step Beg Win Ratios: %s" % ", ".join(
+    #         ["%d: %.3f" % (k, v) for k, v in sorted(start_step_beg_ratios.items())])
+    #     )
+    # if start_step_position_ratios:
+    #     print("Start Step Position Win Ratios: %s" % ", ".join(
+    #         ["Pos %d, Step %d: %.3f" % (pos, sb, v) for (pos, sb), v in sorted(start_step_position_ratios.items(), key=lambda k: (k[1], k[0]))])
+    #     )
+    # if start_step_position_beg_ratios:
+    #     print("Start Step Position Beg Win Ratios: %s" % ", ".join(
+    #         ["Pos %d, Step %d: %.3f" % (pos, sb, v) for (pos, sb), v in \
+    #          sorted(start_step_position_beg_ratios.items(), key=lambda k: (k[1], k[0]))])
+    #     )
     if running_optimal_info:
         num_optimal = len([k for k in running_optimal_info if k[2] == 0])
         avg_over = np.mean([k[2] for k in running_optimal_info])
@@ -385,8 +385,7 @@ def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                       1.0 * success_rate / running_num_episodes, num_epoch)
     if per_agent_success_rate:
         for num, sr in enumerate(per_agent_success_rate):
-            writer.add_scalar('per_agent_success_rate_epoch/%d' % num,
-                              1.0 * sr / running_num_episodes, num_epoch)
+            writer.add_scalar('per_agent_success_rate_epoch/%d' % num, sr, num_epoch)
     if eval_round is not None:
         writer.add_scalar('eval_round', eval_round, num_epoch)
 

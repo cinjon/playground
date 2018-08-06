@@ -108,6 +108,9 @@ def train():
         suffix += ".usp"
     elif args.use_both_places:
         suffix += ".ubp"
+        
+    if args.mix_frozen_complex:
+        suffix += ".mfc"
 
     frozen_agent = None
     if how_train == 'frobackselfplay':
@@ -133,7 +136,8 @@ def train():
         state_directory_distribution=args.state_directory_distribution,
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
         item_reward=args.item_reward, use_second_place=args.use_second_place,
-        use_both_places=args.use_both_places, frozen_agent=frozen_agent
+        use_both_places=args.use_both_places, frozen_agent=frozen_agent,
+        mix_frozen_complex=args.mix_frozen_complex
     )
     game_type = envs.get_game_type()
 
@@ -147,6 +151,12 @@ def train():
         envs.set_uniform_v(uniform_v)
     elif args.state_directory_distribution == 'uniformBndAdptA':
         uniform_v = 32
+        uniform_v_factor = args.uniform_v_factor
+        running_success_rate_maxlen = 10 # corresponds to roughly ??? epochs of FFA.
+        running_success_rate = deque([], maxlen=running_success_rate_maxlen)
+        envs.set_uniform_v(uniform_v)
+    elif args.state_directory_distribution == 'uniformBndAdptB':
+        uniform_v = 48
         uniform_v_factor = args.uniform_v_factor
         running_success_rate_maxlen = 10 # corresponds to roughly ??? epochs of FFA.
         running_success_rate = deque([], maxlen=running_success_rate_maxlen)
@@ -411,6 +421,7 @@ def train():
     terminal_reward = 0
     all_agent_success_rate = 0
     per_agent_success_rate = [0]*4
+    per_agent_games = [0]*4
     success_rate = 0
     success_rate_alive = 0
     prev_epoch = start_epoch
@@ -544,17 +555,22 @@ def train():
 
         for info_, ids in zip(info, training_ids):
             result = info_.get('result', {})
+            if result == constants.Result.Incomplete:
+                continue
+
+            for id_ in ids:
+                position_games[id_] += 1
+                
             game_result = None
             if result == constants.Result.Win:
                 winners = info_.get('winners', {})
                 for id_ in ids:
-                    position_games[id_] += 1
                     if id_ in winners:
                         position_wins[id_] += 1
                         game_result = id_
             game_results.append(game_result)
 
-        return position_wins, game_results
+        return position_wins, position_games, game_results
 
 
     # TODO: make the function below less hacky
@@ -581,6 +597,8 @@ def train():
         current_obs = current_obs.cuda()
         for agent in training_agents:
             agent.cuda()
+        if frozen_agent:
+            frozen_agent.cuda()
         if do_distill and distill_expert == 'DaggerAgent':
             distill_agent.cuda()
 
@@ -727,11 +745,11 @@ def train():
                     step, 0, deterministic=args.eval_only)
                 _, frozen_actions, _, _, _, _ = result
                 frozen_actions = frozen_actions.data.squeeze(1).cpu().numpy()
-                print("FRO CPU ACTIONS: ", training_actions, frozen_actions)
+                # print("FRO CPU ACTIONS: ", training_actions, frozen_actions)
                 cpu_actions_agents = [[] for _ in range(num_processes)]
                 for num_proc, (a1, a2) in enumerate(zip(training_actions, frozen_actions)):
                     cpu_actions_agents[num_proc] = [a1, a2]
-                print("AFT FRO CPU ACTIONS: ", cpu_actions_agents)
+                # print("AFT FRO CPU ACTIONS: ", cpu_actions_agents)
             elif how_train == 'homogenous':
                 # Reshape to do computation once rather than four times.
                 cpu_actions_agents = [[] for _ in range(num_processes)]
@@ -862,7 +880,7 @@ def train():
             if how_train == 'simple':
                 win, alive_win = get_win_alive(info, envs)
             elif how_train in ['backselfplay', 'frobackselfplay']:
-                position_wins, game_results = get_wins(info, envs)
+                position_wins, position_games, game_results = get_wins(info, envs)
 
             game_state_start_steps = np.array([
                 info_.get('game_state_step_start') for info_ in info])
@@ -996,6 +1014,10 @@ def train():
                     per_agent_success_rate[id_] + position_wins[id_]
                     for id_ in range(4)
                 ]
+                per_agent_games = [
+                    per_agent_games[id_] + position_games[id_]
+                    for id_ in range(4)
+                ]
                 all_agent_success_rate += sum([position_wins[id_] for id_ in range(4)])
                 success_rate = all_agent_success_rate
 
@@ -1020,7 +1042,7 @@ def train():
                                           game_state_start_steps_beg):
                     if not e or ss is None or sb is None:
                         continue
-                    if pos:
+                    if pos is not None:
                         start_step_wins[ss] += 1
                         start_step_wins_beg[sb] += 1
                         start_step_position_wins[(pos, ss)] += 1
@@ -1032,6 +1054,10 @@ def train():
                                              for done_ in done])
                 per_agent_success_rate = [
                     per_agent_success_rate[id_] + position_wins[id_]
+                    for id_ in range(4)
+                ]
+                per_agent_games = [
+                    per_agent_games[id_] + position_games[id_]
                     for id_ in range(4)
                 ]
                 all_agent_success_rate += sum([position_wins[id_] for id_ in range(4)])
@@ -1053,7 +1079,7 @@ def train():
                                           game_state_start_steps_beg):
                     if not e or ss is None or sb is None:
                         continue
-                    if pos:
+                    if pos is not None:
                         start_step_wins[ss] += 1
                         start_step_wins_beg[sb] += 1
                         start_step_position_wins[(pos, ss)] += 1
@@ -1313,6 +1339,8 @@ def train():
             start_step_position_beg_ratios = {
                 (pos, sb):1.0 * v / start_step_all_beg.get(sb, 1)
                 for (pos, sb), v in start_step_position_wins_beg.items()}
+            per_agent_success_rate = [sr * 1.0 / pg for sr, pg in zip(
+                per_agent_success_rate, per_agent_games)]
 
             utils.log_to_console(num_epoch, num_episodes, total_steps,
                                  steps_per_sec, epochs_per_sec, final_rewards,
@@ -1352,7 +1380,6 @@ def train():
                                      per_agent_success_rate,
                                      eval_round)
 
-
             start_step_all = defaultdict(int)
             start_step_wins = defaultdict(int)
             start_step_all_beg = defaultdict(int)
@@ -1373,21 +1400,25 @@ def train():
             elif args.state_directory_distribution.startswith('uniformBndAdpt'):
                 rate_ = 1.0 * success_rate / running_num_episodes
                 running_success_rate.append(rate_)
+                mean_running_success_rate = np.mean(running_success_rate)
                 if len(running_success_rate) == running_success_rate_maxlen \
-                   and np.mean(running_success_rate) > .6:
-                    print("Updating Mean Success Rate: ", uniform_v, running_success_rate)
+                   and mean_running_success_rate > .6:
+                    print("Epoch %d: Updating uniformv from %d - Mean Success Rate %.3f" % (
+                        num_epoch, uniform_v, mean_running_success_rate))
                     uniform_v = int(uniform_v * uniform_v_factor)
                     envs.set_uniform_v(uniform_v)
                     running_success_rate = deque(
                         [], maxlen=running_success_rate_maxlen)
-                    suffix_ = suffix + ".wr%.3f.evlrnd%d" % (np.mean(running_success_rate), eval_round)
+                    suffix_ = suffix + ".wr%.3f.evlrnd%d" % (mean_running_success_rate, eval_round)
                     eval_round += 1
                     saved_path = utils.save_agents(
                         "ppo", num_epoch, training_agents, total_steps, num_episodes,
                         args, suffix_, uniform_v, uniform_v_prior)[0]
-                    new_model = utils.get_new_model(saved_path, args, obs_shape, action_space)
-                    frozen_agent.set_new_model(model)
+                    new_model = utils.get_new_model(saved_path, args, obs_shape, action_space,
+                                                    board_size)
+                    frozen_agent.set_new_model(new_model, cuda=args.cuda)
                     frozen_agent.set_eval()
+                    print("\n\n\n*******\nUPDATED to %s\n*******\n\n\n." % suffix_)
 
             # Reset stats so that plots are per the last log_interval.
             if args.reinforce_only:
@@ -1412,6 +1443,7 @@ def train():
             terminal_reward = 0
             all_agent_success_rate = 0
             per_agent_success_rate = [0]*4
+            per_agent_games = [0]*4
             success_rate = 0
             success_rate_alive = 0
             prev_epoch = num_epoch

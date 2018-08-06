@@ -82,6 +82,7 @@ class Pomme(gym.Env):
         self.complex_expert = ComplexAgent(board_size=board_size)
         self.astar_expert = AstarAgent()
         self.frozen_agent = None
+        self.is_frozen_complex = False
 
     def _set_action_space(self):
         self.action_space = spaces.Discrete(6)
@@ -132,6 +133,9 @@ class Pomme(gym.Env):
     def set_uniform_v(self, v):
         self._uniform_v = v
 
+    def set_is_frozen_complex(self, is_frozen_complex):
+        self.is_frozen_complex = is_frozen_complex
+        
     def set_state_directory(self, directory, distribution,
                             use_second_place=False, use_both_places=False):
         self._init_game_state_directory = directory
@@ -173,8 +177,8 @@ class Pomme(gym.Env):
                     self._applicable_games.append((path, step_count))
             print("Environment %d has %d applicable games." % (
                 self.rank, len(self._applicable_games)))
-            # if len(self._applicable_games) < 5:
-            #     print(self._applicable_games)
+            if len(self._applicable_games) < 5:
+                print(self._applicable_games)
             # logging.warn("LOG Environment has %d applicable games --> rank %d" % (
             #              len(self._applicable_games), self.rank))
             # logging.warn(self._applicable_games)
@@ -221,7 +225,7 @@ class Pomme(gym.Env):
             # TODO: Replace this hack with something more reasonable.
             agents = [agent for agent in agents if \
                       agent.agent_id not in acting_agent_ids]
-        if self.frozen_agent_id is not None:
+        if not self.is_frozen_complex and self.frozen_agent_id is not None:
             agents = [agent for agent in agents if \
                       agent.agent_id != self.frozen_agent_id]
         return self.model.act(agents, obs, self.action_space)

@@ -219,5 +219,7 @@ class PPOAgent(ResearchAgent):
     def after_epoch(self):
         self._rollout.after_epoch()
 
-    def set_new_model(self, model):
+    def set_new_model(self, model, cuda=False):
         self._actor_critic = model
+        if cuda:
+            self._actor_critic.cuda()
