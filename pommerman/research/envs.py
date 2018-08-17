@@ -114,6 +114,10 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
 
             rank_16 = rank % 16                
             is_frozen_complex = rank_16 > 7 and mix_frozen_complex
+            
+            # NOTE: This is a test. Remove it afterward.
+            # is_frozen_complex = True
+            
             if training_agent_ids[0] > frozen_agent_id:
                 if is_frozen_complex:
                     agents.insert(frozen_agent_id, complex_agent(board_size=board_size))

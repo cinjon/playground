@@ -118,7 +118,7 @@ def get_args():
                         help='comma separated paths to the saved models.')
     parser.add_argument('--game-state-file', type=str, default='',
                         help='a game state file from which to load.')
-    parser.add_argument('--uniform-v-factor', type=float, default=1.5,
+    parser.add_argument('--uniform-v-factor', type=float, default=2.0,
                         help='a factor for which to multiple the uniform_v')
     parser.add_argument('--state-directory', type=str, default='',
                         help='a game state directory from which to load.')
@@ -132,6 +132,8 @@ def get_args():
     parser.add_argument('--mix-frozen-complex', default=False, action='store_true',
                         help='when using frobackselfplay, whether we use the complex '
                         'agent half the time.')
+    parser.add_argument('--adapt-threshold', type=float, default=0.6,
+                        help='the threshold for which we advance the eval round for adapt.')
     parser.add_argument('--homogenous-init', type=str, default='self',
                         help='whether the initial opponent for homomgeous is '
                         'self or simple agent.')

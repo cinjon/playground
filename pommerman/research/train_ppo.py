@@ -112,6 +112,9 @@ def train():
     if args.mix_frozen_complex:
         suffix += ".mfc"
 
+    if args.state_directory_distribution.startswith('uniformBndAdpt'):
+        suffix += ".adpt%.3f" % args.adapt_threshold
+
     frozen_agent = None
     if how_train == 'frobackselfplay':
         total_steps = training_agents[0].total_steps
@@ -477,7 +480,7 @@ def train():
             implemented.")
     onehot_dim = len(expert_actions_onehot.shape) - 1
 
-    eval_round = None
+    eval_round = 0
     if how_train == 'homogenous':
         good_guys = [
             ppo_agent.PPOAgent(training_agents[0].model,
@@ -879,6 +882,7 @@ def train():
 
             if how_train == 'simple':
                 win, alive_win = get_win_alive(info, envs)
+                position_wins, position_games, game_results = get_wins(info, envs)
             elif how_train in ['backselfplay', 'frobackselfplay']:
                 position_wins, position_games, game_results = get_wins(info, envs)
 
@@ -1339,7 +1343,7 @@ def train():
             start_step_position_beg_ratios = {
                 (pos, sb):1.0 * v / start_step_all_beg.get(sb, 1)
                 for (pos, sb), v in start_step_position_wins_beg.items()}
-            per_agent_success_rate = [sr * 1.0 / pg for sr, pg in zip(
+            per_agent_success_rate = [sr * 1.0 / pg if pg else 0.0 for sr, pg in zip(
                 per_agent_success_rate, per_agent_games)]
 
             utils.log_to_console(num_epoch, num_episodes, total_steps,
@@ -1402,7 +1406,7 @@ def train():
                 running_success_rate.append(rate_)
                 mean_running_success_rate = np.mean(running_success_rate)
                 if len(running_success_rate) == running_success_rate_maxlen \
-                   and mean_running_success_rate > .6:
+                   and mean_running_success_rate > args.adapt_threshold:
                     print("Epoch %d: Updating uniformv from %d - Mean Success Rate %.3f" % (
                         num_epoch, uniform_v, mean_running_success_rate))
                     uniform_v = int(uniform_v * uniform_v_factor)
@@ -1411,14 +1415,17 @@ def train():
                         [], maxlen=running_success_rate_maxlen)
                     suffix_ = suffix + ".wr%.3f.evlrnd%d" % (mean_running_success_rate, eval_round)
                     eval_round += 1
-                    saved_path = utils.save_agents(
-                        "ppo", num_epoch, training_agents, total_steps, num_episodes,
-                        args, suffix_, uniform_v, uniform_v_prior)[0]
-                    new_model = utils.get_new_model(saved_path, args, obs_shape, action_space,
-                                                    board_size)
-                    frozen_agent.set_new_model(new_model, cuda=args.cuda)
-                    frozen_agent.set_eval()
-                    print("\n\n\n*******\nUPDATED to %s\n*******\n\n\n." % suffix_)
+                    if frozen_agent is not None:
+                        saved_path = utils.save_agents(
+                            "ppo", num_epoch, training_agents, total_steps, num_episodes,
+                            args, suffix_, uniform_v, uniform_v_prior)[0]
+                        new_model = utils.get_new_model(saved_path, args, obs_shape, action_space,
+                                                        board_size)
+                        frozen_agent.set_new_model(new_model, cuda=args.cuda)
+                        frozen_agent.set_eval()
+                        print("\n\n\n*******\nUPDATED (frozen_agent) to %s\n*******\n\n\n." % suffix_)
+                    else:
+                        print("\n\n\n*******\nUPDATED to %s\n*******\n\n\n." % suffix_)
 
             # Reset stats so that plots are per the last log_interval.
             if args.reinforce_only:
