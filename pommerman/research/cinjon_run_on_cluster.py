@@ -50,7 +50,8 @@ abbr = {
     'item-reward': 'itr',
     'use-second-place': 'usp',
     'use-both-places': 'ubp',
-    'mix-frozen-complex': 'mfc'
+    'mix-frozen-complex': 'mfc',
+    'adapt-threshold': 'adpt',
 }
 
 def train_ppo_job(flags, jobname=None, is_fb=False, partition="uninterrupted"):
@@ -2723,53 +2724,102 @@ def train_dagger_job(flags, jobname=None, is_fb=False, partition="uninterrupted"
 ### 1. Busting out the per-agent success rates to be over only those games and not all games.
 ### 2. Restricting each thread to be roughyl onyl a single game. Two games are overrepresented.
 ### 3. Also doing mixed frozen+complex half the time.
+# job = {
+#     "how-train": "frobackselfplay",  "log-interval": 7500, "save-interval": 100,
+#     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
+#     "num-processes": 64, "gamma": 1.0, "batch-size": 102400, "num-mini-batch": 20,
+#     "num-frames": 2000000000, "use-both-places": "",
+# }
+# counter = 0
+# for learning_rate in [3e-4]:
+#     for (name, distro) in [
+#             ("uBnAdptA", "uniformBndAdptA"),
+#             ("uBnAdptB", "uniformBndAdptB"),    
+#             ("uniform", "uniform"),
+#             ("genesis", "genesis"),            
+#     ]:
+#         for itemreward in [0, .1]:
+#             for seed in [1]:
+#                 for use_saved_path in [False, True]:
+#                     for mix_frozen_complex in [False, True]:
+#                         numgames = 5
+#                         runng = 4
+#                         j = {k:v for k,v in job.items()}
+#                         subdir = "fx-ffacompetition%d-s100-complex" % numgames
+#                         log_dir = os.path.join(directory, "logs-fx%d-ubnadpt" % runng)
+#                         save_dir = os.path.join(directory, "models-fx%d-ubnadpt" % runng)
+#                         run_name = "2fx%d-%s-%d" % (runng, name, counter)
+
+#                         if mix_frozen_complex:
+#                             j["mix-frozen-complex"] = ""
+                            
+#                         j["state-directory"] = os.path.join(
+#                             directory,
+#                             "pomplays",
+#                             subdir,
+#                             "train")
+#                         j["log-dir"] = log_dir
+#                         j["save-dir"] = save_dir
+#                         j["run-name"] = run_name
+#                         if itemreward:
+#                             j["item-reward"] = itemreward
+#                             if use_saved_path:
+#                                 j["restart-counts"] = ""
+#                                 j["saved-paths"] = os.path.join(directory, "models-fx4", "agent0-2fx4-uBnG-3.simple.FFACmp.Small.nc256.lr0.0003.bs102400.ns1707.gam1.0.seed3.gae.uniformBoundsG.itemrew0.100.epoch500.steps51210000.pt")
+#                         elif use_saved_path:
+#                             j["restart-counts"] = ""                        
+#                             j["saved-paths"] = os.path.join(directory, "models-fx4", "agent0-2fx4-uBnG-0.simple.FFACmp.Small.nc256.lr0.0003.bs102400.ns1707.gam1.0.seed3.gae.uniformBoundsG.epoch500.steps51210000.pt")
+#                         j["seed"] = seed
+#                         j["state-directory-distribution"] = distro
+#                         j["lr"] = learning_rate
+#                         train_ppo_job(j, j["run-name"], is_fb=True)
+#                         counter += 1
+
+
+### Backplay like above with adaptive simple training, but here we lower the threshold to 0.5 instead of 0.6.
 job = {
-    "how-train": "frobackselfplay",  "log-interval": 7500, "save-interval": 100,
+    "how-train": "simple",  "log-interval": 7500, "save-interval": 25,
     "config": "PommeFFACompetition-v0", "model-str": "PommeCNNPolicySmall", "use-gae": "",
-    "num-processes": 64, "gamma": 1.0, "batch-size": 102400, "num-mini-batch": 20,
-    "num-frames": 2000000000, "use-both-places": "",
+    "num-processes": 60, "gamma": 1.0, "batch-size": 102400, "num-mini-batch": 20,
+    "num-frames": 2000000000, 'adapt-threshold': .5
 }
 counter = 0
 for learning_rate in [3e-4]:
-    for (name, distro) in [
-            ("uBnAdptA", "uniformBndAdptA"),
-            ("uBnAdptB", "uniformBndAdptB"),    
-            ("uniform", "uniform"),
-            ("genesis", "genesis"),            
-    ]:
-        for itemreward in [0, .1]:
-            for seed in [1]:
-                for use_saved_path in [False, True]:
-                    for mix_frozen_complex in [False, True]:
-                        numgames = 5
-                        runng = 4
-                        j = {k:v for k,v in job.items()}
-                        subdir = "fx-ffacompetition%d-s100-complex" % numgames
-                        log_dir = os.path.join(directory, "logs-fx%d-ubnadpt" % runng)
-                        save_dir = os.path.join(directory, "models-fx%d-ubnadpt" % runng)
-                        run_name = "2fx%d-%s-%d" % (runng, name, counter)
-
-                        if mix_frozen_complex:
-                            j["mix-frozen-complex"] = ""
+    for itemreward in [0, .1]:
+        for numgames in [5]:
+            for (name, distro) in [
+                    ("uBnAdptA", "uniformBndAdptA"),
+            ]:
+                for seed in [1, 2]:
+                    for use_second_place in [True, False]:
+                        for adapt_threshold in [.5, .6]:
+                            runng = 4
+                            j = {k:v for k,v in job.items()}
+                            j["adapt-threshold"] = adapt_threshold
+                            subdir = "fx-ffacompetition%d-s100-complex" % numgames
+                            log_dir = os.path.join(directory, "logs-fx%d" % runng)
+                            save_dir = os.path.join(directory, "models-fx%d-adpt" % runng)
+                            run_name = "%s-%d" % (name, counter)
                             
-                        j["state-directory"] = os.path.join(
-                            directory,
-                            "pomplays",
-                            subdir,
-                            "train")
-                        j["log-dir"] = log_dir
-                        j["save-dir"] = save_dir
-                        j["run-name"] = run_name
-                        if itemreward:
-                            j["item-reward"] = itemreward
-                            if use_saved_path:
-                                j["restart-counts"] = ""
-                                j["saved-paths"] = os.path.join(directory, "models-fx4", "agent0-2fx4-uBnG-3.simple.FFACmp.Small.nc256.lr0.0003.bs102400.ns1707.gam1.0.seed3.gae.uniformBoundsG.itemrew0.100.epoch500.steps51210000.pt")
-                        elif use_saved_path:
-                            j["restart-counts"] = ""                        
-                            j["saved-paths"] = os.path.join(directory, "models-fx4", "agent0-2fx4-uBnG-0.simple.FFACmp.Small.nc256.lr0.0003.bs102400.ns1707.gam1.0.seed3.gae.uniformBoundsG.epoch500.steps51210000.pt")
-                        j["seed"] = seed
-                        j["state-directory-distribution"] = distro
-                        j["lr"] = learning_rate
-                        train_ppo_job(j, j["run-name"], is_fb=True)
-                        counter += 1
+                            if use_second_place:
+                                j["use-second-place"] = ""
+                                subdir += "-2nd"
+                                log_dir += "usp"
+                                save_dir += "usp"
+                                run_name += "usp"
+                            
+                            j["state-directory"] = os.path.join(
+                                directory,
+                                "pomplays",
+                                subdir,
+                                "train")
+                            j["log-dir"] = log_dir
+                            j["save-dir"] = save_dir
+                            j["run-name"] = run_name
+                            if itemreward:
+                                j["item-reward"] = itemreward
+                            j["seed"] = seed
+                            j["state-directory-distribution"] = distro
+                            j["lr"] = learning_rate
+                            train_ppo_job(j, j["run-name"], is_fb=True)
+                            counter += 1
