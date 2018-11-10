@@ -880,7 +880,7 @@ def train():
                         optimal_by_file[game_state_file].append((0, is_win))
                     game_step_counts[num_process] = 0
 
-            if how_train == 'simple':
+            if how_train == 'simple' or how_train == 'grid':
                 win, alive_win = get_win_alive(info, envs)
                 position_wins, position_games, game_results = get_wins(info, envs)
             elif how_train in ['backselfplay', 'frobackselfplay']:
@@ -952,6 +952,7 @@ def train():
                 success_rate += sum([int(s) for s in \
                                      ((game_ended == True) &
                                       (win == True))])
+                print("Success Rate: ", success_rate)
                 if args.eval_only and any([done_ for done_ in done]):
                     print("Num completed %d --> %d success." % (
                         running_num_episodes, success_rate))

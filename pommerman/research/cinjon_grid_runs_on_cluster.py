@@ -424,6 +424,49 @@ def train_ppo_job(flags, jobname=None, is_fb=False,
                     
 
 # Run these with uniform step choices.
+# job = {
+#     "how-train": "grid",  "log-interval": 10000, "save-interval": 100,
+#     "log-dir": os.path.join(directory, "logs"), "num-stack": 1,
+#     "save-dir": os.path.join(directory, "models"), "num-channels": 32,
+#     "config": "GridWalls-v4", "model-str": "GridCNNPolicy", "use-gae": "",
+#     "num-processes": 60, "gamma": 0.99,
+#     "state-directory": os.path.join(directory, "astars110-s100"),
+#     "batch-size": 102400, "num-mini-batch": 20, "num-frames": 2000000000
+# }
+# counter = 0
+# for state_directory in [
+#         "",
+#         "-5opt",
+#         "-10opt",
+# ]:
+#     for (name, distro) in [
+#             ("uniform", "uniform"),
+#     ]:
+#         for seed in [3, 4, 5]:
+#             for learning_rate in [1e-3]:
+#                 for step_loss in [.03]:
+#                     j = {k:v for k,v in job.items()}
+#                     j["run-name"] = "%s-%d" % (name, counter)
+#                     j["run-name"] = "grid21-%s" % j["run-name"]
+#                     j["run-name"] += state_directory
+#                     if state_directory == "":
+#                         j["state-directory"] = os.path.join(
+#                             directory, "ml15-120-astars100-s100", "train")
+#                         j["log-dir"] += "-100"
+#                     else:
+#                         j["state-directory"] += "%s/train" % state_directory                        
+#                     time = 24
+#                     j["seed"] = seed
+#                     j["step-loss"] = step_loss
+#                     j["state-directory-distribution"] = distro
+#                     j["lr"] = learning_rate
+#                     train_ppo_job(j, j["run-name"], is_fb=True,
+#                                   partition="uninterrupted", time=time)
+#                     counter += 1
+                    
+
+### Running everything seeds 1,2 for everything except 4,5 for reg-grUBnB for the ICLR paper.
+### Reg is the dataset being the optimal one.
 job = {
     "how-train": "grid",  "log-interval": 10000, "save-interval": 100,
     "log-dir": os.path.join(directory, "logs"), "num-stack": 1,
@@ -440,14 +483,23 @@ for state_directory in [
         "-10opt",
 ]:
     for (name, distro) in [
-            ("uniform", "uniform"),
+            ("grUBnB", "grUniformBoundsB"),
+            ("gnss", "genesis"),
+            ("unfm", "uniform"),
     ]:
-        for seed in [3, 4, 5]:
+        for seed in [1, 2, 4, 5]:
+            if state_directory == "" and name == "grUBnB":
+                if seed < 4:
+                    continue
+            else:
+                if seed > 2:
+                    continue
+                
             for learning_rate in [1e-3]:
                 for step_loss in [.03]:
                     j = {k:v for k,v in job.items()}
                     j["run-name"] = "%s-%d" % (name, counter)
-                    j["run-name"] = "grid21-%s" % j["run-name"]
+                    j["run-name"] = "iclr%d-grid21-%s" % (seed, j["run-name"])
                     j["run-name"] += state_directory
                     if state_directory == "":
                         j["state-directory"] = os.path.join(
@@ -463,4 +515,5 @@ for state_directory in [
                     train_ppo_job(j, j["run-name"], is_fb=True,
                                   partition="uninterrupted", time=time)
                     counter += 1
+                    
                     
