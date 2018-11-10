@@ -135,7 +135,7 @@ class Pomme(gym.Env):
 
     def set_is_frozen_complex(self, is_frozen_complex):
         self.is_frozen_complex = is_frozen_complex
-        
+
     def set_state_directory(self, directory, distribution,
                             use_second_place=False, use_both_places=False):
         self._init_game_state_directory = directory
@@ -182,6 +182,8 @@ class Pomme(gym.Env):
             # logging.warn("LOG Environment has %d applicable games --> rank %d" % (
             #              len(self._applicable_games), self.rank))
             # logging.warn(self._applicable_games)
+
+
 
     def set_init_game_state(self, game_state_file):
         """Set the initial game state.
@@ -521,8 +523,8 @@ class Pomme(gym.Env):
 
         time.sleep(1.0 / self.render_fps)
 
-    def record_json(self, directory):
-        self.save_json(directory)
+    def record_json(self, directory, actions=None):
+        self.save_json(directory, actions)
 
     def close(self):
         if self._viewer is not None:
@@ -549,25 +551,30 @@ class Pomme(gym.Env):
             (board, bomb_blast_strength, bomb_life, position, ammo,
              blast_strength, can_kick, teammate, enemies))
 
-    def save_json(self, record_json_dir):
-        info = self.get_json_info()
+    def save_json(self, record_json_dir, actions=None):
+        info = self.get_json_info(actions)
         count = "{0:0=3d}".format(self._step_count)
         suffix = count + '.json'
         path = os.path.join(record_json_dir, suffix)
         with open(path, 'w') as f:
             f.write(json.dumps(info, sort_keys=True, indent=4))
 
-    def get_json_info(self):
+    def get_json_info(self, actions=None):
         """Returns a json snapshot of the current game state."""
-        ret = {
-            'board_size': self._board_size,
-            'step_count': self._step_count,
-            'board': self._board,
-            'agents': self._agents,
-            'bombs': self._bombs,
-            'flames': self._flames,
-            'items': [[k, i] for k, i in self._items.items()]
-        }
+        if actions is None:
+            ret = {
+                'board_size': self._board_size,
+                'step_count': self._step_count,
+                'board': self._board,
+                'agents': self._agents,
+                'bombs': self._bombs,
+                'flames': self._flames,
+                'items': [[k, i] for k, i in self._items.items()]
+            }
+        else:
+            ret = {
+                    'actions': actions,
+            }
         for key, value in ret.items():
             ret[key] = json.dumps(value, cls=utility.PommermanJSONEncoder)
         return ret
