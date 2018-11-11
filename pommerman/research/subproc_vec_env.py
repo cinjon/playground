@@ -49,6 +49,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'get_expert_actions':
             action = env.get_expert_actions(data)
             remote.send((action))
+        elif cmd == 'get_actions':
+            remote.send((env.get_actions()))
         elif cmd == 'get_global_obs':
             remote.send((env.get_global_obs()))
         elif cmd == 'get_non_training_obs':
@@ -59,6 +61,9 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.get_game_type()))
         elif cmd == 'record_json':
             remote.send((env.record_json(data)))
+        elif cmd == 'record_actions_json':
+            d1, d2 = data
+            remote.send((env.record_actions_json(d1, d2)))
         elif cmd == 'set_bomb_penalty_lambda':
             remote.send((env.set_bomb_penalty_lambda(data)))
         elif cmd == 'set_uniform_v':
@@ -250,6 +255,11 @@ class SubprocVecEnv(_VecEnv):
         self.waiting = False
         return np.stack(actions)
 
+    def get_actions(self):
+        for remote in self.remotes:
+            remote.send(('get_actions', None))
+        return [remote.recv() for remote in self.remotes]
+
     def get_global_obs(self):
         for remote in self.remotes:
             remote.send(('get_global_obs', None))
@@ -271,6 +281,15 @@ class SubprocVecEnv(_VecEnv):
         else:
             for remote, directory in zip(self.remotes, directories):
                 remote.send(('record_json', directory))
+            return [remote.recv() for remote in self.remotes]
+
+    def record_actions_json(self, directories, actions, num_env=None):
+        if num_env:
+            self.remotes[num_env].send(('record_actions_json', directories[num_env], actions[num_env]))
+            return self.remotes[num_env].recv()
+        else:
+            for remote, directory, action in zip(self.remotes, directories, actions):
+                remote.send(('record_actions_json', (directory, action)))
             return [remote.recv() for remote in self.remotes]
 
     def get_non_training_obs(self):

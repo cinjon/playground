@@ -51,7 +51,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         ubp = use_both_places
         usp = use_second_place
         is_frozen_complex = False
-        
+
         frozen_agent_id = None
         if how_train == 'dummy':
             agents = [simple_agent() for _ in range(4)]
@@ -88,10 +88,10 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             # There is only one agent that is actually though. If the rank is 0-3 mod 8,
             # then we use the rank mod 4. if the rank is 4-7 mod 8, then we use the
             # corresponding second id to the rank mod 4.
-            
+
             # NOTE: We turn off use_both_places here.
             ubp = False
-            
+
             board_size = 8 if '8' in config else 11
             agents = [complex_agent(board_size=board_size) for _ in range(2)]
 
@@ -99,7 +99,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
             if rank_8 in range(4):
                 usp = False
                 training_agent_ids = [rank % 4]
-                
+
                 if "fx-ffacompetition5-s100-complex/train" in state_directory:
                     frozen_agent_id = [3, 0, 0, 1][rank % 4]
                 else:
@@ -112,12 +112,12 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
                 else:
                     raise
 
-            rank_16 = rank % 16                
+            rank_16 = rank % 16
             is_frozen_complex = rank_16 > 7 and mix_frozen_complex
-            
+
             # NOTE: This is a test. Remove it afterward.
             # is_frozen_complex = True
-            
+
             if training_agent_ids[0] > frozen_agent_id:
                 if is_frozen_complex:
                     agents.insert(frozen_agent_id, complex_agent(board_size=board_size))
@@ -300,6 +300,12 @@ class WrapPommeEval(gym.ObservationWrapper):
         done = done
         return obs, rew, done, info
 
+    # NOTE: this is used to record actions for BC
+    def get_actions(self):
+        obs = self.env.get_observations()
+        all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
+        return all_actions
+
     def _filter(self, arr):
         return np.array([arr[i] for i in self._acting_agent_ids])
 
@@ -323,6 +329,9 @@ class WrapPommeEval(gym.ObservationWrapper):
 
     def record_json(self, directory):
         self.env.record_json(directory)
+
+    def record_actions_json(self, directory, actions):
+        self.env.record_actions_json(directory, actions)
 
 
 class WrapPomme(gym.ObservationWrapper):

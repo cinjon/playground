@@ -107,6 +107,8 @@ def generate(args, agents, action_space, acting_agent_ids):
 
     if record_json_dir and not os.path.exists(record_json_dir):
         os.makedirs(record_json_dir)
+    if record_actions_json_dir and not os.path.exists(record_actions_json_dir):
+        os.makedirs(record_actions_json_dir)
 
     if seed is None:
         seed = random.randint(0, 1e6)
@@ -144,12 +146,17 @@ def generate(args, agents, action_space, acting_agent_ids):
             directory = os.path.join(record_json_dir, '%d' % process_dir)
             if not os.path.exists(directory):
                 os.makedirs(directory)
-        # NOTE: instruction below records state sequences (trajectories)
+
+            actions_directory = os.path.join(record_actions_json_dir, '%d' % process_dir)
+            if not os.path.exists(actions_directory):
+                os.makedirs(actions_directory)
+
         envs.record_json([os.path.join(record_json_dir, '%d' % process_dir)
                           for process_dir in process_dirs])
-        import pdb; pdb.set_trace()
-        envs.record_json([os.path.join(record_actions_json_dir, '%d' % process_dir)
-                                  for process_dir in process_dirs], actions)
+
+        expert_actions = envs.get_actions()
+        envs.record_actions_json([os.path.join(record_actions_json_dir, '%d' % process_dir)
+                                  for process_dir in process_dirs], expert_actions)
 
         if args.render:
             envs.render()
@@ -159,7 +166,6 @@ def generate(args, agents, action_space, acting_agent_ids):
         if args.render and done[0].all():
             time.sleep(2)
 
-        # TODO: check that info, done, step, reset work well !!
         for num, done_ in enumerate(done):
             if done_.all():
                 directory = os.path.join(record_json_dir, '%d' % process_dirs[num])

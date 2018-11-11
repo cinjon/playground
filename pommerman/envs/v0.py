@@ -523,8 +523,11 @@ class Pomme(gym.Env):
 
         time.sleep(1.0 / self.render_fps)
 
-    def record_json(self, directory, actions=None):
-        self.save_json(directory, actions)
+    def record_json(self, directory):
+        self.save_json(directory)
+
+    def record_actions_json(self, directory, actions):
+        self.save_actions_json(directory, actions)
 
     def close(self):
         if self._viewer is not None:
@@ -551,30 +554,42 @@ class Pomme(gym.Env):
             (board, bomb_blast_strength, bomb_life, position, ammo,
              blast_strength, can_kick, teammate, enemies))
 
-    def save_json(self, record_json_dir, actions=None):
-        info = self.get_json_info(actions)
+    def save_json(self, record_json_dir):
+        info = self.get_json_info()
         count = "{0:0=3d}".format(self._step_count)
         suffix = count + '.json'
         path = os.path.join(record_json_dir, suffix)
         with open(path, 'w') as f:
             f.write(json.dumps(info, sort_keys=True, indent=4))
 
-    def get_json_info(self, actions=None):
+    def save_actions_json(self, record_json_dir, actions):
+        info = self.get_actions_json_info(actions)
+        count = "{0:0=3d}".format(self._step_count)
+        suffix = count + '.json'
+        path = os.path.join(record_json_dir, suffix)
+        with open(path, 'w') as f:
+            f.write(json.dumps(info, sort_keys=True, indent=4))
+
+    def get_json_info(self):
         """Returns a json snapshot of the current game state."""
-        if actions is None:
-            ret = {
-                'board_size': self._board_size,
-                'step_count': self._step_count,
-                'board': self._board,
-                'agents': self._agents,
-                'bombs': self._bombs,
-                'flames': self._flames,
-                'items': [[k, i] for k, i in self._items.items()]
-            }
-        else:
-            ret = {
-                    'actions': actions,
-            }
+        ret = {
+            'board_size': self._board_size,
+            'step_count': self._step_count,
+            'board': self._board,
+            'agents': self._agents,
+            'bombs': self._bombs,
+            'flames': self._flames,
+            'items': [[k, i] for k, i in self._items.items()]
+        }
+        for key, value in ret.items():
+            ret[key] = json.dumps(value, cls=utility.PommermanJSONEncoder)
+        return ret
+
+    def get_actions_json_info(self, actions):
+        """Returns a json snapshot of the current game state."""
+        ret = {
+                'actions': actions,
+        }
         for key, value in ret.items():
             ret[key] = json.dumps(value, cls=utility.PommermanJSONEncoder)
         return ret
