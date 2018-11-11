@@ -198,6 +198,10 @@ def generate(args, agents, action_space, acting_agent_ids):
         if os.path.exists(directory):
             shutil.rmtree(directory)
 
+        actions_directory = os.path.join(record_actions_json_dir, '%d' % process_dir)
+        if os.path.exists(actions_directory):
+            shutil.rmtree(actions_directory)
+
     end = time.time()
     print("Generate Times (%d) --> Total: %.3f, Avg: %.3f" % (
         init_num_episodes, end - st, (end - st)/init_num_episodes))
