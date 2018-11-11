@@ -7,6 +7,17 @@ For Grid envs:
 python generate_game_data.py --agents=astar::null --config=GridWalls-v4 --num-episodes=10 \
 --num-processes=12 --num-stack=1 --how-train astar --seed=<insert seed> \
 --record-json-dir=/path/to/json/dir
+
+For Saving Actions along with States:
+Grid:
+python generate_game_data.py --agents=astar::null --config=GridWalls-v4 \
+--num-episodes 4 --num-processes 12 --num-stack 1 --how-train astar --seed 1 \
+--record-json-dir /home/roberta/playground/trajectories/grid/4maps
+Pomme:
+python generate_game_data.py --agents=complex::null,complex::null,complex::null,complex::null \
+ --config=PommeFFAEasy-v0 --num-episodes 4 --num-processes 12 --num-stack 1 \
+ --how-train simple --seed 1 --record-json-dir /home/roberta/playground/trajectories/pomme/4maps \
+
 """
 import json
 import os
