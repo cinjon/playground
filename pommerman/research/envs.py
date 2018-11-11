@@ -301,6 +301,8 @@ class WrapPommeEval(gym.ObservationWrapper):
         return obs, rew, done, info
 
     # NOTE: this is used to record actions for BC
+    # NOTE: for Pomme, if we only want to record the actions of one of them we
+    # can set the rest as being ex_agent_ids, or self._acting_agent_ids
     def get_actions(self):
         obs = self.env.get_observations()
         all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)

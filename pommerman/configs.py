@@ -164,6 +164,8 @@ def ffa_v0_easy_env():
         'num_items': constants.NUM_ITEMS_EASY,
         'max_steps': constants.MAX_STEPS_EASY,
         'render_fps': constants.RENDER_FPS,
+        'character': characters.Bomber,
+
     }
     agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
                             blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
@@ -184,6 +186,8 @@ def ffa_v0_easy_fast_env():
         'num_items': constants.NUM_ITEMS_EASY,
         'max_steps': constants.MAX_STEPS_EASY,
         'render_fps': 2000,
+        'character': characters.Bomber,
+
     }
     agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
                               blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)
@@ -223,6 +227,8 @@ def ffa_v3_easy_env():
         'num_items': constants.NUM_ITEMS_EASY,
         'max_steps': constants.MAX_STEPS_EASY,
         'render_fps': constants.RENDER_FPS,
+        'character': characters.Bomber,
+
     }
     agent = characters.Bomber(bomb_life=constants.DEFAULT_BOMB_LIFE_EASY,
                             blast_strength=constants.DEFAULT_BLAST_STRENGTH_EASY)

@@ -227,9 +227,11 @@ class Pomme(gym.Env):
             # TODO: Replace this hack with something more reasonable.
             agents = [agent for agent in agents if \
                       agent.agent_id not in acting_agent_ids]
-        if not self.is_frozen_complex and self.frozen_agent_id is not None:
+        # NOTE: changed self. frozen_agent_id to self.frozen_agent
+        # bc the former is not defined so i assumed typo (was getting error o/w)
+        if not self.is_frozen_complex and self.frozen_agent is not None:
             agents = [agent for agent in agents if \
-                      agent.agent_id != self.frozen_agent_id]
+                      agent.agent_id != self.frozen_agent]
         return self.model.act(agents, obs, self.action_space)
 
     def get_expert_actions(self, data):
