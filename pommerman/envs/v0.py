@@ -396,7 +396,6 @@ class Pomme(gym.Env):
             while True:
                 if counter == 5:
                     raise
-
                 game_state_file, step = get_game_state_file(directory, step_count)
                 counter += 1
                 try:
@@ -428,6 +427,38 @@ class Pomme(gym.Env):
                 agent.reset()
 
         return self.get_observations()
+
+
+    def get_states_actions_json(self, directory):
+        obs_list = []
+        act_list = []
+
+        actions_file_name = os.path.basename(os.path.normpath(directory)) + "_actions"
+        actions_directory = os.path.join(directory, "../", actions_file_name)
+
+        for subdir in os.listdir(directory):
+            endgame_file = os.path.join(directory, subdir, 'endgame.json')
+            with open(endgame_file, 'r') as f:
+                endgame = json.loads(f.read())
+                step_count = endgame['step_count']
+            for step in range(step_count):
+                game_state_file = os.path.join(directory, subdir, '%03d.json' % step)
+                game_action_file = os.path.join(actions_directory, subdir, '%03d.json' % step)
+
+                self._game_state_step_start = step_count - step + 1
+                self._game_state_step_start_beg = step
+                self._game_state_file = game_state_file
+
+                with open(game_state_file, 'r') as f:
+                    self.set_json_info(json.loads(f.read()))
+                with open(game_action_file, 'r') as f:
+                    action_file = json.loads(f.read())
+                    action = action_file['actions']
+
+                obs_list.append(self.get_observations())
+                act_list.append(action)
+
+        return obs_list, act_list
 
     def seed(self, seed=None):
         gym.spaces.prng.seed(seed)
@@ -588,7 +619,8 @@ class Pomme(gym.Env):
         return ret
 
     def get_actions_json_info(self, actions):
-        """Returns a json snapshot of the current game state."""
+        """Returns a json snapshot of the next actions taken by all the agents
+        (corresponding to current state of the game)."""
         ret = {
                 'actions': actions,
         }

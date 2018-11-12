@@ -407,7 +407,7 @@ def validate_how_train(args):
         # Simple trains a single agent with three SimpleAgents.
         assert(nagents == 1), "Simple training should have one agent."
         return 1
-    elif how_train == 'dagger':
+    elif how_train == 'dagger' or how_train == 'bc':
         # Dagger trains a single agent with three SimpleAgents.
         assert(nagents == 1), "Dagger training should have one agent."
         return 1

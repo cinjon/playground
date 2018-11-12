@@ -120,6 +120,10 @@ def get_args():
                         help='a game state file from which to load.')
     parser.add_argument('--uniform-v-factor', type=float, default=2.0,
                         help='a factor for which to multiple the uniform_v')
+    parser.add_argument('--traj-directory-bc', type=str, default='',
+                        help="a game state directory from which to load"\
+                        "states and actions from expert to imitate using"\
+                        "behavioral cloning.")
     parser.add_argument('--state-directory', type=str, default='',
                         help='a game state directory from which to load.')
     parser.add_argument('--state-directory-distribution', type=str,

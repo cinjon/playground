@@ -112,7 +112,9 @@ def generate(args, agents, action_space, acting_agent_ids):
     seed = args.seed
     num_processes = args.num_processes
     record_json_dir = args.record_json_dir
-    record_actions_json_dir = os.path.join(record_json_dir, "actions")
+    actions_file_name = os.path.basename(os.path.normpath(record_json_dir)) + "_actions"
+    record_actions_json_dir = os.path.join(record_json_dir, "../", actions_file_name)
+    # record_actions_json_dir = os.path.join(record_json_dir, "actions")
     num_episodes = args.num_episodes
     init_num_episodes = args.num_episodes
 

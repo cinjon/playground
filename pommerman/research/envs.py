@@ -56,7 +56,7 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
         if how_train == 'dummy':
             agents = [simple_agent() for _ in range(4)]
             training_agent_ids = []
-        elif how_train == 'simple' or how_train == 'dagger':
+        elif how_train == 'simple' or how_train == 'dagger' or how_train == 'bc':
             training_agent_ids = [rank % 4]
             # training_agent_ids = [3]
             board_size = 8 if '8' in config else 11
@@ -409,6 +409,9 @@ class WrapPomme(gym.ObservationWrapper):
     def get_expert_actions(self, data):
         # data consists of obs and string expert.
         return self.env.get_expert_actions(data)
+
+    def get_states_actions_json(self, directory):
+        return self.env.get_states_actions_json(directory)
 
     def get_game_type(self):
         return self.env._game_type
