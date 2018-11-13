@@ -19,7 +19,8 @@ python generate_game_data.py --agents=complex::null,complex::null,complex::null,
  --how-train simple --seed 1 --record-json-dir /home/roberta/playground/trajectories/pomme/4maps \
 
 """
-import json os
+import json
+import os
 import random
 import shutil
 import time

@@ -31,6 +31,8 @@ class PommermanJSONEncoder(json.JSONEncoder):
             return obj.n
         elif isinstance(obj, spaces.Tuple):
             return [space.n for space in obj.spaces]
+        elif isinstance(obs, list):
+            return obj
         return json.JSONEncoder.default(self, obj)
 
 

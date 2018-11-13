@@ -278,7 +278,7 @@ class PommeCNNPolicySmaller(_FFPolicy):
 
         return self.critic_linear(x), x, states
 
-    
+
 class PommeCNNPolicySmallNonlinCritic(_FFPolicy):
     """Class implementing a policy that adds extra nonlinearity to the value head.
 
@@ -674,7 +674,7 @@ def featurize3D(obs, use_step=True):
             teammate[np.where(obs["board"] == obs["teammate"].value)] = 1
             teammate = teammate.reshape(1, map_size, map_size)
         feature_maps.append(has_teammate)
-        
+
         # Enemy feature maps.
         _enemies = [e for e in obs["enemies"] if e != agent_dummy]
         enemies = np.zeros((len(_enemies), map_size, map_size)) \

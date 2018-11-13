@@ -68,7 +68,7 @@ def train():
     training_agents = utils.load_agents(
         obs_shape, action_space, num_training_per_episode, num_steps, args,
         agent_type=dagger_agent.DaggerAgent, character=character, board_size=board_size)
-    agent = training_agents[0]
+    agent = training_agents[args.expert_id]
 
     #####
     # Logging helpers.
@@ -108,18 +108,22 @@ def train():
     expert_states = states[0]
     expert_actions = actions[0]
 
-    expert_obs = []
+    agent_obs_lst = []
     for s in expert_states:
-        expert_obs.append(envs.observation(s))
-    # agent_obs = torch.from_numpy(np.array(expert_obs).squeeze(1)).float()#.transpose(0,1).squeeze(0) # grid: 1x144x5x24x24
-    if args.config == 'GridWalls-v4':
-        agent_obs = torch.from_numpy(np.array(expert_obs).squeeze(1)).float().transpose(0,1).squeeze(0) # grid: 1x144x5x24x24
-    else:
-        # NOTE: this one considers agent 0 is playing
-        # TODO: adjust according to the trajectory
-        agent_obs = torch.from_numpy(np.array(expert_obs)).float().transpose(0,1).transpose(2,1)[0].squeeze(0)
-    if args.cuda:
-        agent_obs = agent_obs.cuda()
+        agent_obs_lst.append(torch.from_numpy(envs.observation(s)[0]).squeeze(0).float())
+
+    expert_obs_lst = []
+    for a in expert_actions:
+        expert_obs_lst.append(int(a[args.expert_id]))
+
+    import pdb; pdb.set_trace()
+
+
+    # agent_obs_lst = agent_obs.tolist()
+    # agent_actions_lst = agent_actions.tolist()
+    # expert_actions_lst = expert_actions.tolist()
+
+    indices = np.arange(0, len(agent_obs_lst)).tolist()
 
     dummy_states = torch.zeros(agent_obs.shape[0],1)
     dummy_masks = torch.zeros(agent_obs.shape[0],1)
@@ -127,27 +131,69 @@ def train():
         dummy_states = dummy_states.cuda()
         dummy_masks = dummy_masks.cuda()
 
-    #################################################
-    # Run Current Policy to Predict Actions
-    #################################################
-    result = agent.act_on_data(
-                Variable(agent_obs, volatile=True),
-                Variable(dummy_states, volatile=True),
-                Variable(dummy_masks, volatile=True))
-    _, actions, _, _, _, _ = result
-    agent_actions = actions.data.squeeze(1).cpu().numpy()
+    cross_entropy_loss = torch.nn.CrossEntropyLoss()
 
+
+    #################################################
+    # Train Policy using Behavioral Cloning
+    #################################################
 
     start = time.time()
+    agent.set_train()
     for num_epoch in range(start_epoch, num_epochs):
         epoch_start_time = time.time()
         if num_epoch > 0:
             print("Avg Epoch Time: %.3f (%d)" % ((epoch_start_time - start)*1.0/num_epoch, num_epoch))
 
-        #################################################
-        # Train Policy using Behavioral Cloning
-        #################################################
-        #  agent.set_train()
+        # result = agent.act_on_data(
+        #             Variable(agent_obs, volatile=True),
+        #             Variable(dummy_states, volatile=True),
+        #             Variable(dummy_masks, volatile=True))
+        # _, actions, _, _, _, _ = result
+        # agent_actions = actions.data.squeeze(1).cpu().numpy()
+
+        random.shuffle(indices)
+        action_losses = []
+        value_losses = []
+        for i in range(0, len(agent_obs_lst), args.minibatch_size):
+            import pdb; pdb.set_trace()
+            indices_minibatch = indices[i:i + args.minibatch_size]
+            agent_obs_mb = [agent_obs_lst[k] for k in indices_minibatch]
+            # agent_actions_mb = [agent_actions_lst[k] for k in indices_minibatch]
+            expert_actions_mb = [expert_actions_lst[k] for k in indices_minibatch]
+
+            agent_obs_mb = torch.stack(agent_obs_mb, 0)
+            # agent_actions_mb = torch.from_numpy(np.array(agent_actions_mb).squeeze(1))
+            expert_actions_mb = torch.from_numpy(np.array(expert_actions_mb).squeeze(1))
+
+            if args.cuda:
+                agent_obs_mb = agent_obs_mb.cuda()
+                # agent_actions_mb = agent_actions_mb.cuda()
+                expert_actions_mb = expert_actions_mb.cuda()
+
+            values, action_scores = agent.get_values_action_scores(
+                Variable(agent_obs_mb),
+                Variable(dummy_states).detach(),
+                Variable(dummy_masks).detach())
+            action_loss = cross_entropy_loss(
+                action_scores, Variable(expert_actions_mb))
+            value_loss = (values - values) \
+                            .pow(2).mean()
+            # value_loss = (Variable(returns_minibatch) - values) \
+            #                 .pow(2).mean()
+
+            agent.optimize(action_loss, value_loss, args.max_grad_norm, \
+                           use_value_loss=args.use_value_loss,
+                           stop_grads_value=args.stop_grads_value,
+                           add_nonlin=args.add_nonlin_valhead)
+
+            action_losses.append(action_loss.data[0])
+            value_losses.append(value_loss.data[0])
+
+
+    if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
+        utils.save_agents("dagger-", num_epoch, training_agents,
+                          total_steps, num_episodes, args)
 
 
 

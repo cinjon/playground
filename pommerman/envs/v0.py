@@ -625,7 +625,7 @@ class Pomme(gym.Env):
                 'actions': actions,
         }
         for key, value in ret.items():
-            ret[key] = json.dumps(value, cls=utility.PommermanJSONEncoder)
+            ret[key] = [json.dumps(int(v), cls=utility.PommermanJSONEncoder) for v in value]
         return ret
 
     def set_json_info(self, game_state=None):

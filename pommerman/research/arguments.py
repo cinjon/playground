@@ -209,6 +209,8 @@ def get_args():
                         "all the rewards. 0.0 would be selfish, 1.0 selfless.")
 
     # for Dagger
+    parser.add_argument('--expert-id', type=int, default=0,
+                        help='id of the expert used for behavioral cloning')
     parser.add_argument('--expert-prob', type=float, default=0.5,
                         help='probability that the agent will act using \
                         the experts action')
