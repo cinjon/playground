@@ -17,10 +17,17 @@ All the above args default to false.
 
 Example Run:
 
+Grid:
+python train_bc.py --traj-directory-bc /home/roberta/playground/trajectories/grid/4maps/ \
+--run-name a --how-train bc --minibatch-size 5000 --num-steps 5000 --num-stack 1 \
+--num-steps-eval 500 --config GridWalls-v4 --how-train dagger --num-processes 1 \
+--num-channels 5
+
+Pomme:
 python train_bc.py --traj-directory-bc /home/roberta/playground/trajectories/pomme/4maps \
---num-processes 16 --run-name a --how-train bc --minibatch-size 5000 --num-steps 5000 \
---num-steps-eval 500 --config PommeFFAEasy-v0 --num-processes 4 --how-train dagger \
---num-processes 1
+--run-name a --how-train bc --minibatch-size 5000 --num-steps 5000 \
+--num-steps-eval 500 --config PommeFFAEasy-v0 --how-train dagger --num-processes 4
+--num-stack 1 --num-channels 19 \
 
 '''
 
@@ -58,7 +65,6 @@ def train():
         utils.get_train_vars(args, num_training_per_episode)
 
     obs_shape, action_space, character, board_size = env_helpers.get_env_info(config, num_stack)
-
     training_agents = utils.load_agents(
         obs_shape, action_space, num_training_per_episode, num_steps, args,
         agent_type=dagger_agent.DaggerAgent, character=character, board_size=board_size)
@@ -86,12 +92,6 @@ def train():
         torch.cuda.manual_seed(args.seed)
         agent.cuda()
 
-    states = []
-    expert_actions = []
-    actions = []
-    returns = []
-    cross_entropy_loss = torch.nn.CrossEntropyLoss()
-
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
         num_stack, num_processes, state_directory=args.state_directory,
@@ -99,32 +99,44 @@ def train():
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
         item_reward=args.item_reward)
 
-    dummy_states = torch.zeros(1,1)
-    dummy_masks = torch.zeros(1,1)
-    dummy_states_eval = torch.zeros(num_processes, 1)
-    dummy_masks_eval = torch.zeros(num_processes, 1)
-    agent_obs = torch.from_numpy(envs.reset()).float().squeeze(1)
+
+
+    #################################################
+    # Load Trajectories (State, Action)-Pairs from File
+    #################################################
+    states, actions = envs.get_states_actions_json(args.traj_directory_bc)
+    expert_states = states[0]
+    expert_actions = actions[0]
+
+    expert_obs = []
+    for s in expert_states:
+        expert_obs.append(envs.observation(s))
+    # agent_obs = torch.from_numpy(np.array(expert_obs).squeeze(1)).float()#.transpose(0,1).squeeze(0) # grid: 1x144x5x24x24
+    if args.config == 'GridWalls-v4':
+        agent_obs = torch.from_numpy(np.array(expert_obs).squeeze(1)).float().transpose(0,1).squeeze(0) # grid: 1x144x5x24x24
+    else:
+        # NOTE: this one considers agent 0 is playing
+        # TODO: adjust according to the trajectory
+        agent_obs = torch.from_numpy(np.array(expert_obs)).float().transpose(0,1).transpose(2,1)[0].squeeze(0)
+    if args.cuda:
+        agent_obs = agent_obs.cuda()
+
+    dummy_states = torch.zeros(agent_obs.shape[0],1)
+    dummy_masks = torch.zeros(agent_obs.shape[0],1)
     if args.cuda:
         dummy_states = dummy_states.cuda()
         dummy_masks = dummy_masks.cuda()
-        dummy_states_eval = dummy_states_eval.cuda()
-        dummy_masks_eval = dummy_masks_eval.cuda()
-        agent_obs = agent_obs.cuda()
 
-    episode_rewards = torch.zeros([num_training_per_episode,
-                                   num_processes, 1])
-    final_rewards = torch.zeros([num_training_per_episode,
-                                 num_processes, 1])
+    #################################################
+    # Run Current Policy to Predict Actions
+    #################################################
+    result = agent.act_on_data(
+                Variable(agent_obs, volatile=True),
+                Variable(dummy_states, volatile=True),
+                Variable(dummy_masks, volatile=True))
+    _, actions, _, _, _, _ = result
+    agent_actions = actions.data.squeeze(1).cpu().numpy()
 
-    running_num_episodes = 0
-    cumulative_reward = 0
-    terminal_reward = 0
-    success_rate = 0
-
-    done = np.array([[False]])
-
-    agent_act_arr = []
-    expert_act_arr = []
 
     start = time.time()
     for num_epoch in range(start_epoch, num_epochs):
@@ -132,21 +144,12 @@ def train():
         if num_epoch > 0:
             print("Avg Epoch Time: %.3f (%d)" % ((epoch_start_time - start)*1.0/num_epoch, num_epoch))
 
-        agent.set_eval()
-        agent_states_list = [[] for _ in range(num_processes)]
-        expert_actions_list = [[] for _ in range(num_processes)]
-        returns_list = [[] for _ in range(num_processes)]
-
-        #################################################
-        # Load Data from File
-        #################################################
-        states, actions = envs.get_states_actions_json(args.traj_directory_bc)
-        expert_states = states[0]
-        expert_actions = actions[0]
-
         #################################################
         # Train Policy using Behavioral Cloning
         #################################################
+        #  agent.set_train()
+
+
 
 
 if __name__ == "__main__":

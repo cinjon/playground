@@ -49,6 +49,9 @@ def worker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'get_expert_actions':
             action = env.get_expert_actions(data)
             remote.send((action))
+        elif cmd == 'observation':
+            obs = env.observation(data)
+            remote.send((obs))
         elif cmd == 'get_states_actions_json':
             remote.send(env.get_states_actions_json(data))
         elif cmd == 'get_actions':
@@ -263,8 +266,13 @@ class SubprocVecEnv(_VecEnv):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         states, actions = zip(*results)
-        return states, actions
+        return np.stack(states), np.stack(actions)
 
+    def observation(self, obs):
+        for remote in self.remotes:
+            remote.send(('observation', obs))
+        return [remote.recv() for remote in self.remotes]
+        
     def get_actions(self):
         for remote in self.remotes:
             remote.send(('get_actions', None))

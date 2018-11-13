@@ -290,7 +290,7 @@ class Grid(PommeV0):
         agent.reset(self._step_count)
         self._board[agent.position] = constants.GridItem.Agent.value
         self._board[agent.goal_position] = constants.GridItem.Goal.value
-        
+
     def act(self, obs, acting_agent_ids=[], ex_agent_ids=None):
         if ex_agent_ids is not None:
             agents = [agent for agent in self._agents \
