@@ -19,15 +19,15 @@ Example Run:
 
 Grid:
 python train_bc.py --traj-directory-bc /home/roberta/playground/trajectories/grid/4maps/ \
---run-name a --how-train bc --minibatch-size 80 --num-steps 5000 --num-stack 1 \
---num-steps-eval 500 --config GridWalls-v4 --how-train dagger --num-processes 1 \
+--run-name a --how-train bc --minibatch-size 80 --num-stack 1 \
+--config GridWalls-v4 --num-processes 1 --log-interval 100 --num-eps-eval 1\
 --num-channels 5
 
 Pomme:
 python train_bc.py --traj-directory-bc /home/roberta/playground/trajectories/pomme/4maps \
---run-name a --how-train bc --minibatch-size 800 --num-steps 5000 \
---num-steps-eval 500 --config PommeFFAEasy-v0 --how-train dagger --num-processes 4 \
---num-stack 1 --num-channels 19 \
+--run-name a --how-train bc --minibatch-size 800 \
+--config PommeFFAEasy-v0 --num-processes 4 \
+--num-stack 1 --num-channels 19 --log-interval 100 --num-eps-eval 10 --lr 0.001 \
 
 '''
 
@@ -100,6 +100,16 @@ def train():
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
         item_reward=args.item_reward)
 
+    if args.config == 'GridWalls-v4':
+        how_train_eval = 'grid'
+    else:
+        how_train_eval = 'simple'
+    eval_envs = env_helpers.make_train_envs(
+        config, how_train_eval, args.seed, args.game_state_file, training_agents,
+        num_stack, num_processes, state_directory=args.state_directory,
+        state_directory_distribution=args.state_directory_distribution,
+        step_loss=args.step_loss, bomb_reward=args.bomb_reward,
+        item_reward=args.item_reward)
 
     #################################################
     # Load Trajectories (State, Action)-Pairs from File
@@ -165,44 +175,61 @@ def train():
         #             Variable(dummy_masks, volatile=True))
         # _, actions, _, _, _, _ = result
         # agent_actions = actions.data.squeeze(1).cpu().numpy()
+        num_correct_actions = 0
         random.shuffle(indices)
         agent.set_train()
-        for k in range(args.dagger_epoch):
-            for i in range(0, len(agent_obs_lst), args.minibatch_size):
-                indices_minibatch = indices[i:i + args.minibatch_size]
-                agent_obs_mb = [agent_obs_lst[k] for k in indices_minibatch]
-                expert_actions_mb = [expert_actions_lst[k] for k in indices_minibatch]
+        for i in range(0, len(agent_obs_lst), args.minibatch_size):
+            indices_minibatch = indices[i:i + args.minibatch_size]
+            agent_obs_mb = [agent_obs_lst[k] for k in indices_minibatch]
+            expert_actions_mb = [expert_actions_lst[k] for k in indices_minibatch]
 
-                agent_obs_mb = torch.stack(agent_obs_mb, 0)
-                expert_actions_mb = torch.from_numpy(np.array(expert_actions_mb))
+            agent_obs_mb = torch.stack(agent_obs_mb, 0)
+            expert_actions_mb = torch.from_numpy(np.array(expert_actions_mb))
 
-                if args.cuda:
-                    agent_obs_mb = agent_obs_mb.cuda()
-                    expert_actions_mb = expert_actions_mb.cuda()
+            if args.cuda:
+                agent_obs_mb = agent_obs_mb.cuda()
+                expert_actions_mb = expert_actions_mb.cuda()
 
-                values, action_scores = agent.get_values_action_scores(
-                    Variable(agent_obs_mb),
-                    Variable(dummy_states).detach(),
-                    Variable(dummy_masks).detach())
-                action_loss = cross_entropy_loss(
-                    action_scores, Variable(expert_actions_mb))
-                value_loss = (values - values) \
-                                .pow(2).mean()
-                # value_loss = (Variable(returns_minibatch) - values) \
-                #                 .pow(2).mean()
+            values, action_scores = agent.get_values_action_scores(
+                Variable(agent_obs_mb),
+                Variable(dummy_states).detach(),
+                Variable(dummy_masks).detach())
+            action_loss = cross_entropy_loss(
+                action_scores, Variable(expert_actions_mb))
+            value_loss = (values - values) \
+                            .pow(2).mean()
+            # value_loss = (Variable(returns_minibatch) - values) \
+            #                 .pow(2).mean()
 
-                agent.optimize(action_loss, value_loss, args.max_grad_norm, \
-                               use_value_loss=args.use_value_loss,
-                               stop_grads_value=args.stop_grads_value,
-                               add_nonlin=args.add_nonlin_valhead)
+            agent.optimize(action_loss, value_loss, args.max_grad_norm, \
+                           use_value_loss=args.use_value_loss,
+                           stop_grads_value=args.stop_grads_value,
+                           add_nonlin=args.add_nonlin_valhead)
 
-                action_losses.append(action_loss.data[0])
-                value_losses.append(value_loss.data[0])
+            action_losses.append(action_loss.data[0])
+            value_losses.append(value_loss.data[0])
+
+            ###############
+            # Measure percentage of correct actions (identical to x)
+            ###############
+            result_train = agent.act_on_data(
+                Variable(agent_obs_mb, volatile=True),
+                Variable(dummy_states_eval, volatile=True),
+                Variable(dummy_masks_eval, volatile=True),
+                deterministic=True)
+            _, actions_train, _, _, _, _ = result_train
+            cpu_actions_train = actions_train.data.squeeze(1).cpu().numpy()
+            expert_actions_train = expert_actions_mb.cpu().numpy()
+
+            num_correct_actions += sum(sum([cpu_actions_train == expert_actions_train]))
 
         if num_epoch % args.log_interval == 0:
             print("\n*********************************")
+            print("EPOCH {}:".format(num_epoch))
+            print("% correct action ", num_correct_actions/len(agent_obs_lst))
             print("action loss ", action_loss.data[0])
             print("cumulative action loss ", np.mean(action_losses))
+            print("**********************************\n")
             # print("")
             # print("value loss ", value_loss.data[0])
             # print("cumulative action loss ", np.mean(action_losses))
@@ -211,34 +238,20 @@ def train():
             #################################################
             # Eval Current Policy
             #################################################
-            agent.set_eval()
-            if args.config == 'GridWalls-v4':
-                how_train_eval = 'grid'
-            else:
-                how_train_eval = 'simple'
-            eval_envs = env_helpers.make_train_envs(
-                config, how_train_eval, args.seed, args.game_state_file, training_agents,
-                num_stack, num_processes, state_directory=args.state_directory,
-                state_directory_distribution=args.state_directory_distribution,
-                step_loss=args.step_loss, bomb_reward=args.bomb_reward,
-                item_reward=args.item_reward)
-
+            '''
             nmaps = 0
+            agent.set_eval()
             for init_state in init_states_lst:
                 nmaps += 1
                 running_num_episodes = 0
                 cumulative_reward = 0
                 success_rate = 0
                 for j in range(args.num_eps_eval):
-                    dagger_obs = torch.from_numpy(eval_envs.reset()) \
-                                      .float().squeeze(0).squeeze(1)
-
                     obs_eval = init_state
                     done_eval = False
                     nr = 0
                     while not done_eval:
                         nr += 1
-                        # TODO: check that it is actually deterministic
                         result_eval = agent.act_on_data(
                             Variable(obs_eval, volatile=True),
                             Variable(dummy_states_eval, volatile=True),
@@ -251,6 +264,9 @@ def train():
                         if nr <= 11 and nmaps == 1:
                             print("*** map {} action {}".format(nmaps, cpu_actions_agents_eval))
 
+                        # TODO: we need to first initialize the agent in the init_state
+                        # right now it is not in init state but in some random state so of course the action
+                        # won't do what we think it will
                         obs_eval, reward_eval, done_eval, info_eval = eval_envs.step(cpu_actions_agents_eval)
 
                         obs_eval = torch.from_numpy(obs_eval.reshape(*obs_shape)).float().unsqueeze(0)
@@ -261,14 +277,9 @@ def train():
                         running_num_episodes += sum([1 if done_ else 0
                                                      for done_ in done_eval])
 
-                        if args.config == 'GridWalls-v4':
-                            success_rate += sum([1 if x else 0 for x in
-                                                [(done_eval.squeeze() == True) & \
-                                                 (reward_eval.squeeze() > 0)] ])
-                        else:
-                            success_rate += sum([1 if x else 0 for x in
-                                                [(done_eval.squeeze() == True) & \
-                                                 (reward_eval.squeeze() > 0)][0] ])
+                        success_rate += sum([1 if x else 0 for x in
+                                            [(done_eval.squeeze() == True) & \
+                                             (reward_eval.squeeze() > 0)] ])
 
                         masks = torch.FloatTensor([
                             [0.0]*num_training_per_episode if done_ \
@@ -298,13 +309,14 @@ def train():
                       .format(num_epoch, nmaps, success_rate, cumulative_reward))
                 print("###########\n")
 
-                    # utils.log_to_tensorboard_dagger(
+                    # utils.log_to_tensorboard_bc(
                     #     writer, num_epoch, total_steps, np.mean(action_losses),
                     #     cumulative_reward, success_rate, terminal_reward,
                     #     np.mean(value_losses), epochs_per_sec, steps_per_sec,
                     #     agent_mean_act_prob, expert_mean_act_prob)
 
             eval_envs.close()
+            '''
 
         writer.close()
 
