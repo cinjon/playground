@@ -149,6 +149,8 @@ class Pomme(gym.Env):
         if self._init_game_state_directory:
             for subdir in os.listdir(self._init_game_state_directory):
                 path = os.path.join(self._init_game_state_directory, subdir)
+                if not os.path.isdir(path):
+                    continue
                 endgame_file = os.path.join(path, 'endgame.json')
                 with open(endgame_file, 'r') as f:
                     endgame = json.loads(f.read())
