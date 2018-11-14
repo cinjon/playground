@@ -19,16 +19,16 @@ Example Run:
 
 Grid:
 python train_bc.py --traj-directory-bc /home/roberta/playground/trajectories/grid/4maps/ \
---run-name a --how-train bc --minibatch-size 80 --num-stack 1 \
---config GridWalls-v4 --num-processes 1 --log-interval 100 --num-eps-eval 1\
---num-channels 5 --model-str GridCNNPolicy
+--run-name a --how-train bc --minibatch-size 160 --num-stack 1 \
+--config GridWalls-v4 --num-processes 1 --log-interval 100 \
+--num-channels 5 --model-str GridCNNPolicy --save-interval 1000 --log-dir ./logs/bc
 
 Pomme:
 python train_bc.py --traj-directory-bc /home/roberta/playground/trajectories/pomme/4maps \
---run-name a --how-train bc --minibatch-size 800 \
+--run-name a --how-train bc --minibatch-size 1753 \
 --config PommeFFAEasy-v0 --num-processes 4 \
---num-stack 1 --num-channels 19 --log-interval 100 --num-eps-eval 10 --lr 0.001 \
---model-str PommeCNNPolicySmall
+--num-stack 1 --num-channels 19 --log-interval 100 --lr 0.001 \
+--model-str PommeCNNPolicySmall --save-interval 1000 --log-dir ./logs/bc
 '''
 
 from collections import defaultdict
@@ -227,14 +227,13 @@ def train():
             utils.log_to_tensorboard_bc(writer, num_epoch, percent_correct,
                                      mean_action_loss, mean_value_loss)
 
-        writer.close()
 
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("bc-", num_epoch, training_agents,
                               total_steps, num_episodes, args)
 
 
-
+    writer.close()
 
 if __name__ == "__main__":
     train()
