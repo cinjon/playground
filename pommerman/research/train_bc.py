@@ -162,9 +162,9 @@ def train():
     #################################################
     # Train Policy using Behavioral Cloning
     #################################################
-    action_losses = []
-    value_losses = []
     for num_epoch in range(start_epoch, num_epochs):
+        action_losses = []
+        value_losses = []
         num_correct_actions = 0
         random.shuffle(indices)
         agent.set_train()
@@ -213,24 +213,19 @@ def train():
 
             num_correct_actions += sum(sum([cpu_actions_train == expert_actions_train]))
 
+        percent_correct = num_correct_actions / len(agent_obs_lst)
+        mean_action_loss = np.sum(action_losses) / len(agent_obs_lst)
+        mean_value_loss = np.sum(value_losses) / len(agent_obs_lst)
         if num_epoch % args.log_interval == 0:
             print("\n*********************************")
             print("EPOCH {}:".format(num_epoch))
-            print("% correct action ", num_correct_actions/len(agent_obs_lst))
-            print("action loss ", action_loss.data[0])
-            print("cumulative action loss ", np.mean(action_losses))
+            print("% correct action ", percent_correct)
+            print("action loss ", mean_action_loss)
+            print("value loss ", mean_value_loss)
             print("**********************************\n")
 
-            # utils.log_to_tensorboard_bc(
-            #     writer, num_epoch, total_steps, np.mean(action_losses),
-            #     cumulative_reward, success_rate, terminal_reward,
-            #     np.mean(value_losses), epochs_per_sec, steps_per_sec,
-            #     agent_mean_act_prob, expert_mean_act_prob)
-
-            # print("")
-            # print("value loss ", value_loss.data[0])
-            # print("cumulative action loss ", np.mean(action_losses))
-
+            utils.log_to_tensorboard_bc(writer, num_epoch, percent_correct,
+                                     mean_action_loss, mean_value_loss)
 
             #################################################
             # Eval Current Policy
@@ -320,7 +315,6 @@ def train():
         if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
             utils.save_agents("bc-", num_epoch, training_agents,
                               total_steps, num_episodes, args)
-            print("saved")
 
 
 

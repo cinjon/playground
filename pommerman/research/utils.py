@@ -306,6 +306,11 @@ def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,
         for num, i in enumerate(expert_mean_act_prob):
             writer.add_histogram('expert_mean_act_prob/%d' % num, i, num_epoch, bins='doane')
 
+def log_to_tensorboard_bc(writer, num_epoch, percent_correct, action_loss, value_loss):
+    writer.add_scalar('percent_correct', percent_correct, num_epoch)
+    writer.add_scalar('action_loss', action_loss, num_epoch)
+    writer.add_scalar('value_loss', value_loss, num_epoch)
+
 
 def log_to_tensorboard(writer, num_epoch, num_episodes, total_steps,
                        steps_per_sec, episodes_per_sec, final_rewards,
