@@ -57,7 +57,7 @@ class ReinforceAgent(ResearchAgent):
                              volatile=True)
         return observations, states, masks
 
-    def actor_critic_act(self, step, num_agent=0):
+    def actor_critic_act(self, step, num_agent=0, deterministic=False):
         """Uses the actor_critic to take action.
         Args:
           step: The int timestep that we are acting.
@@ -65,7 +65,8 @@ class ReinforceAgent(ResearchAgent):
         Returns:
           See the actor_critic's act function in model.py.
         """
-        return self._actor_critic.act(*self.get_rollout_data(step, num_agent))
+        return self._actor_critic.act(*self.get_rollout_data(step, num_agent),
+                                        deterministic=deterministic)
 
     def get_rollout_data(self, step, num_agent, num_agent_end=None):
         return self._rollout_data(step, num_agent, num_agent_end)
@@ -106,7 +107,8 @@ class ReinforceAgent(ResearchAgent):
 
     def initialize(self, args, obs_shape, action_space,
                    num_training_per_episode, num_episodes, total_steps,
-                   num_epoch, optimizer_state_dict):
+                   num_epoch, optimizer_state_dict, num_steps, uniform_v,
+                   uniform_v_prior):
         params = self._actor_critic.parameters()
         self._optimizer = optim.Adam(params, lr=args.lr, eps=args.eps)
         if optimizer_state_dict:
@@ -116,12 +118,14 @@ class ReinforceAgent(ResearchAgent):
                 self._optimizer, mode='min', verbose=True)
 
         self._rollout = RolloutStorage(
-            args.num_steps, args.num_processes, obs_shape, action_space,
+            num_steps, args.num_processes, obs_shape, action_space,
             self._actor_critic.state_size, num_training_per_episode
         )
         self.num_episodes = num_episodes
         self.total_steps = total_steps
         self.num_epoch = num_epoch
+        self.uniform_v = uniform_v
+        self.uniform_v_prior = uniform_v_prior
 
     def update_rollouts(self, obs, timestep):
         self._rollout.observations[timestep, :, :, :, :, :].copy_(obs)
@@ -134,7 +138,7 @@ class ReinforceAgent(ResearchAgent):
                              action_log_prob_distr, dagger_prob_distr)
 
 
-    def reinforce(self, advantages, num_mini_batch, num_steps,
+    def reinforce(self, advantages, num_mini_batch, batch_size, num_steps,
                 max_grad_norm, anneal=False, lr=1e-4, eps=1e-5, kl_factor=0):
         pg_losses = []
         kl_losses = []
@@ -142,7 +146,7 @@ class ReinforceAgent(ResearchAgent):
         total_losses = []
 
         for sample in self._rollout.feed_forward_generator(
-                advantages, num_mini_batch, num_steps, kl_factor):
+                advantages, num_mini_batch, batch_size, num_steps, kl_factor):
             observations_batch, states_batch, actions_batch, return_batch, \
                 masks_batch, old_action_log_probs_batch, adv_targ, \
                 action_log_probs_distr_batch, dagger_probs_distr_batch = sample

@@ -108,7 +108,7 @@ def train():
         suffix += ".usp"
     elif args.use_both_places:
         suffix += ".ubp"
-        
+
     if args.mix_frozen_complex:
         suffix += ".mfc"
 
@@ -402,6 +402,7 @@ def train():
     start_epoch = training_agents[0].num_epoch
     total_steps = training_agents[0].total_steps
     num_episodes = training_agents[0].num_episodes
+
     if training_agents[0].uniform_v is not None:
         print("UNFIROM V IS NOT NONE")
         uniform_v = training_agents[0].uniform_v
@@ -563,7 +564,7 @@ def train():
 
             for id_ in ids:
                 position_games[id_] += 1
-                
+
             game_result = None
             if result == constants.Result.Win:
                 winners = info_.get('winners', {})
@@ -952,7 +953,7 @@ def train():
                 success_rate += sum([int(s) for s in \
                                      ((game_ended == True) &
                                       (win == True))])
-                print("Success Rate: ", success_rate)
+                # print("Success Rate: ", success_rate)
                 if args.eval_only and any([done_ for done_ in done]):
                     print("Num completed %d --> %d success." % (
                         running_num_episodes, success_rate))
@@ -1211,7 +1212,9 @@ def train():
                 agent.set_train()
                 with utility.Timer() as t:
                     result = agent.reinforce(advantages[num_agent],
-                                       args.num_mini_batch, num_steps,
+                                       num_mini_batch,
+                                       batch_size,
+                                       num_steps,
                                        args.max_grad_norm,
                                        kl_factor=distill_factor)
                 pg_losses, kl_losses, total_losses, lr = result
