@@ -21,14 +21,14 @@ Grid:
 python train_bc.py --traj-directory-bc /home/roberta/playground/trajectories/grid/4maps/ \
 --run-name a --how-train bc --minibatch-size 80 --num-stack 1 \
 --config GridWalls-v4 --num-processes 1 --log-interval 100 --num-eps-eval 1\
---num-channels 5
+--num-channels 5 --model-str GridCNNPolicy
 
 Pomme:
 python train_bc.py --traj-directory-bc /home/roberta/playground/trajectories/pomme/4maps \
 --run-name a --how-train bc --minibatch-size 800 \
 --config PommeFFAEasy-v0 --num-processes 4 \
 --num-stack 1 --num-channels 19 --log-interval 100 --num-eps-eval 10 --lr 0.001 \
-
+--model-str PommeCNNPolicySmall
 '''
 
 from collections import defaultdict
@@ -156,9 +156,6 @@ def train():
                                    num_processes, 1])
     final_rewards = torch.zeros([num_training_per_episode,
                                  num_processes, 1])
-
-
-
     cross_entropy_loss = torch.nn.CrossEntropyLoss()
 
 
@@ -168,13 +165,6 @@ def train():
     action_losses = []
     value_losses = []
     for num_epoch in range(start_epoch, num_epochs):
-
-        # result = agent.act_on_data(
-        #             Variable(agent_obs, volatile=True),
-        #             Variable(dummy_states, volatile=True),
-        #             Variable(dummy_masks, volatile=True))
-        # _, actions, _, _, _, _ = result
-        # agent_actions = actions.data.squeeze(1).cpu().numpy()
         num_correct_actions = 0
         random.shuffle(indices)
         agent.set_train()
@@ -230,6 +220,13 @@ def train():
             print("action loss ", action_loss.data[0])
             print("cumulative action loss ", np.mean(action_losses))
             print("**********************************\n")
+
+            # utils.log_to_tensorboard_bc(
+            #     writer, num_epoch, total_steps, np.mean(action_losses),
+            #     cumulative_reward, success_rate, terminal_reward,
+            #     np.mean(value_losses), epochs_per_sec, steps_per_sec,
+            #     agent_mean_act_prob, expert_mean_act_prob)
+
             # print("")
             # print("value loss ", value_loss.data[0])
             # print("cumulative action loss ", np.mean(action_losses))
@@ -320,11 +317,10 @@ def train():
 
         writer.close()
 
-
-
-    if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
-        utils.save_agents("dagger-", num_epoch, training_agents,
-                          total_steps, num_episodes, args)
+        if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
+            utils.save_agents("bc-", num_epoch, training_agents,
+                              total_steps, num_episodes, args)
+            print("saved")
 
 
 
