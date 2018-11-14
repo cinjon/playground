@@ -1,30 +1,24 @@
 """Train script for ppo learning.
 TODO: Implement heterogenous training.
-
 The number of samples used for an epoch is:
 horizon * num_workers = num_steps * num_processes where num_steps is the number
 of steps in a rollout (horizon) and num_processes is the number of parallel
 processes/workers collecting data.
-
 Simple Example:
 python train_ppo.py --how-train simple --num-processes 10 --run-name test \
  --num-steps 50 --log-interval 5
-
 Distillation Example:
 python train_ppo.py --how-train simple --num-processes 10 --run-name distill \
  --num-steps 100 --log-interval 5 \
  --distill-epochs 100 --distill-target dagger::/path/to/model.pt
-
 Homogenous Example:
 python train_ppo.py --how-train homogenous --num-processes 10 \
  --run-name distill --num-steps 100 --log-interval 5 --distill-epochs 100 \
  --distill-target dagger::/path/to/model.pt --config PommeTeam-v0 \
  --eval-mode homogenous --num-battles-eval 100 --seed 100
-
 Lower Complexity example:
 python train_ppo.py --how-train simple --num-processes 10 --run-name test \
  --num-steps 50 --log-interval 5 --config PommeFFAEasy-v0 --board-size 11
-
 Reverse Curriculum with Eval:
 python train_ppo.py --run-name test --num-processes 12 --config PommeFFAEasy-v0 \
 --how-train simple --lr 1e-4 --save-interval 100 --log-interval 1 --gamma 0.95 \

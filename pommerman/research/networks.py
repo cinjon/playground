@@ -109,7 +109,6 @@ class _FFPolicy(nn.Module):
 
 class PommeCNNPolicySmall(_FFPolicy):
     """Class implementing a policy.
-
     Args:
       state_dict: The state dict from which we are loading. If this is None,
         then initializes anew.
@@ -198,7 +197,6 @@ class PommeCNNPolicySmall(_FFPolicy):
 
 class PommeCNNPolicySmaller(_FFPolicy):
     """Class implementing a policy.
-
     Args:
       state_dict: The state dict from which we are loading. If this is None,
         then initializes anew.
@@ -281,7 +279,6 @@ class PommeCNNPolicySmaller(_FFPolicy):
 
 class PommeCNNPolicySmallNonlinCritic(_FFPolicy):
     """Class implementing a policy that adds extra nonlinearity to the value head.
-
     Args:
       state_dict: The state dict from which we are loading. If this is None,
         then initializes anew.
@@ -375,7 +372,6 @@ class PommeCNNPolicySmallNonlinCritic(_FFPolicy):
 
 class PommeCNNPolicySmallerNonlinCritic(_FFPolicy):
     """Class implementing a policy that adds extra nonlinearity to the value head.
-
     Args:
       state_dict: The state dict from which we are loading. If this is None,
         then initializes anew.
@@ -462,7 +458,6 @@ class PommeCNNPolicySmallerNonlinCritic(_FFPolicy):
 
 class QMIXNet(nn.Module):
     """Class implementing a policy.
-
     Args:
       state_dict: The state dict from which we are loading. If this is None,
         then initializes anew.
@@ -583,12 +578,10 @@ class QMIXNet(nn.Module):
 
 def featurize3D(obs, use_step=True):
     """Create 3D Feature Maps for Pommerman.
-
     Args:
         obs: The observation input. Should be for a single agent.
         use_step: Whether to include the step as an argument. We need this for
           the old dagger_agents. Can remove when updated.
-
     Returns:
         A 3D Feature Map where each map is bsXbs. The 19 features are:
         - (2) Bomb blast strength and Bomb life.
@@ -697,7 +690,6 @@ def featurize3D(obs, use_step=True):
 
 class GridCNNPolicy(_FFPolicy):
     """Class implementing a policy.
-
     Args:
       state_dict: The state dict from which we are loading. If this is None,
         then initializes anew.

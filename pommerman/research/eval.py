@@ -88,6 +88,8 @@ def _build(info, obs_shape, action_space, cuda, cuda_device, model_str,
         model = actor_critic(model_state_dict,
                              args_state_dict['board_size'],
                              args_state_dict['num_channels'])
+        print("**********")
+        print("recurrent policy ", args.recurrent_policy, "\n")
         agent = agent_type(model, num_stack=args_state_dict['num_stack'],
                            cuda=cuda, num_processes=num_processes,
                            recurrent_policy=recurrent_policy)
@@ -376,13 +378,16 @@ def run_battles(args, num_times, agents, action_space, acting_agent_ids, trainin
         seed = random.randint(0, 1e6)
     np.random.seed(seed)
     random.seed(seed)
-
+    # import pdb; pdb.set_trace()
     envs = env_helpers.make_eval_envs(
         config, args.how_train, seed, agents, training_agent_ids,
         acting_agent_ids, args.num_stack, num_processes,
         state_directory=args.state_directory,
         state_directory_distribution=args.state_directory_distribution)
     envs.enable_selfbombing()
+    #     state_directory_distribution=args.state_directory_distribution,
+    #     recurrent_policy=args.recurrent_policy
+    # )
 
     infos = []
     rewards = []

@@ -89,7 +89,6 @@ TREE_SIZE = 8
 TREE_MAX_STEPS = 100
 
 
-
 class Item(Enum):
     """The Items in the game.
 

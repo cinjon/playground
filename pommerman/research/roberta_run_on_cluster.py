@@ -42,6 +42,8 @@ abbr = {
     'use-gae': 'gae',
     'stop-grads-value': 'sgv',
     'add-nonlin-valhead': 'anv',
+    "batch-size": 'bs',
+    "ppo-epoch": 'ep',
 }
 
 def train_ppo_job(flags, jobname=None):
@@ -70,7 +72,7 @@ def train_ppo_job(flags, jobname=None):
 
     s = "sbatch --qos batch --gres=gpu:1 --nodes=1 "
     s += "--cpus-per-task=%s " % num_processes
-    s += "--mem=64000 --time=48:00:00 %s &" % os.path.join(
+    s += "--mem=256000 --time=48:00:00 %s &" % os.path.join(
         slurm_scripts, jobnameattrs + ".slurm")
     os.system(s)
 
@@ -108,127 +110,318 @@ def train_dagger_job(flags, jobname=None):
 
 ################ JOBS: top to bottom = most recent to oldest  ####################
 
-### May 9 ###
+### May 15th ###
 
-### easier configs
+### use reverse state as curriculum
 
-### Train PPO + Distilling for FFA -- high kl_facto 10x distill_factor with distill_epoch 10k
+### Train PPO + LSTM
 train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "easy-ppo-dstl", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+    {"num-processes": 8, "run-name": "lstm", "how-train": "simple", "log-interval": 1,
      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAEasy-v3", "gamma": ".995", "lr": 0.0001,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
-     "board_size": 11,
-    }, "easy-ppo-dstl"
+     "config": "PommeFFA8x8-v0", "gamma": "1.0", "lr": 0.0001,
+     "model-str": "PommeCNNPolicySmall",
+     "board_size": 8, "batch-size": 5120, "save-interval": 100,
+     "recurrent-policy": "", "how-train": "simple", "eval-mode": "ffa", "num-stack": 1,
+    }, "lstm"
 )
 
 train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "easy-ppo-dstl", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+    {"num-processes": 8, "run-name": "lstm", "how-train": "simple", "log-interval": 1,
      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAEasy-v0", "gamma": ".995", "lr": 0.0001,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
-     "board_size": 11,
-    }, "easy-ppo-dstl"
-)
-
-### Train PPO + Distilling for FFA -- high kl_facto fixed to 10
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "easy-ppo-dstl10", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAEasy-v3", "gamma": ".995", "lr": 0.0001,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
-     "set-distill-kl": 10,
-     "board_size": 11,
-    }, "easy-ppo-dstl10"
+     "config": "PommeFFA8x8-v0", "gamma": "0.995", "lr": 0.0001,
+     "model-str": "PommeCNNPolicySmall",
+     "board_size": 8, "batch-size": 5120, "save-interval": 100,
+     "recurrent-policy": "", "how-train": "simple", "eval-mode": "ffa", "num-stack": 1,
+    }, "lstm"
 )
 
 train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "easy-ppo-dstl10", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+    {"num-processes": 8, "run-name": "lstm", "how-train": "simple", "log-interval": 1,
      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAEasy-v0", "gamma": ".995", "lr": 0.0001,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
-     "set-distill-kl": 10,
-     "board_size": 11,
-    }, "easy-ppo-dstl10"
-)
-
-
-### Jobs with PPO but no distillation: FFA, both v0 and v3; only Small net.
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAEasy-v3", "gamma": ".995", "lr": 0.0001,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-     "board_size": 11,
-    }, "easy-ppo"
+     "config": "PommeFFA8x8-v0", "gamma": "0.99", "lr": 0.0001,
+     "model-str": "PommeCNNPolicySmall",
+     "board_size": 8, "batch-size": 5120, "save-interval": 100,
+     "recurrent-policy": "", "how-train": "simple", "eval-mode": "ffa", "num-stack": 1,
+    }, "lstm"
 )
 
 train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+    {"num-processes": 8, "run-name": "lstm", "how-train": "simple", "log-interval": 1,
      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeFFAEasy-v0", "gamma": ".995", "lr": 0.0001,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-     "board_size": 11,
-    }, "easy-ppo"
-)
-
-# PPO Team Small
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeTeamEasy-v3", "gamma": ".995", "lr": 0.0001,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-     "board_size": 11,
-    }, "easy-ppo"
+     "config": "PommeFFA8x8-v0", "gamma": "0.95", "lr": 0.0001,
+     "model-str": "PommeCNNPolicySmall",
+     "board_size": 8, "batch-size": 5120, "save-interval": 100,
+     "recurrent-policy": "", "how-train": "simple", "eval-mode": "ffa", "num-stack": 1,
+    }, "lstm"
 )
 
 train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+    {"num-processes": 8, "run-name": "lstm", "how-train": "simple", "log-interval": 1,
      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeTeamEasy-v0", "gamma": ".995", "lr": 0.0001,
-     "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-     "board_size": 11,
-    }, "easy-ppo"
-)
-
-# PPO Team Smaller
-train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
-     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
-     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeTeamEasy-v3", "gamma": ".995", "lr": 0.0001,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-     "board_size": 11,
-    }, "easy-ppo"
+     "config": "PommeFFA8x8-v0", "gamma": "1.0", "lr": 0.0001,
+     "model-str": "PommeCNNPolicySmall",
+     "board_size": 8, "batch-size": 5120, "save-interval": 100,
+     "recurrent-policy": "", "how-train": "simple", "eval-mode": "ffa", "num-stack": 1,
+    }, "lstm"
 )
 
 train_ppo_job( # Batch size of 800
-    {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+    {"num-processes": 8, "run-name": "lstm", "how-train": "simple", "log-interval": 1,
      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
-     "config": "PommeTeamEasy-v0", "gamma": ".995", "lr": 0.0001,
-     "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2,
-     "distill-expert": "SimpleAgent", "distill-epochs": 10000,
-     "board_size": 11,
-    }, "easy-ppo"
+     "config": "PommeFFA8x8-v0", "gamma": "0.995", "lr": 0.00005,
+     "model-str": "PommeCNNPolicySmall",
+     "board_size": 8, "batch-size": 5120, "save-interval": 100,
+     "recurrent-policy": "", "how-train": "simple", "eval-mode": "ffa", "num-stack": 1,
+    }, "lstm"
 )
+
+train_ppo_job( # Batch size of 800
+    {"num-processes": 8, "run-name": "lstm", "how-train": "simple", "log-interval": 1,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFA8x8-v0", "gamma": "0.99", "lr": 0.00005,
+     "model-str": "PommeCNNPolicySmall",
+     "board_size": 8, "batch-size": 5120, "save-interval": 100,
+     "recurrent-policy": "", "how-train": "simple", "eval-mode": "ffa", "num-stack": 1,
+    }, "lstm"
+)
+
+train_ppo_job( # Batch size of 800
+    {"num-processes": 8, "run-name": "lstm", "how-train": "simple", "log-interval": 1,
+     "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+     "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+     "config": "PommeFFA8x8-v0", "gamma": "0.95", "lr": 0.00005,
+     "model-str": "PommeCNNPolicySmall",
+     "board_size": 8, "batch-size": 5120, "save-interval": 100,
+     "recurrent-policy": "", "how-train": "simple", "eval-mode": "ffa", "num-stack": 1,
+    }, "lstm"
+)
+
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "overfit", "how-train": "simple", "log-interval": 1,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".90", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall",
+#      "board_size": 11, "batch-size": 5120, "save-interval": 100,
+#      "state-directory": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/pomme_games/ffaeasyv0-seed1",
+#      "state-directory-distribution": "backloaded",
+#     }, "overfit"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "overfit", "how-train": "simple", "log-interval": 1,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".99", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall",
+#      "board_size": 11, "batch-size": 5120, "save-interval": 100,
+#      "state-directory": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/pomme_games/ffaeasyv0-seed1",
+#      "state-directory-distribution": "backloaded",
+#     }, "overfit"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "overfit", "how-train": "simple", "log-interval": 1,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".95", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall",
+#      "board_size": 11,  "batch-size": 5120, "use-gae": "", "save-interval": 100,
+#      "state-directory": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/pomme_games/ffaeasyv0-seed1",
+#      "state-directory-distribution": "backloaded",
+#     }, "overfit"
+# )
+#
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "overfit", "how-train": "simple", "log-interval": 1,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".95", "lr": 0.00007,
+#      "model-str": "PommeCNNPolicySmall",
+#      "board_size": 11, "batch-size": 5120, "save-interval": 100,
+#      "state-directory": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/pomme_games/ffaeasyv0-seed1",
+#      "state-directory-distribution": "backloaded",
+#     }, "overfit"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "overfit", "how-train": "simple", "log-interval": 1,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".95", "lr": 0.00005,
+#      "model-str": "PommeCNNPolicySmall",
+#      "board_size": 11, "batch-size": 5120, "save-interval": 100,
+#      "state-directory": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/pomme_games/ffaeasyv0-seed1",
+#      "state-directory-distribution": "backloaded",
+#     }, "overfit"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "overfit", "how-train": "simple", "log-interval": 1,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".95", "lr": 0.0003,
+#      "model-str": "PommeCNNPolicySmall",
+#      "board_size": 11, "batch-size": 5120, "save-interval": 100,
+#      "state-directory": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/pomme_games/ffaeasyv0-seed1",
+#      "state-directory-distribution": "backloaded",
+#     }, "overfit"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "overfit", "how-train": "simple", "log-interval": 1,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".95", "lr": 0.0005,
+#      "model-str": "PommeCNNPolicySmall",
+#      "board_size": 11, "batch-size": 5120, "save-interval": 100,
+#      "state-directory": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/pomme_games/ffaeasyv0-seed1",
+#      "state-directory-distribution": "backloaded",
+#     }, "overfit"
+# )
+
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "overfit", "how-train": "simple", "log-interval": 1,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".95", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall",
+#      "board_size": 11, "batch-size": 8124,
+#      "state-directory": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/pomme_games/ffaeasyv0-seed1",
+#      "state-directory-distribution": "backloaded",
+#     }, "overfit"
+# )
+
+
+# ### May 9 ###
+#
+# ### easier configs
+#
+# ### Train PPO + Distilling for FFA -- high kl_facto 10x distill_factor with distill_epoch 10k
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "easy-ppo-dstl", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v3", "gamma": ".995", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#      "board_size": 11,
+#     }, "easy-ppo-dstl"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "easy-ppo-dstl", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".995", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#      "board_size": 11,
+#     }, "easy-ppo-dstl"
+# )
+#
+# ### Train PPO + Distilling for FFA -- high kl_facto fixed to 10
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "easy-ppo-dstl10", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v3", "gamma": ".995", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#      "set-distill-kl": 10,
+#      "board_size": 11,
+#     }, "easy-ppo-dstl10"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "easy-ppo-dstl10", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".995", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000, "use-gae": "",
+#      "set-distill-kl": 10,
+#      "board_size": 11,
+#     }, "easy-ppo-dstl10"
+# )
+#
+#
+# ### Jobs with PPO but no distillation: FFA, both v0 and v3; only Small net.
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v3", "gamma": ".995", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#      "board_size": 11,
+#     }, "easy-ppo"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeFFAEasy-v0", "gamma": ".995", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#      "board_size": 11,
+#     }, "easy-ppo"
+# )
+#
+# # PPO Team Small
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeTeamEasy-v3", "gamma": ".995", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#      "board_size": 11,
+#     }, "easy-ppo"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeTeamEasy-v0", "gamma": ".995", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmall", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#      "board_size": 11,
+#     }, "easy-ppo"
+# )
+#
+# # PPO Team Smaller
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeTeamEasy-v3", "gamma": ".995", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#      "board_size": 11,
+#     }, "easy-ppo"
+# )
+#
+# train_ppo_job( # Batch size of 800
+#     {"num-processes": 8, "run-name": "easy-ppo", "how-train": "simple", "num-steps": 200, "log-interval": 100,
+#      "log-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/logs/",
+#      "save-dir": "/misc/vlgscratch4/FergusGroup/raileanu/pommerman_spring18/models/",
+#      "config": "PommeTeamEasy-v0", "gamma": ".995", "lr": 0.0001,
+#      "model-str": "PommeCNNPolicySmaller", "num-mini-batch": 2,
+#      "distill-expert": "SimpleAgent", "distill-epochs": 10000,
+#      "board_size": 11,
+#     }, "easy-ppo"
+# )
 
 
 

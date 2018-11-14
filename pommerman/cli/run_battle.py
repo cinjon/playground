@@ -1,13 +1,15 @@
 """Run a battle among agents.
 Call this with a config, a game, and a list of agents. The script will start separate threads to operate the agents
 and then report back the result.
-
 An example with all four test agents running ffa:
 python run_battle.py --agents=test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent --config=PommeFFACompetition-v0
 
 An example with one player, two random agents, and one test agent:
 python run_battle.py --agents=player::arrows,test::agents.SimpleAgent,random::null,random::null --config=PommeFFACompetition-v0
 
+python run_battle.py --agents=test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent,test::agents.SimpleAgent --config=PommeFFA-v0
+An example with one player, two random agents, and one test agent:
+python run_battle.py --agents=player::arrows,test::agents.SimpleAgent,random::null,random::null --config=PommeFFA-v0
 An example with a docker agent:
 python run_battle.py --agents=player::arrows,docker::pommerman/test-agent,random::null,random::null --config=PommeFFACompetition-v0
 """
@@ -31,7 +33,6 @@ from pommerman import utility
 def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
         acting_agent_ids=None, training_agents=None, curriculum=False):
     """Run the game a number of times.
-
     Args:
       args: The arguments we are passing through from CLI.
       num_times: The number of times to run the battle.
@@ -39,7 +40,6 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
       agents: What agents to use. If not, we will make them from the args.
       training_agent_ids: Which ids are the training_agents.
       acting_agent_ids: Which, if any agents, use an act function.
-
     Returns:
       infos: The list of information dicts returned from these games.
     """
@@ -110,6 +110,7 @@ def run(args, num_times=None, seed=None, agents=None, training_agent_ids=[],
                 agent_obs = obs[agent_id]
                 action = agents[agent_id].act(agent_obs, env.action_space)
                 actions.insert(agent_id, action)
+
             obs, reward, done, info = env.step(actions)
             if type(done) == list:
                 done = all(done)

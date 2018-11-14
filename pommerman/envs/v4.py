@@ -1,22 +1,17 @@
 """Environment used in training the Djikstra approach.
-
 This simple environment is very different from the Pomme environments.
-
 1. It's an NxN grid - a single agent starts at A and has to reach a target B.
 2. Both A and B are generated randomly. There should be an option to include
    M rigid walls as well (positioned randomly) into which the agent can't move.
 3. The "expert" will be Djikstra.
 4. The agent gets +1 for reaching the goal within max timesteps (dependent on
    N, the grid size) and -1 for not reaching the goal.
-
 Observations should be:
 1. The agent's position.
 2. The goal's position.
 3. The positions of the rigid walls.
-
 As input, this can be three feature maps and num_stack = 1. The agent will not
 need to have an LSTM.
-
 Output should be a single discrete action representing [Up, Down, Left, Right].
 """
 from collections import defaultdict
@@ -43,7 +38,6 @@ class Grid(PommeV0):
         # TODO: do we need to explicitly have the agent's posiiton?
         # what about the goal's position
         """The Observation Space for the single agent.
-
         There are a total of board_size^2 + 2 observations:
         - all of the board (board_size^2)
         - agent's position (2)
@@ -101,6 +95,7 @@ class Grid(PommeV0):
         return ret
 
     def reset(self):
+        self._optimal_num_steps = 0
         assert (self._agents is not None)
 
         def get_game_state_step(step_count):

@@ -1,13 +1,4 @@
 """Generate data script.
-On Cpu:
-python generate_game_data.py --agents=complex::null,complex::null,complex::null,complex::null \
-  --config=PommeFFACompetition-v0 --num-episodes=10 --num-processes=12 \
-  --record-json-dir=/path/to/json/dir --seed=<insert seed>
-For Grid envs:
-python generate_game_data.py --agents=astar::null --config=GridWalls-v4 --num-episodes=10 \
---num-processes=12 --num-stack=1 --how-train astar --seed=<insert seed> \
---record-json-dir=/path/to/json/dir
-
 For Saving Actions along with States:
 Grid:
 python generate_game_data.py --agents=astar::null --config=GridWalls-v4 \
@@ -17,7 +8,6 @@ Pomme:
 python generate_game_data.py --agents=complex::null,complex::null,complex::null,complex::null \
  --config=PommeFFAEasy-v0 --num-episodes 4 --num-processes 12 \
  --how-train simple --seed 1 --record-json-dir /home/roberta/playground/trajectories/pomme/4maps \
-
 """
 import json
 import os
@@ -236,6 +226,7 @@ def save_endgame_info(directory, info):
 
 
 if __name__ == "__main__":
+
     args = get_args()
     obs_shape, action_space, character, board_size = env_helpers.get_env_info(
         args.config, args.num_stack)

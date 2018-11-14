@@ -40,7 +40,6 @@ class ForwardModel(object):
           training_agent: The training agent to pass to done.
           is_communicative: Whether the action depends on communication
             observations as well.
-
         Returns:
           steps: The list of step results, which are each a dict of "obs",
             "next_obs", "reward", "action".
@@ -90,7 +89,6 @@ class ForwardModel(object):
           action_space: The action space for the environment using this model.
           is_communicative: Whether the action depends on communication
             observations as well.
-
         Returns a list of actions.
         """
         def act_ex_communication(agent):
@@ -127,7 +125,6 @@ class ForwardModel(object):
           agents: A list of agent objects.
           obs: A list of matching observations per agent.
           action_space: The action space for the environment using this model.
-
         Returns a list of actions.
         """
         def act_ex_communication(agent):
@@ -583,7 +580,6 @@ class ForwardModel(object):
                          is_partially_observable, agent_view_size,
                          max_steps, step_count=None):
         """Gets the observations as an np.array of the visible squares.
-
         The agent gets to choose whether it keeps the fogged part in memory.
         """
         board_size = len(curr_board)

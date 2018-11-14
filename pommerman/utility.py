@@ -358,6 +358,7 @@ def is_valid_direction_grid(board, position, direction, invalid_values=None):
     elif constants.Action(direction) == constants.Action.Right:
         return col + 1 < len(board[0]) and \
             board[row][col+1] not in invalid_values
+
     raise constants.InvalidAction("We did not receive a valid direction: ",
                                   direction)
 
