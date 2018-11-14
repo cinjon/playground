@@ -413,6 +413,9 @@ class WrapPomme(gym.ObservationWrapper):
     def get_states_actions_json(self, directory):
         return self.env.get_states_actions_json(directory)
 
+    def get_init_states_json(self, directory):
+        return self.env.get_init_states_json(directory)
+
     def get_game_type(self):
         return self.env._game_type
 

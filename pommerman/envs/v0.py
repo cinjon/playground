@@ -428,6 +428,29 @@ class Pomme(gym.Env):
 
         return self.get_observations()
 
+    def get_init_states_json(self, directory):
+        obs_list = []
+
+        actions_file_name = os.path.basename(os.path.normpath(directory)) + "_actions"
+
+        for subdir in os.listdir(directory):
+            endgame_file = os.path.join(directory, subdir, 'endgame.json')
+            with open(endgame_file, 'r') as f:
+                endgame = json.loads(f.read())
+                step_count = endgame['step_count']
+            game_state_file = os.path.join(directory, subdir, '000.json')
+
+            self._game_state_step_start = step_count + 1
+            self._game_state_step_start_beg = 0
+            self._game_state_file = game_state_file
+
+            with open(game_state_file, 'r') as f:
+                self.set_json_info(json.loads(f.read()))
+
+            obs_list.append(self.get_observations())
+
+        return obs_list
+
 
     def get_states_actions_json(self, directory):
         obs_list = []

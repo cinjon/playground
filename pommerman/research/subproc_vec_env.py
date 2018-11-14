@@ -54,6 +54,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((obs))
         elif cmd == 'get_states_actions_json':
             remote.send(env.get_states_actions_json(data))
+        elif cmd == 'get_init_states_json':
+            remote.send(env.get_init_states_json(data))
         elif cmd == 'get_actions':
             remote.send((env.get_actions()))
         elif cmd == 'get_global_obs':
@@ -268,11 +270,17 @@ class SubprocVecEnv(_VecEnv):
         states, actions = zip(*results)
         return np.stack(states), np.stack(actions)
 
+    def get_init_states_json(self, directory):
+        for remote in self.remotes:
+            remote.send(('get_init_states_json', directory))
+        results = [remote.recv() for remote in self.remotes]
+        return np.stack(results)
+
     def observation(self, obs):
         for remote in self.remotes:
             remote.send(('observation', obs))
         return [remote.recv() for remote in self.remotes]
-        
+
     def get_actions(self):
         for remote in self.remotes:
             remote.send(('get_actions', None))

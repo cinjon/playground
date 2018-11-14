@@ -226,6 +226,8 @@ def get_args():
                         help='Max size of the aggregate agent states.')
     parser.add_argument('--num-steps-eval', type=int, default=500,
                         help='number of steps in the evaluation of the Dagger')
+    parser.add_argument('--num-eps-eval', type=int, default=10,
+                        help='number of episodess in the evaluation of the Dagger')
     parser.add_argument('--dagger-epoch', type=int, default=1,
                         help='number of optimization steps for the \
                         dagger classifier (4)')
