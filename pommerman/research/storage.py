@@ -92,7 +92,7 @@ class RolloutStorage(object):
         return self.returns[:-1] - self.value_preds[:-1]
 
     def feed_forward_generator(self, advantages, num_mini_batch, batch_size,
-                               num_steps, kl_factor):
+                               num_steps, action_space, kl_factor):
         # TODO: Consider excluding from the indices the rollouts where the
         # agent died before this rollout. They're signature is that every step
         # is masked out.
@@ -134,7 +134,7 @@ class RolloutStorage(object):
             if counter > 5:
                 break
             counter += 1
-            
+
             indices = torch.LongTensor(indices)
 
             if advantages.is_cuda:
@@ -166,11 +166,11 @@ class RolloutStorage(object):
                 # TODO: Change the hard-coded 6.
                 dagger_probs_distr_batch = dagger_probs_distr \
                                            .contiguous() \
-                                           .view((num_steps*num_total), 6)
+                                           .view((num_steps*num_total), action_space.n)
                 dagger_probs_distr_batch = dagger_probs_distr_batch[indices]
                 action_log_probs_distr_batch = action_log_probs_distr \
                                                .contiguous() \
-                                               .view((num_steps*num_total), 6)
+                                               .view((num_steps*num_total), action_space.n)
                 action_log_probs_distr_batch = action_log_probs_distr_batch[indices]
             else:
                 dagger_probs_distr_batch = None

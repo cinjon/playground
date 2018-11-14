@@ -139,14 +139,16 @@ class ReinforceAgent(ResearchAgent):
 
 
     def reinforce(self, advantages, num_mini_batch, batch_size, num_steps,
-                max_grad_norm, anneal=False, lr=1e-4, eps=1e-5, kl_factor=0):
+                max_grad_norm, action_space, anneal=False, lr=1e-4, eps=1e-5,
+                kl_factor=0):
         pg_losses = []
         kl_losses = []
         kl_loss = None
         total_losses = []
 
         for sample in self._rollout.feed_forward_generator(
-                advantages, num_mini_batch, batch_size, num_steps, kl_factor):
+                advantages, num_mini_batch, batch_size, num_steps, action_space,
+                kl_factor):
             observations_batch, states_batch, actions_batch, return_batch, \
                 masks_batch, old_action_log_probs_batch, adv_targ, \
                 action_log_probs_distr_batch, dagger_probs_distr_batch = sample

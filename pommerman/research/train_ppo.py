@@ -352,7 +352,8 @@ def train():
     if do_distill:
         print("Distilling: {} from {} \n".format(do_distill, distill_expert))
         if distill_expert == 'DaggerAgent':
-            distill_agent = utils.load_distill_agent(obs_shape, action_space, args)
+            distill_agent = utils.load_distill_agent(obs_shape, action_space,
+                                board_size, args)
             distill_agent.set_eval()
             # NOTE: We have to call init_agent, but the agent_id won't matter
             # because we will use the observations from the ppo_agent.
@@ -636,7 +637,7 @@ def train():
                 distill_factor = 1.0 * distill_factor / distill_epochs
                 distill_factor = max(distill_factor, 0.0)
             if num_epoch % 50 == 0:
-                print("Epoch %d - distill factor %.3f." % (
+                print("\nEpoch %d - distill factor %.3f.\n" % (
                     num_epoch, distill_factor))
         else:
             distill_factor = 0
@@ -844,6 +845,12 @@ def train():
                             cpu_actions_agents[num_process].append(action)
             elif how_train == 'grid':
                 training_agent = training_agents[0]
+                if do_distill:
+                    if distill_expert == 'DaggerAgent':
+                        data = training_agent.get_rollout_data(step, 0)
+                        _, _, _, _, probs, _ = distill_agent.act_on_data(
+                            *data, deterministic=True)
+                        dagger_prob_distr.append(probs)
                 result = training_agent.actor_critic_act(
                     step, 0, deterministic=args.eval_only)
                 cpu_actions_agents, cpu_probs = update_actor_critic_results(result)
@@ -1210,6 +1217,7 @@ def train():
                                        batch_size,
                                        num_steps,
                                        args.max_grad_norm,
+                                       action_space,
                                        kl_factor=distill_factor)
                 pg_losses, kl_losses, total_losses, lr = result
 
@@ -1301,7 +1309,7 @@ def train():
                     args, good_guys, bad_guys_eval, eval_round, writer, num_epoch)
                 for agent in good_guys + bad_guys_eval:
                     agent.clear_obs_stack()
-                print("Epoch %d (%d)-> Win %.3f, Tie %.3f, Loss %.3f" % (
+                print("\nEpoch %d (%d)-> Win %.3f, Tie %.3f, Loss %.3f\n" % (
                     num_epoch, args.num_battles_eval, win_rate, tie_rate,
                     loss_rate))
                 if win_rate >= .60:
