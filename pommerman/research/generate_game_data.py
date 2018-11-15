@@ -6,8 +6,8 @@ python generate_game_data.py --agents=astar::null --config=GridWalls-v4 \
 --record-json-dir /home/roberta/playground/trajectories/grid/4maps
 Pomme:
 python generate_game_data.py --agents=complex::null,complex::null,complex::null,complex::null \
- --config=PommeFFAEasy-v0 --num-episodes 4 --num-processes 12 \
- --how-train simple --seed 1 --record-json-dir /home/roberta/playground/trajectories/pomme/4maps \
+ --config=PommeFFACompetition-v0 --num-episodes 4 --num-processes 12 \
+ --how-train simple --seed 1 --record-json-dir /home/roberta/playground/trajectories/pomme/4maps
 """
 import json
 import os

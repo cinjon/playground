@@ -119,8 +119,19 @@ def train():
     expert_actions = actions[0]
 
     agent_obs_lst = []
-    for s in expert_states:
-        agent_obs_lst.append(torch.from_numpy(envs.observation(s)[0]).squeeze(0).float())
+    if args.num_stack == 1:
+        for s in expert_states:
+            agent_obs_lst.append(torch.from_numpy(envs.observation(s)[0]).squeeze(0).float())
+    elif args.num_stack == 2:
+        curr_state = torch.from_numpy(envs.observation(expert_states[0])[0]).squeeze(0).float()
+        agent_obs_lst.append(torch.cat((curr_state, curr_state), 0))
+        for i in range(1, len(expert_states)):
+            prev_state = torch.from_numpy(envs.observation(expert_states[i - 1])[0]).squeeze(0).float()
+            curr_state = torch.from_numpy(envs.observation(expert_states[i])[0]).squeeze(0).float()
+            agent_obs_lst.append(torch.cat((prev_state, curr_state), 0))
+    else:
+        raise ValueError("Only works with num_stack 1 or 2.")
+
 
     init_states = envs.get_init_states_json(args.traj_directory_bc)[0]
 
