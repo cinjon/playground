@@ -618,6 +618,10 @@ def train():
     bomb_penalty_lambda = 1.0
 
     for num_epoch in range(start_epoch, num_epochs):
+        if num_epoch < args.value_epochs:
+            only_value_loss = args.only_value_loss
+        else:
+            only_value_loss = 0
         if num_epoch >= args.begin_selfbombing_epoch:
             envs.enable_selfbombing()
 
@@ -633,7 +637,7 @@ def train():
             if args.set_distill_kl >= 0:
                 distill_factor = args.set_distill_kl
             else:
-                distill_factor = (distill_epochs - num_epoch) * init_kl_factor
+                distill_factor = (distill_epochs + args.value_epochs - num_epoch) * init_kl_factor
                 distill_factor = 1.0 * distill_factor / distill_epochs
                 distill_factor = max(distill_factor, 0.0)
             if num_epoch % 50 == 0:
@@ -1241,7 +1245,8 @@ def train():
                                            args.entropy_coef, args.value_loss_coef,
                                            args.max_grad_norm,
                                            action_space,
-                                           kl_factor=distill_factor)
+                                           kl_factor=distill_factor,
+                                           only_value_loss=only_value_loss)
                     action_losses, value_losses, dist_entropies, \
                         kl_losses, total_losses, lr = result
 

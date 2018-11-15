@@ -200,6 +200,14 @@ def get_args():
                         default=None,
                         help='Directory to record the JSON representations of '
                         "the game. Doesn't record if None.")
+    parser.add_argument('--only-value-loss', action='store_true', default=False,
+                        help='optimize only the parameters of the value head -- \
+                        to be used when finetuning a model that was trained with \
+                        BC (to imitate the actions of an expert) \
+                        and does not have a trained value network')
+    parser.add_argument('--value-epochs', type=int, default=0,
+                        help='number of epochs to update the value head \
+                        parameters, following current policy trained with BC.')
 
     ### Team Specific
     parser.add_argument('--reward-sharing', type=float, default=0.5,

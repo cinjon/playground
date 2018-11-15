@@ -79,17 +79,36 @@ class PPOAgent(ResearchAgent):
                                                    actions)
 
     def _optimize(self, value_loss, action_loss, dist_entropy, entropy_coef,
-                  value_loss_coef, max_grad_norm, kl_loss=None, kl_factor=0):
+                  value_loss_coef, max_grad_norm, kl_loss=None, kl_factor=0,
+                  only_value_loss=False):
         self._optimizer.zero_grad()
-        loss = value_loss * value_loss_coef + action_loss \
-                - dist_entropy * entropy_coef
-        if kl_factor > 0:
-            loss += kl_factor * kl_loss
-        loss.backward()
+        # only update the value head (to be used when fine tuning a model
+        # trained with BC without a value predictor) -- only beginning of finetuning
+        if only_value_loss:
+            loss = value_loss * value_loss_coef
+            # stop the gradients from flowing through the
+            # parameters that are used to compute the actions (i.e. critic / policy head)
+            # and only backprop the value loss through the value head
+            #(i.e. parameters used exclusively to predict the value)
+            for p in self._actor_critic.parameters():
+                p.requires_grad = False
+            self._actor_critic.critic_linear.requires_grad = True
+            loss.backward()
+        else:
+            loss = value_loss * value_loss_coef + action_loss \
+                    - dist_entropy * entropy_coef
+            if kl_factor > 0:
+                loss += kl_factor * kl_loss
+            loss.backward()
+
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
         self._optimizer.step()
         if hasattr(self, '_scheduler'):
             self._scheduler.step(loss)
+
+        if only_value_loss:
+            for p in self._actor_critic.parameters():
+                p.requires_grad = True
 
     def halve_lr(self):
         for i, param_group in enumerate(self._optimizer.param_groups):
@@ -142,7 +161,7 @@ class PPOAgent(ResearchAgent):
 
     def ppo(self, advantages, num_mini_batch, batch_size, num_steps, clip_param,
             entropy_coef, value_loss_coef, max_grad_norm, action_space, anneal=False,
-            lr=1e-4, eps=1e-5, kl_factor=0):
+            lr=1e-4, eps=1e-5, kl_factor=0, only_value_loss=False):
         action_losses = []
         value_losses = []
         dist_entropies = []
@@ -196,7 +215,7 @@ class PPOAgent(ResearchAgent):
 
             self._optimize(value_loss, action_loss, dist_entropy,
                            entropy_coef, value_loss_coef, max_grad_norm,
-                           kl_loss, kl_factor)
+                           kl_loss, kl_factor, only_value_loss)
             lr = self._optimizer.param_groups[0]['lr']
 
             action_losses.append(action_loss.data[0])
