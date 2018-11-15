@@ -46,7 +46,8 @@ def get_actor_critic(model):
                      'PommeCNNPolicySmaller',
                      'PommeCNNPolicySmallNonlinCritic',
                      'PommeCNNPolicySmallerNonlinCritic',
-                     'GridCNNPolicy']
+                     'GridCNNPolicy',
+                     'GridCNNPolicyNonlinCritic']
 
     for name, obj in inspect.getmembers(sys.modules[__name__]):
         if name not in actor_critics:
@@ -768,3 +769,90 @@ class GridCNNPolicy(_FFPolicy):
                 x = torch.cat(outputs, 0)
 
         return self.critic_linear(x), x, states
+
+
+class GridCNNPolicyNonlinCritic(_FFPolicy):
+    """Class implementing a policy.
+    Args:
+      state_dict: The state dict from which we are loading. If this is None,
+        then initializes anew.
+      num_inputs: The int number of inputs to the convnet.
+      action_space: The action space from the environment.
+      board_size: The size of the game board (13).
+      num_channels: The number of channels to use in the convnet.
+    """
+    def __init__(self, state_dict, num_inputs, action_space, board_size,
+                 num_channels, use_gru=False):
+        super(GridCNNPolicyNonlinCritic, self).__init__()
+        self.board_size = board_size
+        self.num_channels = num_channels
+        self.use_gru = use_gru
+        self._init_network(num_inputs)
+        self.dist = Categorical(128, action_space.n)
+        self.train()
+        self.reset_parameters()
+        if state_dict:
+            self.load_state_dict(state_dict)
+
+    @property
+    def state_size(self):
+        if hasattr(self, 'gru'):
+            return 128
+        else:
+            return 1
+
+    @property
+    def output_size(self):
+        return 128
+
+    def _init_network(self, num_inputs):
+        self.conv1 = nn.Conv2d(num_inputs, self.num_channels, 3, stride=1,
+                               padding=1)
+        self.conv2 = nn.Conv2d(self.num_channels, self.num_channels, 3,
+                               stride=1, padding=1)
+        self.fc1 = nn.Linear(
+            self.num_channels*(self.board_size)*(self.board_size), 128)
+        self.fc2 = nn.Linear(128, 128)
+
+        self.fc_critic = nn.Linear(128, 128)
+        self.critic_linear = nn.Linear(128, 1)
+        self.actor_linear = nn.Linear(128, 1)
+
+
+        if self.use_gru:
+            self.gru = nn.GRUCell(128, 128)
+            nn.init.orthogonal(self.gru.weight_ih.data)
+            nn.init.orthogonal(self.gru.weight_hh.data)
+            self.gru.bias_ih.data.fill_(0)
+            self.gru.bias_hh.data.fill_(0)
+
+    def reset_parameters(self):
+        self.apply(_weights_init)
+        relu_gain = nn.init.calculate_gain('relu')
+        self.conv1.weight.data.mul_(relu_gain)
+        self.conv2.weight.data.mul_(relu_gain)
+        self.fc1.weight.data.mul_(relu_gain)
+        self.fc2.weight.data.mul_(relu_gain)
+
+    def forward(self, inputs, states, masks):
+        x = F.relu(self.conv1(inputs)) # 2x256x13x13
+        x = F.relu(self.conv2(x)) # 2x256x13x13
+        x = x.view(-1, self.num_channels * self.board_size**2)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+
+        if hasattr(self, 'gru'):
+            if inputs.size(0) == states.size(0):
+                x = states = self.gru(x, states * masks)
+            else:
+                x = x.view(-1, states.size(0), x.size(1))
+                masks = masks.view(-1, states.size(0), 1)
+                outputs = []
+                for i in range(x.size(0)):
+                    hx = states = self.gru(x[i], states * masks[i])
+                    outputs.append(hx)
+                x = torch.cat(outputs, 0)
+
+        y = F.tanh(self.fc_critic(x))
+
+        return self.critic_linear(y), x, states
