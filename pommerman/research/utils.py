@@ -238,12 +238,13 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
                    start_step_beg_ratios=None, running_optimal_info=None,
                    start_step_position_ratios=None,
                    start_step_position_beg_ratios=None):
+    print("\n###############")
     print("Epochs {}, num episodes {}, num timesteps {}, FPS {}, "
           "epochs per sec {} mean cumulative reward {:.3f} "
           "mean terminal reward {:.3f}, mean success rate {:.3f} "
           "mean success rate learning agent alive at the end {:.3f} "
           "mean final reward {:.3f}, min/max finals reward {:.3f}/{:.3f} "
-          "mean total loss {:.3f}"
+          "mean total loss {:.3f}\n"
           .format(num_epoch, num_episodes, total_steps, steps_per_sec,
                   epochs_per_sec, 1.0*cumulative_reward/running_num_episodes,
                   1.0*terminal_reward/running_num_episodes,
@@ -260,6 +261,7 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
             .format(mean_dist_entropy, mean_value_loss, mean_action_loss))
     if distill_factor > 0:
         print(" mean kl loss {} ".format(mean_kl_loss))
+        print("distill factor ", distill_factor)
 
     # if start_step_ratios:
     #     print("Start Step Win Ratios: %s" % ", ".join(
@@ -284,6 +286,9 @@ def log_to_console(num_epoch, num_episodes, total_steps, steps_per_sec,
         std_over = np.std([k[2] for k in running_optimal_info])
         print('Num optimal %d / Avg optimal %.3f / Std optimal %.3f.' % (
             num_optimal, avg_over, std_over))
+
+    print("##################\n")
+
 
 
 def log_to_tensorboard_dagger(writer, num_epoch, total_steps, action_loss,

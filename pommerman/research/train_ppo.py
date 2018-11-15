@@ -1240,6 +1240,7 @@ def train():
                                            num_steps, args.clip_param,
                                            args.entropy_coef, args.value_loss_coef,
                                            args.max_grad_norm,
+                                           action_space,
                                            kl_factor=distill_factor)
                     action_losses, value_losses, dist_entropies, \
                         kl_losses, total_losses, lr = result

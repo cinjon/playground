@@ -141,7 +141,7 @@ class PPOAgent(ResearchAgent):
 
 
     def ppo(self, advantages, num_mini_batch, batch_size, num_steps, clip_param,
-            entropy_coef, value_loss_coef, max_grad_norm, anneal=False,
+            entropy_coef, value_loss_coef, max_grad_norm, action_space, anneal=False,
             lr=1e-4, eps=1e-5, kl_factor=0):
         action_losses = []
         value_losses = []
@@ -155,7 +155,8 @@ class PPOAgent(ResearchAgent):
                 advantages, num_mini_batch, batch_size, num_steps, kl_factor)
         else:
             data_generator = self._rollout.feed_forward_generator(
-                advantages, num_mini_batch, batch_size, num_steps, kl_factor)
+                advantages, num_mini_batch, batch_size, num_steps, action_space,
+                kl_factor)
 
         for sample in data_generator:
             observations_batch, states_batch, actions_batch, return_batch, \
