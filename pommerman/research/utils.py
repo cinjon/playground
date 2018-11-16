@@ -173,7 +173,7 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
             elif how_train == 'bc':
                 suffix = "{}.{}.{}.{}.traj-{}.mb{}.nc{}.lr{}.seed{}.pt" \
                          .format(name, how_train, config, model_str, traj_dir,
-                                 args.minibatch_size, args.num_channels, args.lr)
+                                 args.minibatch_size, args.num_channels, args.lr, seed)
             else:
                 suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ns{}.gam{}.gae{}.epoch{}.steps{}.seed{}.pt" \
                          .format(name, how_train, config, model_str,

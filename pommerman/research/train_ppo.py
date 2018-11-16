@@ -617,6 +617,11 @@ def train():
     anneal_bomb_penalty_epochs = args.anneal_bomb_penalty_epochs
     bomb_penalty_lambda = 1.0
 
+    if 'NonlinCritic' in model_str:
+        add_nonlin = True
+    else:
+        add_nonlin = False
+
     for num_epoch in range(start_epoch, num_epochs):
         if num_epoch < args.value_epochs:
             only_value_loss = args.only_value_loss
@@ -1246,7 +1251,8 @@ def train():
                                            args.max_grad_norm,
                                            action_space,
                                            kl_factor=distill_factor,
-                                           only_value_loss=only_value_loss)
+                                           only_value_loss=only_value_loss,
+                                           add_nonlin=add_nonlin)
                     action_losses, value_losses, dist_entropies, \
                         kl_losses, total_losses, lr = result
 

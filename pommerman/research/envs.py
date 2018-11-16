@@ -273,7 +273,7 @@ class WrapPommeEval(gym.ObservationWrapper):
         # )
 
     def step(self, actions):
-        if self._how_train in ['simple', 'dagger', 'astar', 'grid', 'tree']:
+        if self._how_train in ['simple', 'dagger', 'astar', 'grid', 'tree', 'bc']:
             obs = self.env.get_observations()
             all_actions = self.env.act(obs, ex_agent_ids=self._acting_agent_ids)
             training_agents = self.env.training_agents
@@ -413,6 +413,9 @@ class WrapPomme(gym.ObservationWrapper):
     def get_states_actions_json(self, directory):
         return self.env.get_states_actions_json(directory)
 
+    def reset_state_file(self, directory):
+        return self.env.reset_state_file(directory)
+
     def get_init_states_json(self, directory):
         return self.env.get_init_states_json(directory)
 
@@ -420,7 +423,7 @@ class WrapPomme(gym.ObservationWrapper):
         return self.env._game_type
 
     def step(self, actions):
-        if self._how_train in ['simple', 'dagger', 'astar', 'grid', 'backselfplay']:
+        if self._how_train in ['simple', 'dagger', 'astar', 'grid', 'backselfplay', 'bc']:
             obs = self.env.get_observations()
             all_actions = self.env.act(obs)
             if type(actions) == list:
@@ -471,6 +474,7 @@ class WrapPomme(gym.ObservationWrapper):
 
     def reset(self, **kwargs):
         return self.observation(self.env.reset())
+
 
 
 #######

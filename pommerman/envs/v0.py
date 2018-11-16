@@ -453,10 +453,15 @@ class Pomme(gym.Env):
 
         return obs_list
 
+    def reset_state_file(self, directory):
+        with open(directory, 'r') as f:
+            self.set_json_info(json.loads(f.read()))
+        return self.get_observations()
 
     def get_states_actions_json(self, directory):
         obs_list = []
         act_list = []
+        file_list = []
 
         actions_file_name = os.path.basename(os.path.normpath(directory)) + "_actions"
         actions_directory = os.path.join(directory, "../", actions_file_name)
@@ -482,8 +487,10 @@ class Pomme(gym.Env):
 
                 obs_list.append(self.get_observations())
                 act_list.append(action)
+                file_list.append(game_state_file)
 
-        return obs_list, act_list
+        return obs_list, act_list, file_list
+
 
     def seed(self, seed=None):
         gym.spaces.prng.seed(seed)

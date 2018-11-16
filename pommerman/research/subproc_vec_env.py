@@ -54,6 +54,10 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((obs))
         elif cmd == 'get_states_actions_json':
             remote.send(env.get_states_actions_json(data))
+        elif cmd == 'reset_state_file':
+            remote.send(env.reset_state_file(data))
+        elif cmd == 'get_all_state_files':
+            remote.send(env.get_all_state_files())
         elif cmd == 'get_init_states_json':
             remote.send(env.get_init_states_json(data))
         elif cmd == 'get_actions':
@@ -267,8 +271,27 @@ class SubprocVecEnv(_VecEnv):
             remote.send(('get_states_actions_json', directory))
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
-        states, actions = zip(*results)
-        return np.stack(states), np.stack(actions)
+        states, actions, files = zip(*results)
+        return np.stack(states), np.stack(actions), np.stack(files)
+
+    def reset_state_file(self, directory):
+        for remote in self.remotes:
+            remote.send(('reset_state_file', directory))
+        results = [remote.recv() for remote in self.remotes]
+        return np.stack(results)
+
+    def set_json_info(self, directory=None):
+        for remote in self.remotes:
+            remote.send(('set_json_info', directory))
+        results = [remote.recv() for remote in self.remotes]
+        self.waiting = False
+        states, actions, files = zip(*results)
+        return np.stack(states), np.stack(actions), np.stack(files)
+
+    def get_all_state_files(self):
+        for remote in self.remotes:
+            remote.send(('get_all_state_files', None))
+        return [remote.recv() for remote in self.remotes]
 
     def get_init_states_json(self, directory):
         for remote in self.remotes:

@@ -80,7 +80,7 @@ class PPOAgent(ResearchAgent):
 
     def _optimize(self, value_loss, action_loss, dist_entropy, entropy_coef,
                   value_loss_coef, max_grad_norm, kl_loss=None, kl_factor=0,
-                  only_value_loss=False):
+                  only_value_loss=False, add_nonlin=False):
         self._optimizer.zero_grad()
         # only update the value head (to be used when fine tuning a model
         # trained with BC without a value predictor) -- only beginning of finetuning
@@ -93,6 +93,8 @@ class PPOAgent(ResearchAgent):
             for p in self._actor_critic.parameters():
                 p.requires_grad = False
             self._actor_critic.critic_linear.requires_grad = True
+            if add_nonlin:
+                self._actor_critic.fc_critic.requires_grad = True
             loss.backward()
         else:
             loss = value_loss * value_loss_coef + action_loss \
@@ -161,7 +163,7 @@ class PPOAgent(ResearchAgent):
 
     def ppo(self, advantages, num_mini_batch, batch_size, num_steps, clip_param,
             entropy_coef, value_loss_coef, max_grad_norm, action_space, anneal=False,
-            lr=1e-4, eps=1e-5, kl_factor=0, only_value_loss=False):
+            lr=1e-4, eps=1e-5, kl_factor=0, only_value_loss=False, add_nonlin=False):
         action_losses = []
         value_losses = []
         dist_entropies = []
@@ -215,7 +217,7 @@ class PPOAgent(ResearchAgent):
 
             self._optimize(value_loss, action_loss, dist_entropy,
                            entropy_coef, value_loss_coef, max_grad_norm,
-                           kl_loss, kl_factor, only_value_loss)
+                           kl_loss, kl_factor, only_value_loss, add_nonlin)
             lr = self._optimizer.param_groups[0]['lr']
 
             action_losses.append(action_loss.data[0])
