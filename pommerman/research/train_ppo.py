@@ -30,6 +30,8 @@ from collections import defaultdict
 from collections import deque
 import os
 import time
+import json
+import shutil
 
 import numpy as np
 from pommerman.agents import SimpleAgent
@@ -48,6 +50,59 @@ from torch.autograd import Variable
 
 import pommerman.constants as constants
 from statistics import mean as mean
+
+
+def populate_starts(args, envs, action_space, starts, starts_old):
+    if len(starts) < 1:
+        # Bootstrap with some Goal States
+        # TODO: This probably doesn't make sense because in our case grids with
+        # different goals state means a completely different environments.
+        # For now picking a random game's goal into starts
+
+        games = [d for d in os.listdir(args.state_directory)
+                 if os.path.isdir(os.path.join(args.state_directory, d))]
+        game = random.choice(games)
+
+        with open(os.path.join(args.state_directory, game, 'endgame.json'), 'r') as fp:
+            endgame = json.load(fp)
+
+        final_step = endgame['step_count']
+        with open(os.path.join(args.state_directory, game, '{:03}.json'.format(final_step - 1))) as fp:
+            goal_state = json.load(fp)
+
+        starts.append(goal_state)
+        starts_old.append(goal_state)
+
+    starts_new = list(starts)
+
+    # Sample new states by Brownian motion
+    while len(starts_new) < args.florensa_M:
+        s0 = random.choices(starts_new, k=envs.num_envs)
+        envs.set_json_info(s0)
+
+        for _ in range(args.florensa_brownian_steps):
+            actions = [[action_space.sample()] for _ in range(envs.num_envs)]
+            envs.step(actions)
+
+            json_info = envs.get_json_info()
+
+            starts_new.extend(json_info)
+
+    starts = random.choices(starts_new, k=args.florensa_num_new_starts)
+    starts.extend(random.choices(starts_old, k=args.florensa_num_old_starts))
+
+    # Write to a directory
+    starts_dir = os.path.join(os.path.dirname(args.state_directory), 'starts')
+    if os.path.isdir(starts_dir):
+      shutil.rmtree(starts_dir)
+    os.makedirs(starts_dir, exist_ok=True)
+
+    for i, state in enumerate(starts):
+        with open(os.path.join(starts_dir, '{}.json'.format(i)), 'w') as f:
+            json.dump(state, f)
+
+    return starts, starts_old
+
 
 def train():
     args = get_args()
@@ -622,7 +677,14 @@ def train():
     else:
         add_nonlin = False
 
+    starts = []
+    starts_old = []
+
     for num_epoch in range(start_epoch, num_epochs):
+        if args.state_directory_distribution == 'florensa':
+            starts, starts_old = populate_starts(args, envs, action_space,
+                                                 starts, starts_old)
+
         if num_epoch < args.value_epochs:
             only_value_loss = args.only_value_loss
         else:
@@ -865,7 +927,7 @@ def train():
                 cpu_actions_agents, cpu_probs = update_actor_critic_results(result)
                 action_choices.extend(cpu_actions_agents)
                 for num in range(action_space.n):
-                    action_probs[num].extend([p[num] for p in cpu_probs])
+                    action_probs[num].extend([p for p in cpu_probs])
 
             obs, reward, done, info = envs.step(cpu_actions_agents)
 

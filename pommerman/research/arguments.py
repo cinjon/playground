@@ -170,6 +170,16 @@ def get_args():
                         help='the epoch at which to begin dying from your own '
                         'bombs. this applies to all agents, even simple ones. ')
 
+    ### Florensa Specific
+    parser.add_argument('--florensa-M', default=int(1e4), type=int,
+                        help='Number of rollout states for nearby sampling')
+    parser.add_argument('--florensa-brownian-steps', default=50, type=int,
+                        help='Number of rollout states Brownian Motion Rollout')
+    parser.add_argument('--florensa-num-new-starts', default=200, type=int,
+                        help='Number of samples to get from new starts')
+    parser.add_argument('--florensa-num-old-starts', default=100, type=int,
+                        help='Number of samples to get from old starts')
+
     ### Eval Specific
     parser.add_argument('--eval-mode', type=str, default='ffa',
                         help='mode for evaluation. see eval.py for options.')

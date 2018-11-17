@@ -81,6 +81,10 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.set_uniform_v(data)))
         elif cmd == 'enable_selfbombing':
             remote.send((env.enable_selfbombing()))
+        elif cmd == 'get_json_info':
+            remote.send((env.get_json_info()))
+        elif cmd == 'set_json_info':
+            remote.send((env.set_json_info(data)))
         else:
             raise NotImplementedError
 
@@ -317,6 +321,18 @@ class SubprocVecEnv(_VecEnv):
     def get_training_ids(self):
         for remote in self.remotes:
             remote.send(('get_training_ids', None))
+        return [remote.recv() for remote in self.remotes]
+
+    def get_json_info(self):
+        for remote in self.remotes:
+            remote.send(('get_json_info', None))
+        return [remote.recv() for remote in self.remotes]
+
+    def set_json_info(self, game_states=None):
+        if game_states is None:
+            game_states = [None] * len(self.remotes)
+        for remote, game_state in zip(self.remotes, game_states):
+            remote.send(('set_json_info', game_state))
         return [remote.recv() for remote in self.remotes]
 
     def get_game_type(self):
