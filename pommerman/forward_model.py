@@ -147,7 +147,6 @@ class ForwardModel(object):
           agents: A list of agent objects.
           obs: A list of matching observations per agent.
           action_space: The action space for the environment using this model.
-
         Returns a list of actions.
         """
         def act_ex_communication(agent):
