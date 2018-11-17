@@ -181,6 +181,33 @@ class Grid(PommeV0):
             agent.set_goal_position(info['goal'])
             agent.reset(info['step_count'])
             self._optimal_num_steps = len(path)
+        elif self._game_state_distribution == 'florensa':
+            starts_dir = os.path.join(os.path.dirname(self._init_game_state_directory), 'starts')
+            if os.path.isdir(starts_dir):
+                start_states = [
+                    state
+                    for state in os.listdir(starts_dir)
+                    if state.endswith('json')
+                ]
+                with open(os.path.join(starts_dir, random.choice(start_states))) as fp:
+                    self.set_json_info(json.load(fp))
+            else:
+                self._step_count = 0
+                self.make_board()
+                for agent_id, agent in enumerate(self._agents):
+                    pos_agent = np.where(self._board == constants.GridItem.Agent.value)
+                    row_agent = pos_agent[0][0]
+                    col_agent = pos_agent[1][0]
+                    agent.set_start_position((row_agent, col_agent))
+
+                    pos_goal = np.where(self._board == constants.GridItem.Goal.value)
+                    row_goal = pos_goal[0][0]
+                    col_goal = pos_goal[1][0]
+                    agent.set_goal_position((row_goal, col_goal))
+
+                    agent.reset()
+                self._optimal_num_steps = self._compute_optimal(
+                    self._board, self._agents[0].position, self._agents[0].goal_position)
         elif hasattr(self, '_applicable_games') and self._applicable_games:
             directory, step_count = random.choice(self._applicable_games)
             counter = 0

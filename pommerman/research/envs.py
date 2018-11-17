@@ -422,6 +422,12 @@ class WrapPomme(gym.ObservationWrapper):
     def get_game_type(self):
         return self.env._game_type
 
+    def get_json_info(self):
+        return self.env.get_json_info()
+
+    def set_json_info(self, game_state=None):
+        return self.env.set_json_info(game_state=game_state)
+
     def step(self, actions):
         if self._how_train in ['simple', 'dagger', 'astar', 'grid', 'backselfplay', 'bc']:
             obs = self.env.get_observations()
