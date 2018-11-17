@@ -314,7 +314,7 @@ def train():
             cumulative_reward = 1.0 * cumulative_reward / args.num_eps_eval
             success_rate = 1.0 * success_rate / args.num_eps_eval
 
-            if num_epoch % args.log_interval == 0:
+            if num_epoch % args.save_interval == 0:
                 print("###########")
                 print("Epoch {}, map {}: \n success rate {} " \
                       "mean total reward {} " \
