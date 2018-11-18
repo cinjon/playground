@@ -44,10 +44,7 @@ class AstarAgent(BaseAgent):
         # next_loc = self._path[self._step]
 
         # NOTE: alternative -- less efficient: computes path at each step
-        if self._prob_optim == 1.0:
-            self._path = self._get_path(self.obs['board'])
-        elif not self._path:
-            self._path = self._get_path(self.obs['board'])
+        self._path = self._get_path(self.obs['board'])
         next_loc = self._path.pop(0)
 
         possible_actions = set([0, 1, 2, 3, 4])
@@ -97,12 +94,16 @@ class AstarAgent(BaseAgent):
 
         if dx == 1:
             return 2      # down
+
         elif dx == - 1:
             return 1      # up
+
         elif dy == 1:
             return 4      # right
+
         elif dy == - 1:
             return 3      # left
+
         else:
             return 0      # stop
 

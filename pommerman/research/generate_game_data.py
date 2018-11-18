@@ -182,7 +182,8 @@ def generate(args, agents, action_space, acting_agent_ids):
                 else:
                     optimal_num_steps = info_['optimal_num_steps']
                     is_targ_optimal = step_count - optimal_num_steps == args.num_more_optimal
-                    print(is_targ_optimal, step_count, optimal_num_steps, args.num_more_optimal)
+                    print("optimal {},  # steps {},  # optimal steps {},  desired # steps from optimal {} " \
+                    .format(is_targ_optimal, step_count, optimal_num_steps, args.num_more_optimal))
                 if any([result != pommerman.constants.Result.Win,
                         'Grid' not in args.config and not winners,
                         step_count < targ_count,

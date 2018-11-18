@@ -73,10 +73,11 @@ def train():
 
     #####
     # Logging helpers.
+    traj_directory_name = os.path.basename(os.path.normpath(args.traj_directory_bc))
     suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.nopt{}.traj-{}.seed{}.pt" \
              .format(args.run_name, args.how_train, config, args.model_str,
                      args.num_channels, args.lr, args.minibatch_size,
-                     args.dagger_epoch, args.traj_directory_bc, args.seed)
+                     args.dagger_epoch, traj_directory_name, args.seed)
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
