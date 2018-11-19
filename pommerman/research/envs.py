@@ -410,8 +410,8 @@ class WrapPomme(gym.ObservationWrapper):
         # data consists of obs and string expert.
         return self.env.get_expert_actions(data)
 
-    def get_states_actions_json(self, directory):
-        return self.env.get_states_actions_json(directory)
+    def get_states_actions_json(self, data):
+        return self.env.get_states_actions_json(data)
 
     def reset_state_file(self, directory):
         return self.env.reset_state_file(directory)

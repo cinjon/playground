@@ -270,13 +270,13 @@ class SubprocVecEnv(_VecEnv):
         self.waiting = False
         return np.stack(actions)
 
-    def get_states_actions_json(self, directory):
+    def get_states_actions_json(self, directory, grid, use_second_place):
         for remote in self.remotes:
-            remote.send(('get_states_actions_json', directory))
+            remote.send(('get_states_actions_json', (directory, grid, use_second_place)))
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
-        states, actions, files = zip(*results)
-        return np.stack(states), np.stack(actions), np.stack(files)
+        states, actions, files, experts = zip(*results)
+        return np.stack(states), np.stack(actions), np.stack(files), np.stack(experts)
 
     def reset_state_file(self, directory):
         for remote in self.remotes:

@@ -46,6 +46,8 @@ import dagger_agent
 import envs as env_helpers
 import networks
 import utils
+import json
+
 
 def train():
     os.environ['OMP_NUM_THREADS'] = '1'
@@ -69,10 +71,10 @@ def train():
     training_agents = utils.load_agents(
         obs_shape, action_space, num_training_per_episode, num_steps, args,
         agent_type=dagger_agent.DaggerAgent, character=character, board_size=board_size)
-    agent = training_agents[args.expert_id]
 
     #####
     # Logging helpers.
+    #####
     traj_directory_name = os.path.basename(os.path.normpath(args.traj_directory_bc))
     suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.nopt{}.traj-{}.value{}.seed{}.pt" \
              .format(args.run_name, args.how_train, config, args.model_str,
@@ -86,14 +88,10 @@ def train():
 
     writer = SummaryWriter(log_dir)
 
-    start_epoch = agent.num_epoch
-    total_steps = agent.total_steps
-    num_episodes = agent.num_episodes
 
     torch.manual_seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
-        agent.cuda()
 
     envs = env_helpers.make_train_envs(
         config, how_train, args.seed, args.game_state_file, training_agents,
@@ -114,13 +112,20 @@ def train():
         item_reward=args.item_reward)
     eval_envs.reset()
 
+
+
     #################################################
     # Load Trajectories (State, Action)-Pairs from File
     #################################################
-    states, actions, files = envs.get_states_actions_json(args.traj_directory_bc)
+
+    is_grid = 'Grid' in config
+    states, actions, files, experts = envs.get_states_actions_json(
+                                        args.traj_directory_bc,
+                                        is_grid, args.use_second_place)
     expert_states = states[0]
     expert_actions = actions[0]
     expert_files = files[0]
+    expert_id_lst = experts[0]
 
     agent_obs_lst = []
     if args.num_stack == 1:
@@ -146,10 +151,26 @@ def train():
 
     print("\n# states: {}\n".format(len(agent_obs_lst)))
 
+    # TODO: check whether it matterswhat id you have here cause it might? for Pomme eval at least?
+    agent = training_agents[0]
+
+    start_epoch = agent.num_epoch
+    total_steps = agent.total_steps
+    num_episodes = agent.num_episodes
+
+    if args.cuda:
+        agent.cuda()
+
+
+    #####
+    # Get expert actions
+    #####
     expert_actions_lst = []
-    for a in expert_actions:
+    for i in range(len(expert_actions)):
+        action = expert_actions[i]
+        expert_id = expert_id_lst[i]
         x = torch.LongTensor(1,1)
-        x[0][0] = int(a[args.expert_id])
+        x[0][0] = int(action[expert_id])
         expert_actions_lst.append(x)
 
     indices = np.arange(0, len(agent_obs_lst)).tolist()
@@ -255,7 +276,9 @@ def train():
         if args.use_value_loss:
             nmaps = 0
             returns = []
-            for state_file in expert_files:
+            for k in range(len(expert_files)):
+                state_file = expert_files[k]
+                agent = training_agents[expert_id_lst[k]]
                 nmaps += 1
                 running_num_episodes = 0
                 cumulative_reward = 0

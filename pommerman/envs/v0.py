@@ -458,10 +458,13 @@ class Pomme(gym.Env):
             self.set_json_info(json.loads(f.read()))
         return self.get_observations()
 
-    def get_states_actions_json(self, directory):
+    def get_states_actions_json(self, data):
         obs_list = []
         act_list = []
         file_list = []
+        expert_id_list = []
+
+        directory, grid, use_second_place = data
 
         actions_file_name = os.path.basename(os.path.normpath(directory)) + "_actions"
         actions_directory = os.path.join(directory, "../", actions_file_name)
@@ -489,7 +492,15 @@ class Pomme(gym.Env):
                 act_list.append(action)
                 file_list.append(game_state_file)
 
-        return obs_list, act_list, file_list
+                if not grid:
+                    if use_second_place:
+                        expert_id_list.append(endgame['second'])
+                    else:
+                        expert_id_list.append(endgame['winners'])
+                else:
+                    expert_id_list.append(0)
+
+        return obs_list, act_list, file_list, expert_id_list
 
 
     def seed(self, seed=None):
