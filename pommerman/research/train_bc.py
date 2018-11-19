@@ -74,10 +74,11 @@ def train():
     #####
     # Logging helpers.
     traj_directory_name = os.path.basename(os.path.normpath(args.traj_directory_bc))
-    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.nopt{}.traj-{}.seed{}.pt" \
+    suffix = "{}.{}.{}.{}.nc{}.lr{}.mb{}.nopt{}.traj-{}.value{}.seed{}.pt" \
              .format(args.run_name, args.how_train, config, args.model_str,
                      args.num_channels, args.lr, args.minibatch_size,
-                     args.dagger_epoch, traj_directory_name, args.seed)
+                     args.dagger_epoch, traj_directory_name, args.use_value_loss,
+                     args.seed)
 
     log_dir = os.path.join(args.log_dir, suffix)
     if not os.path.exists(log_dir):
@@ -111,6 +112,7 @@ def train():
         state_directory_distribution=args.state_directory_distribution,
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
         item_reward=args.item_reward)
+    eval_envs.reset()
 
     #################################################
     # Load Trajectories (State, Action)-Pairs from File
@@ -204,8 +206,6 @@ def train():
                 Variable(dummy_masks).detach())
             action_loss = cross_entropy_loss(
                 action_scores, Variable(expert_actions_mb))
-            # value_loss = (values - values) \
-            #                 .pow(2).mean()
             value_loss = (Variable(returns_mb) - values) \
                             .pow(2).mean()
 
@@ -252,80 +252,93 @@ def train():
         #################################################
         # Estimate Value Function Using Current Policy
         #################################################
-        nmaps = 0
-        returns = []
-        for state_file in expert_files:
-            nmaps += 1
-            running_num_episodes = 0
-            cumulative_reward = 0
-            success_rate = 0
-            state_returns = []
-            for j in range(args.num_eps_eval):
-                state_eval = eval_envs.reset_state_file(state_file)
-                obs_eval = torch.from_numpy(eval_envs.observation(state_eval[0])[0]).float()
-                if args.cuda:
-                    obs_eval = obs_eval.cuda()
-                done_eval = False
-                current_ep_len = 0
-                rewards = []
-                while not done_eval:
-                    result_eval = agent.act_on_data(
-                        Variable(obs_eval, volatile=True),
-                        Variable(dummy_states_eval, volatile=True),
-                        Variable(dummy_masks_eval, volatile=True),
-                        deterministic=True)
-                    _, actions_eval, _, _, _, _ = result_eval
-                    cpu_actions_eval = actions_eval.data.squeeze(1).cpu().numpy()
-                    cpu_actions_agents_eval = cpu_actions_eval
-
-                    obs_eval, reward_eval, done_eval, info_eval = eval_envs.step(cpu_actions_agents_eval)
-                    obs_eval = torch.from_numpy(obs_eval.reshape(*obs_shape)).float().unsqueeze(0)
+        if args.use_value_loss:
+            nmaps = 0
+            returns = []
+            for state_file in expert_files:
+                nmaps += 1
+                running_num_episodes = 0
+                cumulative_reward = 0
+                success_rate = 0
+                state_returns = []
+                for j in range(args.num_eps_eval):
+                    state_eval = eval_envs.reset_state_file(state_file)
+                    if 'Grid' in config:
+                        obs_eval = torch.from_numpy(eval_envs.observation(state_eval[0])[0]).float()
+                    else:
+                        init_state = torch.from_numpy(eval_envs.observation(state_eval[0])[0]).squeeze(0).float()
+                        obs_eval = torch.cat((init_state, init_state), 0).unsqueeze(0).float()
                     if args.cuda:
                         obs_eval = obs_eval.cuda()
-                    rewards.append(reward_eval)
+                    done_eval = False
+                    current_ep_len = 0
+                    rewards = []
+                    while not done_eval:
+                        # if 'Pomme' in config:
+                        #     prev_obs = obs_eval[0][args.num_channels:].unsqueeze(0)
+                        result_eval = agent.act_on_data(
+                            Variable(obs_eval, volatile=True),
+                            Variable(dummy_states_eval, volatile=True),
+                            Variable(dummy_masks_eval, volatile=True),
+                            deterministic=True)
+                        _, actions_eval, _, _, _, _ = result_eval
+                        cpu_actions_eval = actions_eval.data.squeeze(1).cpu().numpy()
+                        cpu_actions_agents_eval = cpu_actions_eval
 
-                    running_num_episodes += sum([1 if done_ else 0
-                                                 for done_ in done_eval])
-                    success_rate += sum([1 if x else 0 for x in
-                                        [(done_eval.squeeze() == True) & \
-                                        (reward_eval.squeeze() > 0)] ])
-                    masks = torch.FloatTensor([[0.0]*num_training_per_episode if done_ \
-                                                else [1.0]*num_training_per_episode
-                                                for done_ in done_eval])
-                    reward_eval = utils.torch_numpy_stack(reward_eval, False) \
-                                                        .transpose(0, 1)
-                    episode_rewards += reward_eval[:, :, None]
-                    final_rewards *= masks
-                    final_rewards += (1 - masks) * episode_rewards
-                    episode_rewards *= masks
-                    final_reward_arr = np.array(final_rewards.squeeze(0))
-                    cumulative_reward += final_reward_arr[done_eval.squeeze() == True].sum()
+                        # import pdb; pdb.set_trace()
+                        obs_eval, reward_eval, done_eval, info_eval = eval_envs.step(cpu_actions_agents_eval)
+                        # if 'Grid' in config:
+                        #     obs_eval = torch.from_numpy(new_obs_eval.reshape(*obs_shape)).float().unsqueeze(0)
+                        # else:
+                        #     new_obs_eval = torch.from_numpy(new_obs_eval.reshape(*obs_shape)).float().unsqueeze(0)
+                        #     obs_eval = torch.cat((prev_obs, new_obs_eval), 0)
+                        obs_eval = torch.from_numpy(obs_eval.reshape(*obs_shape)).float().unsqueeze(0)
+                        if args.cuda:
+                            obs_eval = obs_eval.cuda()
+                        rewards.append(reward_eval)
 
-                # compute return for this episode
-                for step in range(len(rewards) - 2, 0, -1):
-                    next_return = rewards[step+1]
-                    future_value = float(next_return * args.gamma)
-                    rewards[step] += future_value
+                        running_num_episodes += sum([1 if done_ else 0
+                                                     for done_ in done_eval])
+                        success_rate += sum([1 if x else 0 for x in
+                                            [(done_eval.squeeze() == True) & \
+                                            (reward_eval.squeeze() > 0)] ])
+                        masks = torch.FloatTensor([[0.0]*num_training_per_episode if done_ \
+                                                    else [1.0]*num_training_per_episode
+                                                    for done_ in done_eval])
+                        reward_eval = utils.torch_numpy_stack(reward_eval, False) \
+                                                            .transpose(0, 1)
+                        episode_rewards += reward_eval[:, :, None]
+                        final_rewards *= masks
+                        final_rewards += (1 - masks) * episode_rewards
+                        episode_rewards *= masks
+                        final_reward_arr = np.array(final_rewards.squeeze(0))
+                        cumulative_reward += final_reward_arr[done_eval.squeeze() == True].sum()
 
-                # save the return for this episode (corresp to state_file)
-                state_returns.append(rewards[0])
+                    # compute return for this episode
+                    for step in range(len(rewards) - 2, 0, -1):
+                        next_return = rewards[step+1]
+                        future_value = float(next_return * args.gamma)
+                        rewards[step] += future_value
 
-            # take the mean over all returns from state_file
-            returns.append(np.mean(state_returns))
-            cumulative_reward = 1.0 * cumulative_reward / args.num_eps_eval
-            success_rate = 1.0 * success_rate / args.num_eps_eval
+                    # save the return for this episode (corresp to state_file)
+                    state_returns.append(rewards[0])
 
-            if num_epoch % args.save_interval == 0:
-                print("###########")
-                print("Epoch {}, map {}: \n success rate {} " \
-                      "mean total reward {} " \
-                      .format(num_epoch, nmaps, success_rate, cumulative_reward))
-                print("###########\n")
-                # utils.log_to_tensorboard_bc(
-                #     writer, num_epoch, total_steps, np.mean(action_losses),
-                #     cumulative_reward, success_rate, terminal_reward,
-                #     np.mean(value_losses), epochs_per_sec, steps_per_sec,
-                #     agent_mean_act_prob, expert_mean_act_prob)
+                # take the mean over all returns from state_file
+                returns.append(np.mean(state_returns))
+                cumulative_reward = 1.0 * cumulative_reward / args.num_eps_eval
+                success_rate = 1.0 * success_rate / args.num_eps_eval
+
+                # if num_epoch % args.save_interval == 0:
+                #     print("###########")
+                #     print("Epoch {}, map {}: \n success rate {} " \
+                #           "mean total reward {} " \
+                #           .format(num_epoch, nmaps, success_rate, cumulative_reward))
+                #     print("###########\n")
+                    # utils.log_to_tensorboard_bc(
+                    #     writer, num_epoch, total_steps, np.mean(action_losses),
+                    #     cumulative_reward, success_rate, terminal_reward,
+                    #     np.mean(value_losses), epochs_per_sec, steps_per_sec,
+                    #     agent_mean_act_prob, expert_mean_act_prob)
 
     writer.close()
 
