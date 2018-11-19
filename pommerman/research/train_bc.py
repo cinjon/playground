@@ -255,6 +255,11 @@ def train():
         percent_correct = num_correct_actions / len(agent_obs_lst)
         mean_action_loss = np.sum(action_losses) / len(agent_obs_lst)
         mean_value_loss = np.sum(value_losses) / len(agent_obs_lst)
+
+        if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
+            utils.save_agents("bc-", num_epoch, training_agents,
+                              total_steps, num_episodes, args)
+
         if num_epoch % args.log_interval == 0:
             print("\n*********************************")
             print("EPOCH {}:".format(num_epoch))
@@ -266,9 +271,8 @@ def train():
             utils.log_to_tensorboard_bc(writer, num_epoch, percent_correct,
                                      mean_action_loss, mean_value_loss)
 
-        if utils.is_save_epoch(num_epoch, start_epoch, args.save_interval):
-            utils.save_agents("bc-", num_epoch, training_agents,
-                              total_steps, num_episodes, args)
+        if num_epoch % args.save_interval == 0 and percent_correct == 1.0:
+            break
 
         #################################################
         # Estimate Value Function Using Current Policy
