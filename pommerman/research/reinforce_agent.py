@@ -100,7 +100,7 @@ class ReinforceAgent(ResearchAgent):
         for num_agent, next_value in enumerate(next_value_agents):
             self._rollout.compute_returns(next_value, use_gae, gamma, tau,
                                           num_agent)
-        advantages = self._rollout.compute_advantages()
+        advantages = self._rollout.compute_advantages(reinforce=True)
         diff = (advantages - advantages.mean())
         advantages = diff / (advantages.std() + 1e-5)
         return advantages
@@ -137,8 +137,7 @@ class ReinforceAgent(ResearchAgent):
         self._rollout.insert(step, current_obs, states, action,
                              action_log_prob, value, reward, mask,
                              action_log_prob_distr, dagger_prob_distr,
-                             expert_action_log_prob=None,
-                             training_action_log_prob=None)
+                             expert_action_log_prob, training_action_log_prob)
 
 
     def reinforce(self, advantages, num_mini_batch, batch_size, num_steps,
@@ -165,11 +164,11 @@ class ReinforceAgent(ResearchAgent):
                 Variable(actions_batch))
             values, action_log_probs, dist_entropy, states = result
 
-            import pdb; pdb.set_trace()
             behavior_action_probs_batch = kl_factor * torch.exp(Variable(expert_action_log_probs_batch)) + \
                 (1 - kl_factor) * torch.exp(Variable(training_action_log_probs_batch))
 
-            # TODO: we don't need to multiply the entire advantage by that ratio but only the reward
+            # TODO: take only the probs corresponding to the taken action for training and behavior
+
             adv_targ = Variable(adv_targ)
             if use_is:
                 adv_targ *= torch.exp(Variable(training_action_log_probs_batch)) / behavior_action_probs_batch

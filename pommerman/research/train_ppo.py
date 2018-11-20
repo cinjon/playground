@@ -421,6 +421,8 @@ def train():
         if distill_expert == 'DaggerAgent':
             distill_agent = utils.load_distill_agent(obs_shape, action_space,
                                 board_size, args)
+            # TODO: what does this do again? looks like it does not force
+            # the agent to acat deterministically
             distill_agent.set_eval()
             # NOTE: We have to call init_agent, but the agent_id won't matter
             # because we will use the observations from the ppo_agent.
@@ -504,6 +506,8 @@ def train():
         final_dist_entropies = [[] for agent in range(len(training_agents))]
     if do_distill and not use_importance_sampling:
         final_kl_losses = [[] for agent in range(len(training_agents))]
+    else:
+        final_kl_losses = []
     final_total_losses =  [[] for agent in range(len(training_agents))]
 
     def update_current_obs(obs):
@@ -720,6 +724,7 @@ def train():
             utils.save_agents("ppo-", num_epoch, training_agents, total_steps,
                               num_episodes, args, suffix, clear_saved=True)
 
+        # NOTE: why do we need this??
         for agent in training_agents:
             agent.set_eval()
 
@@ -972,20 +977,15 @@ def train():
                             *data, deterministic=True)
                         dagger_prob_distr.append(probs)
 
-                import pdb; pdb.set_trace()
                 if use_importance_sampling:
-
                     data = training_agent.get_rollout_data(step, 0)
                     bc_result = distill_agent.act_on_data(
                         *data, deterministic=False)
-                    bc_action_prob = bc_result[2]
+                    bc_action_prob = bc_result[5]
 
                     reinf_result = training_agent.actor_critic_act(
                         step, 0, deterministic=False)
-                    reinf_action_prob = reinf_result[2]
-
-                    # expert_action_log_prob = torch.log(distill_factor * torch.exp(bc_action_prob) + \
-                    #     (1 - distill_factor) * torch.exp(reinf_result))
+                    reinf_action_prob = reinf_result[5]
 
                     action_log_prob_expert.append(bc_action_prob)
                     action_log_prob_training.append(reinf_action_prob)
@@ -1617,8 +1617,10 @@ def train():
                 final_value_losses =  [[] for agent in range(len(training_agents))]
                 final_dist_entropies = [[] for agent in \
                                         range(len(training_agents))]
-            if do_distill and not_use_importance_sampling:
+            if do_distill and not use_importance_sampling:
                 final_kl_losses = [[] for agent in range(len(training_agents))]
+            else:
+                final_kl_losses = []
             final_total_losses =  [[] for agent in range(len(training_agents))]
 
             count_stats = defaultdict(int)

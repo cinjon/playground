@@ -31,10 +31,11 @@ class RolloutStorage(object):
             num_steps, num_training_per_episode, num_processes, action_space.n)
         self.action_log_probs_distr = torch.zeros(
             num_steps, num_training_per_episode, num_processes, action_space.n)
+
         self.expert_action_log_probs = torch.zeros(
-            num_steps, num_training_per_episode, num_processes, 1)
+            num_steps, num_training_per_episode, num_processes, action_space.n)
         self.training_action_log_probs = torch.zeros(
-            num_steps, num_training_per_episode, num_processes, 1)
+            num_steps, num_training_per_episode, num_processes, action_space.n)
 
     def cuda(self):
         self.observations = self.observations.cuda()
@@ -99,9 +100,11 @@ class RolloutStorage(object):
                 self.returns[step, num_agent] = next_returns * gamma * masks
                 self.returns[step, num_agent] += rewards
 
-    def compute_advantages(self):
-        import pdb; pdb.set_trace()
-        return self.returns[:-1] - self.value_preds[:-1]
+    def compute_advantages(self, reinforce=False):
+        if reinforce:
+            return self.returns[:-1]
+        else:
+            return self.returns[:-1] - self.value_preds[:-1]
 
     def feed_forward_generator(self, advantages, num_mini_batch, batch_size,
                                num_steps, action_space, kl_factor, use_is):
@@ -142,10 +145,10 @@ class RolloutStorage(object):
                 [num_steps, num_total, *distr_shape])
 
         if use_is:
-            expert_action_log_probs = self.expert_action_log_probs.view([
-                num_steps, num_total, 1])
-            training_action_log_probs = self.training_action_log_probs.view([
-                num_steps, num_total, 1])
+            expert_action_log_probs = self.expert_action_log_probs.view(
+                [num_steps, num_total, *distr_shape])
+            training_action_log_probs = self.training_action_log_probs.view(
+                [num_steps, num_total, *distr_shape])
 
         counter = 0
         for indices in sampler:
@@ -197,10 +200,10 @@ class RolloutStorage(object):
             if use_is:
                 expert_action_log_probs_batch = expert_action_log_probs \
                                                     .contiguous() \
-                                                    .view((num_steps*num_total), 1)[indices]
+                                                    .view((num_steps*num_total), action_space.n)[indices]
                 training_action_log_probs_batch = training_action_log_probs \
                                                     .contiguous() \
-                                                    .view((num_steps*num_total), 1)[indices]
+                                                    .view((num_steps*num_total), action_space.n)[indices]
             else:
                 expert_action_log_probs_batch = None
                 training_action_log_probs_batch = None
@@ -245,9 +248,9 @@ class RolloutStorage(object):
 
         if use_is:
             expert_action_log_probs = self.expert_action_log_probs.view(
-                                        [num_steps, num_total, 1])
+                                        [num_steps, num_total, *distr_shape])
             training_action_log_probs = self.training_action_log_probs.view(
-                                        [num_steps, num_total, 1])
+                                        [num_steps, num_total, *distr_shape])
 
         for start_ind in range(0, num_processes, num_envs_per_batch):
             observations_batch = []
@@ -287,18 +290,18 @@ class RolloutStorage(object):
                     # TODO: Change the hard-coded 6.
                     dagger_probs_distr_batch.append(dagger_probs_distr \
                                                .contiguous() \
-                                               .view((num_steps*num_total), 6)[indices])
+                                               .view((num_steps*num_total), action_space.n)[indices])
                     action_log_probs_distr_batch.append(action_log_probs_distr \
                                                    .contiguous() \
-                                                   .view((num_steps*num_total), 6)[indices])
+                                                   .view((num_steps*num_total), action_space.n)[indices])
 
                 if use_is:
                     expert_action_log_probs_batch.append(expert_action_log_probs \
                                                         .contiguous() \
-                                                        .view((num_steps*num_total), 1)[indices])
+                                                        .view((num_steps*num_total), action_space.n)[indices])
                     training_action_log_probs_batch.append(training_action_log_probs \
                                                         .contiguous() \
-                                                        .view((num_steps*num_total), 1)[indices])
+                                                        .view((num_steps*num_total), action_space.n)[indices])
 
             observations_batch = torch.cat(observations_batch, 0) \
                                  .view(num_envs_per_batch, *observations.size()[2:])
@@ -317,18 +320,18 @@ class RolloutStorage(object):
 
             if kl_factor > 0:
                 dagger_probs_distr_batch = torch.cat(dagger_probs_distr_batch, 0) \
-                                           .view(num_envs_per_batch, 6)
+                                           .view(num_envs_per_batch, action_space.n)
                 action_log_probs_distr_batch = torch.cat(action_log_probs_distr_batch, 0) \
-                                               .view(num_envs_per_batch, 6)
+                                               .view(num_envs_per_batch, action_space.n)
             else:
                 dagger_probs_distr_batch = None
                 action_log_probs_distr_batch = None
 
             if use_is:
                 expert_action_log_probs_batch = torch.cat(expert_action_log_probs_batch, 0) \
-                                             .view(num_envs_per_batch, 1)
+                                             .view(num_envs_per_batch, action_space.n)
                 training_action_log_probs_batch = torch.cat(training_action_log_probs_batch, 0) \
-                                             .view(num_envs_per_batch, 1)
+                                             .view(num_envs_per_batch, action_space.n)
             else:
                 expert_action_log_probs_batch = None
                 training_action_log_probs_batch = None
