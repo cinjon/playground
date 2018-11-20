@@ -102,6 +102,10 @@ def get_args():
                         help='whether to use importance weight for rewards collecting \
                         using a behavior policy which is a combination of the \
                         behaviorally cloned policy and a new one training with RL')
+    parser.add_argument('--use-retrace', default=False, action='store_true',
+                        help='whether to use the retrace alg when using IS')
+    parser.add_argument('--lambda-retrace', type=float, default=1.0,
+                        help='retrace HP in retrace(lambda)')
 
     # specific to Pommerman
     parser.add_argument('--agents',

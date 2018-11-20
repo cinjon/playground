@@ -145,6 +145,13 @@ def train():
     suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ns{}.gam{}.seed{}".format(
         args.run_name, how_train, config_str, model_str, args.num_channels,
         args.lr, args.batch_size, num_steps, args.gamma, args.seed)
+    if args.reinforce_only:
+        suffix += ".reinf"
+    if args.use_importance_sampling:
+        suffix += ".is"
+    if args.use_retrace:
+        suffix += ".retrace"
+        suffix += ".lambda%d" % args.lambda_retrace
     if args.use_gae:
         suffix += ".gae"
     if args.half_lr_epochs:
@@ -1380,7 +1387,9 @@ def train():
                                        args.max_grad_norm,
                                        action_space,
                                        kl_factor=distill_factor,
-                                       use_is=use_importance_sampling)
+                                       use_is=use_importance_sampling,
+                                       use_retrace=args.use_retrace,
+                                       lambda_retrace=args.lambda_retrace)
                 pg_losses, kl_losses, total_losses, lr = result
 
                 final_pg_losses[num_agent].extend(pg_losses)
@@ -1406,7 +1415,9 @@ def train():
                                            kl_factor=distill_factor,
                                            only_value_loss=only_value_loss,
                                            add_nonlin=add_nonlin,
-                                           use_is=use_importance_sampling)
+                                           use_is=use_importance_sampling,
+                                           use_retrace=args.use_retrace,
+                                           lambda_retrace=args.lambda_retrace)
                     action_losses, value_losses, dist_entropies, \
                         kl_losses, total_losses, lr = result
 

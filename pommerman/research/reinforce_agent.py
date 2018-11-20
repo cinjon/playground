@@ -9,6 +9,7 @@ import torch.optim as optim
 
 from research_agent import ResearchAgent
 from storage import RolloutStorage
+import numpy as np
 
 
 class ReinforceAgent(ResearchAgent):
@@ -142,7 +143,7 @@ class ReinforceAgent(ResearchAgent):
 
     def reinforce(self, advantages, num_mini_batch, batch_size, num_steps,
                 max_grad_norm, action_space, anneal=False, lr=1e-4, eps=1e-5,
-                kl_factor=0, use_is=False):
+                kl_factor=0, use_is=False, use_retrace=False, lambda_retrace=1.0):
         pg_losses = []
         kl_losses = []
         kl_loss = None
@@ -172,9 +173,17 @@ class ReinforceAgent(ResearchAgent):
             training_single_action_probs_batch = training_action_probs_batch.gather(1, Variable(actions_batch))
             behavior_single_action_probs_batch = behavior_action_probs_batch.gather(1, Variable(actions_batch))
 
+            prob_ratio = training_single_action_probs_batch / behavior_single_action_probs_batch
+            if use_retrace:
+                truncated_ratio = np.array([min(1, p.data[0]) for p in prob_ratio])
+                truncated_ratio = Variable(torch.from_numpy(truncated_ratio).float().cuda().unsqueeze(1))
+                importance_weight = lambda_retrace * truncated_ratio
+            else:
+                importance_weight = prob_ratio
+
             adv_targ = Variable(adv_targ)
             if use_is:
-                adv_targ *= training_single_action_probs_batch / behavior_single_action_probs_batch
+                adv_targ *= importance_weight
             ratio = action_log_probs
 
             pg_loss = - (ratio * adv_targ).mean()

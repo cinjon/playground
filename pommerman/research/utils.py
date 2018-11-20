@@ -175,8 +175,10 @@ def save_agents(prefix, num_epoch, training_agents, total_steps, num_episodes,
                          .format(name, how_train, config, model_str, traj_dir,
                                  args.minibatch_size, args.num_channels, args.lr, seed)
             else:
-                suffix = "{}.{}.{}.{}.nc{}.lr{}.bs{}.ns{}.gam{}.gae{}.epoch{}.steps{}.seed{}.pt" \
+                suffix = "{}.{}.{}.{}.reinf{}.is{}.retrace{}.lambda{}.nc{}.lr{}.bs{}.ns{}.gam{}.gae{}.epoch{}.steps{}.seed{}.pt" \
                          .format(name, how_train, config, model_str,
+                                 args.reinforce_only, args.use_importance_sampling,
+                                 args.use_retrace, args.lambda_retrace,
                                  args.num_channels, args.lr, args.batch_size,
                                  args.num_steps, args.gamma, args.use_gae,
                                  num_epoch, total_steps, seed)

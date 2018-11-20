@@ -167,7 +167,7 @@ class PPOAgent(ResearchAgent):
     def ppo(self, advantages, num_mini_batch, batch_size, num_steps, clip_param,
             entropy_coef, value_loss_coef, max_grad_norm, action_space, anneal=False,
             lr=1e-4, eps=1e-5, kl_factor=0, only_value_loss=False, add_nonlin=False,
-            use_is=False):
+            use_is=False, use_retrace=False, lambda_retrace=1.0):
         action_losses = []
         value_losses = []
         dist_entropies = []
