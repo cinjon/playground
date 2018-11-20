@@ -768,8 +768,6 @@ def train():
                             DaggerAgent, SimpleAgent, or ComplexAgent")
 
                 if use_importance_sampling:
-                    import pdb; pdb.set_trace()
-
                     data = training_agent.get_rollout_data(step, 0)
                     bc_result = distill_agent.act_on_data(
                         *data, deterministic=False)
@@ -785,7 +783,7 @@ def train():
                     action_log_prob_expert.append(bc_action_prob)
                     action_log_prob_training.append(reinf_action_prob)
 
-                if use_importance_sampling and random.random < distill_factor:
+                if use_importance_sampling and random.random() < distill_factor:
                     data = training_agent.get_rollout_data(step, 0)
                     result = distill_agent.act_on_data(
                         *data, deterministic=False)
@@ -973,8 +971,32 @@ def train():
                         _, _, _, _, probs, _ = distill_agent.act_on_data(
                             *data, deterministic=True)
                         dagger_prob_distr.append(probs)
-                result = training_agent.actor_critic_act(
-                    step, 0, deterministic=args.eval_only)
+
+                if use_importance_sampling:
+
+                    data = training_agent.get_rollout_data(step, 0)
+                    bc_result = distill_agent.act_on_data(
+                        *data, deterministic=False)
+                    bc_action_prob = bc_result[2]
+
+                    reinf_result = training_agent.actor_critic_act(
+                        step, 0, deterministic=False)
+                    reinf_action_prob = reinf_result[2]
+
+                    # expert_action_log_prob = torch.log(distill_factor * torch.exp(bc_action_prob) + \
+                    #     (1 - distill_factor) * torch.exp(reinf_result))
+
+                    action_log_prob_expert.append(bc_action_prob)
+                    action_log_prob_training.append(reinf_action_prob)
+
+                if use_importance_sampling and random.random() < distill_factor:
+                    data = training_agent.get_rollout_data(step, 0)
+                    result = distill_agent.act_on_data(
+                        *data, deterministic=False)
+                else:
+                    result = training_agent.actor_critic_act(
+                        step, 0, deterministic=args.eval_only)
+
                 cpu_actions_agents, cpu_probs = update_actor_critic_results(result)
                 action_choices.extend(cpu_actions_agents)
                 for num in range(action_space.n):

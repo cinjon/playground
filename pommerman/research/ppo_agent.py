@@ -156,12 +156,12 @@ class PPOAgent(ResearchAgent):
     def insert_rollouts(self, step, current_obs, states, action,
                         action_log_prob, value, reward, mask,
                         action_log_prob_distr=None, dagger_prob_distr=None,
-                        behavior_action_prob=None, training_action_prob=None):
+                        expert_action_log_prob=None, training_action_log_prob=None):
         self._rollout.insert(step, current_obs, states, action,
                              action_log_prob, value, reward, mask,
                              action_log_prob_distr, dagger_prob_distr,
-                             behavior_action_prob=None,
-                             training_action_prob=None)
+                             expert_action_log_prob=None,
+                             training_action_log_prob=None)
 
 
     def ppo(self, advantages, num_mini_batch, batch_size, num_steps, clip_param,
@@ -188,7 +188,7 @@ class PPOAgent(ResearchAgent):
             observations_batch, states_batch, actions_batch, return_batch, \
                 masks_batch, old_action_log_probs_batch, adv_targ, \
                 action_log_probs_distr_batch, dagger_probs_distr_batch, \
-                behavior_action_probs_batch, training_action_probs_batch \
+                expert_action_log_probs_batch, training_action_log_probs_batch \
                 = sample
 
             # Reshape to do in a single forward pass for all steps

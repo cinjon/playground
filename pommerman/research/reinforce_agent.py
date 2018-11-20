@@ -79,7 +79,7 @@ class ReinforceAgent(ResearchAgent):
         return self._actor_critic.evaluate_actions(observations, states, masks,
                                                    actions)
 
-    def _optimize(self, pg_loss, max_grad_norm, kl_loss=None, kl_factor=0):
+    def _optimize(self, pg_loss, max_grad_norm, kl_loss=None, kl_factor=0, use_is=False):
         self._optimizer.zero_grad()
         loss = pg_loss
         if kl_factor > 0 and not use_is:
@@ -151,7 +151,7 @@ class ReinforceAgent(ResearchAgent):
 
         for sample in self._rollout.feed_forward_generator(
                 advantages, num_mini_batch, batch_size, num_steps, action_space,
-                kl_factor):
+                kl_factor, use_is):
             observations_batch, states_batch, actions_batch, return_batch, \
                 masks_batch, old_action_log_probs_batch, adv_targ, \
                 action_log_probs_distr_batch, dagger_probs_distr_batch, \
@@ -165,17 +165,18 @@ class ReinforceAgent(ResearchAgent):
                 Variable(actions_batch))
             values, action_log_probs, dist_entropy, states = result
 
-            behavior_action_probs_batch = kl_factor * torch.exp(expert_action_log_probs_batch) + \
-                (1 - kl_factor) * torch.exp(training_action_log_probs_batcs)
+            behavior_action_probs_batch = kl_factor * torch.exp(Variable(expert_action_log_probs_batch)) + \
+                (1 - kl_factor) * torch.exp(Variable(training_action_log_probs_batch))
 
             # TODO: we don't need to multiply the entire advantage by that ratio but only the reward
             if use_is:
                 adv_targ = Variable(adv_targ)
-                adv_targ *= torch.exp(training_action_log_probs_batch) / behavior_action_probs_batch
-                ratio = training_action_log_probs_batch
-            else:
+                adv_targ *= torch.exp(Variable(training_action_log_probs_batch)) / behavior_action_probs_batch
+            elseasdasdasdasdasdasdaasdasdasdasd:
                 adv_targ = Variable(adv_targ)
-                ratio = action_log_probs
+            ratio = action_log_prob
+
+            import pdb; pdb.set_trace()
 
             pg_loss = - (ratio * adv_targ).mean()
             total_loss = pg_loss
@@ -186,7 +187,7 @@ class ReinforceAgent(ResearchAgent):
                                     Variable(dagger_probs_distr_batch))
                 total_loss += kl_factor * kl_loss
 
-            self._optimize(total_loss, max_grad_norm, kl_loss, kl_factor)
+            self._optimize(total_loss, max_grad_norm, kl_loss, kl_factor, use_is)
             lr = self._optimizer.param_groups[0]['lr']
 
             pg_losses.append(pg_loss.data[0])
