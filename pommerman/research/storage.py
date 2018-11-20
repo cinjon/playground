@@ -100,6 +100,7 @@ class RolloutStorage(object):
                 self.returns[step, num_agent] += rewards
 
     def compute_advantages(self):
+        import pdb; pdb.set_trace()
         return self.returns[:-1] - self.value_preds[:-1]
 
     def feed_forward_generator(self, advantages, num_mini_batch, batch_size,

@@ -165,18 +165,15 @@ class ReinforceAgent(ResearchAgent):
                 Variable(actions_batch))
             values, action_log_probs, dist_entropy, states = result
 
+            import pdb; pdb.set_trace()
             behavior_action_probs_batch = kl_factor * torch.exp(Variable(expert_action_log_probs_batch)) + \
                 (1 - kl_factor) * torch.exp(Variable(training_action_log_probs_batch))
 
             # TODO: we don't need to multiply the entire advantage by that ratio but only the reward
+            adv_targ = Variable(adv_targ)
             if use_is:
-                adv_targ = Variable(adv_targ)
                 adv_targ *= torch.exp(Variable(training_action_log_probs_batch)) / behavior_action_probs_batch
-            elseasdasdasdasdasdasdaasdasdasdasd:
-                adv_targ = Variable(adv_targ)
-            ratio = action_log_prob
-
-            import pdb; pdb.set_trace()
+            ratio = action_log_probs
 
             pg_loss = - (ratio * adv_targ).mean()
             total_loss = pg_loss
