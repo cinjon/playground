@@ -167,11 +167,14 @@ class ReinforceAgent(ResearchAgent):
             behavior_action_probs_batch = kl_factor * torch.exp(Variable(expert_action_log_probs_batch)) + \
                 (1 - kl_factor) * torch.exp(Variable(training_action_log_probs_batch))
 
-            # TODO: take only the probs corresponding to the taken action for training and behavior
+            training_action_probs_batch = torch.exp(Variable(training_action_log_probs_batch))
+
+            training_single_action_probs_batch = training_action_probs_batch.gather(1, Variable(actions_batch))
+            behavior_single_action_probs_batch = behavior_action_probs_batch.gather(1, Variable(actions_batch))
 
             adv_targ = Variable(adv_targ)
             if use_is:
-                adv_targ *= torch.exp(Variable(training_action_log_probs_batch)) / behavior_action_probs_batch
+                adv_targ *= training_single_action_probs_batch / behavior_single_action_probs_batch
             ratio = action_log_probs
 
             pg_loss = - (ratio * adv_targ).mean()
