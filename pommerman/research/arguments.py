@@ -183,6 +183,10 @@ def get_args():
                         help='Number of samples to get from new starts')
     parser.add_argument('--florensa-num-old-starts', default=100, type=int,
                         help='Number of samples to get from old starts')
+    parser.add_argument('--florensa-r-min', default=0.1, type=float,
+                        help='Expected return value min threshold')
+    parser.add_argument('--florensa-r-max', default=0.9, type=float,
+                        help='Expected return value max threshold')
 
     ### Eval Specific
     parser.add_argument('--eval-mode', type=str, default='ffa',
