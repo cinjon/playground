@@ -99,7 +99,7 @@ class PPOAgent(ResearchAgent):
         else:
             loss = value_loss * value_loss_coef + action_loss \
                     - dist_entropy * entropy_coef
-            if kl_factor > 0:
+            if kl_factor > 0 and not use_is:
                 loss += kl_factor * kl_loss
             loss.backward()
 
@@ -155,15 +155,19 @@ class PPOAgent(ResearchAgent):
 
     def insert_rollouts(self, step, current_obs, states, action,
                         action_log_prob, value, reward, mask,
-                        action_log_prob_distr=None, dagger_prob_distr=None):
+                        action_log_prob_distr=None, dagger_prob_distr=None,
+                        behavior_action_prob=None, training_action_prob=None):
         self._rollout.insert(step, current_obs, states, action,
                              action_log_prob, value, reward, mask,
-                             action_log_prob_distr, dagger_prob_distr)
+                             action_log_prob_distr, dagger_prob_distr,
+                             behavior_action_prob=None,
+                             training_action_prob=None)
 
 
     def ppo(self, advantages, num_mini_batch, batch_size, num_steps, clip_param,
             entropy_coef, value_loss_coef, max_grad_norm, action_space, anneal=False,
-            lr=1e-4, eps=1e-5, kl_factor=0, only_value_loss=False, add_nonlin=False):
+            lr=1e-4, eps=1e-5, kl_factor=0, only_value_loss=False, add_nonlin=False,
+            use_is=False):
         action_losses = []
         value_losses = []
         dist_entropies = []
@@ -173,16 +177,19 @@ class PPOAgent(ResearchAgent):
 
         if hasattr(self._actor_critic, 'gru'):
             data_generator = self._rollout.recurrent_generator(
-                advantages, num_mini_batch, batch_size, num_steps, kl_factor)
+                advantages, num_mini_batch, batch_size, num_steps,
+                kl_factor, use_is)
         else:
             data_generator = self._rollout.feed_forward_generator(
                 advantages, num_mini_batch, batch_size, num_steps, action_space,
-                kl_factor)
+                kl_factor, use_is)
 
         for sample in data_generator:
             observations_batch, states_batch, actions_batch, return_batch, \
                 masks_batch, old_action_log_probs_batch, adv_targ, \
-                action_log_probs_distr_batch, dagger_probs_distr_batch = sample
+                action_log_probs_distr_batch, dagger_probs_distr_batch, \
+                behavior_action_probs_batch, training_action_probs_batch \
+                = sample
 
             # Reshape to do in a single forward pass for all steps
             result = self._evaluate_actions(
@@ -209,7 +216,7 @@ class PPOAgent(ResearchAgent):
             total_loss = value_loss * value_loss_coef + action_loss \
                         - dist_entropy * entropy_coef
 
-            if kl_factor > 0:
+            if kl_factor > 0 and not use_is:
                 criterion = nn.KLDivLoss()
                 kl_loss = criterion(Variable(action_log_probs_distr_batch),
                                     Variable(dagger_probs_distr_batch))
@@ -223,7 +230,7 @@ class PPOAgent(ResearchAgent):
             action_losses.append(action_loss.data[0])
             value_losses.append(value_loss.data[0])
             dist_entropies.append(dist_entropy.data[0])
-            if kl_factor > 0:
+            if kl_factor > 0 and not use_is:
                 kl_losses.append(kl_loss.data[0])
             total_losses.append(total_loss.data[0])
 

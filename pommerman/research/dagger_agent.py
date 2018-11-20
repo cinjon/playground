@@ -28,6 +28,11 @@ class DaggerAgent(ResearchAgent):
     def act_on_data(self, observations, states, masks, deterministic=False):
         return self._actor_critic.act(observations, states, masks,
                                       deterministic)
+
+    def _evaluate_actions(self, observations, states, masks, actions):
+        return self._actor_critic.evaluate_actions(observations, states, masks,
+                                                   actions)
+
     def set_eval(self):
         self._actor_critic.eval()
 

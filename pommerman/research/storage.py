@@ -31,6 +31,10 @@ class RolloutStorage(object):
             num_steps, num_training_per_episode, num_processes, action_space.n)
         self.action_log_probs_distr = torch.zeros(
             num_steps, num_training_per_episode, num_processes, action_space.n)
+        self.expert_action_log_probs = torch.zeros(
+            num_steps, num_training_per_episode, num_processes, 1)
+        self.training_action_log_probs = torch.zeros(
+            num_steps, num_training_per_episode, num_processes, 1)
 
     def cuda(self):
         self.observations = self.observations.cuda()
@@ -43,10 +47,13 @@ class RolloutStorage(object):
         self.actions = self.actions.cuda()
         self.masks = self.masks.cuda()
         self.dagger_probs_distr = self.dagger_probs_distr.cuda()
+        self.expert_action_log_probs = self.expert_action_log_probs.cuda()
+        self.training_action_log_probs = self.training_action_log_probs.cuda()
 
     def insert(self, step, current_obs, state, action, action_log_prob,
                value_pred, reward, mask, action_log_probs_distr,
-               dagger_probs_distr):
+               dagger_probs_distr, expert_action_log_prob,
+               training_action_log_prob):
         self.observations[step+1].copy_(current_obs)
         self.states[step+1].copy_(state)
         self.actions[step].copy_(action)
@@ -59,6 +66,10 @@ class RolloutStorage(object):
             self.dagger_probs_distr[step].copy_(dagger_probs_distr)
         if action_log_probs_distr is not None:
             self.action_log_probs_distr[step].copy_(action_log_probs_distr)
+        if expert_action_log_prob is not None:
+            self.expert_action_log_probs[step].copy_(expert_action_log_prob)
+        if training_action_log_prob is not None:
+            self.training_action_log_probs[step].copy_(training_action_log_prob)
 
     def after_epoch(self):
         self.observations[0].copy_(self.observations[-1])
@@ -89,10 +100,11 @@ class RolloutStorage(object):
                 self.returns[step, num_agent] += rewards
 
     def compute_advantages(self):
+        import pdb; pdb.set_trace()
         return self.returns[:-1] - self.value_preds[:-1]
 
     def feed_forward_generator(self, advantages, num_mini_batch, batch_size,
-                               num_steps, action_space, kl_factor):
+                               num_steps, action_space, kl_factor, use_is):
         # TODO: Consider excluding from the indices the rollouts where the
         # agent died before this rollout. They're signature is that every step
         # is masked out.
@@ -128,6 +140,12 @@ class RolloutStorage(object):
                 [num_steps, num_total, *distr_shape])
             action_log_probs_distr = self.action_log_probs_distr.view(
                 [num_steps, num_total, *distr_shape])
+
+        if use_is:
+            expert_action_log_probs = self.expert_action_log_probs.view([
+                num_steps, num_total, 1])
+            training_action_log_probs = self.training_action_log_probs.view([
+                num_steps, num_total, 1])
 
         counter = 0
         for indices in sampler:
@@ -176,13 +194,25 @@ class RolloutStorage(object):
                 dagger_probs_distr_batch = None
                 action_log_probs_distr_batch = None
 
+            if use_is:
+                expert_action_log_probs_batch = expert_action_log_probs \
+                                                    .contiguous() \
+                                                    .view((num_steps*num_total), 1)[indices]
+                training_action_log_probs_batch = training_action_log_probs \
+                                                    .contiguous() \
+                                                    .view((num_steps*num_total), 1)[indices]
+            else:
+                expert_action_log_probs_batch = None
+                training_action_log_probs_batch = None
+
             yield observations_batch, states_batch, actions_batch, \
                 return_batch, masks_batch, old_action_log_probs_batch, \
                 adv_targ, action_log_probs_distr_batch, \
-                dagger_probs_distr_batch
+                dagger_probs_distr_batch, expert_action_log_probs_batch, \
+                training_action_log_probs_batch
 
     def recurrent_generator(self, advantages, num_mini_batch, batch_size,
-                            num_steps, kl_factor):
+                            num_steps, kl_factor, use_is):
         advantages = advantages.view([-1, 1])
         num_steps = self.rewards.size(0)
         num_training_per_episode = self.rewards.size(1)
@@ -212,6 +242,12 @@ class RolloutStorage(object):
                 [num_steps, num_total, *distr_shape])
             action_log_probs_distr = self.action_log_probs_distr.view(
                 [num_steps, num_total, *distr_shape])
+
+        if use_is:
+            expert_action_log_probs = self.expert_action_log_probs.view(
+                                        [num_steps, num_total, 1])
+            training_action_log_probs = self.training_action_log_probs.view(
+                                        [num_steps, num_total, 1])
 
         for start_ind in range(0, num_processes, num_envs_per_batch):
             observations_batch = []
@@ -256,6 +292,14 @@ class RolloutStorage(object):
                                                    .contiguous() \
                                                    .view((num_steps*num_total), 6)[indices])
 
+                if use_is:
+                    expert_action_log_probs_batch.append(expert_action_log_probs \
+                                                        .contiguous() \
+                                                        .view((num_steps*num_total), 1)[indices])
+                    training_action_log_probs_batch.append(training_action_log_probs \
+                                                        .contiguous() \
+                                                        .view((num_steps*num_total), 1)[indices])
+
             observations_batch = torch.cat(observations_batch, 0) \
                                  .view(num_envs_per_batch, *observations.size()[2:])
             states_batch = torch.cat(states_batch, 0) \
@@ -280,9 +324,19 @@ class RolloutStorage(object):
                 dagger_probs_distr_batch = None
                 action_log_probs_distr_batch = None
 
+            if use_is:
+                expert_action_log_probs_batch = torch.cat(expert_action_log_probs_batch, 0) \
+                                             .view(num_envs_per_batch, 1)
+                training_action_log_probs_batch = torch.cat(training_action_log_probs_batch, 0) \
+                                             .view(num_envs_per_batch, 1)
+            else:
+                expert_action_log_probs_batch = None
+                training_action_log_probs_batch = None
+
             yield observations_batch, states_batch, actions_batch, \
                 return_batch, masks_batch, old_action_log_probs_batch, \
-                adv_targ, action_log_probs_distr_batch, dagger_probs_distr_batch
+                adv_targ, action_log_probs_distr_batch, dagger_probs_distr_batch, \
+                expert_action_log_probs_batch, training_action_log_probs_batch
 
 
 class CPUReplayBuffer:

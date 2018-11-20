@@ -82,7 +82,7 @@ class ReinforceAgent(ResearchAgent):
     def _optimize(self, pg_loss, max_grad_norm, kl_loss=None, kl_factor=0):
         self._optimizer.zero_grad()
         loss = pg_loss
-        if kl_factor > 0:
+        if kl_factor > 0 and not use_is:
             loss += kl_factor * kl_loss
         loss.backward()
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
@@ -132,15 +132,18 @@ class ReinforceAgent(ResearchAgent):
 
     def insert_rollouts(self, step, current_obs, states, action,
                         action_log_prob, value, reward, mask,
-                        action_log_prob_distr=None, dagger_prob_distr=None):
+                        action_log_prob_distr=None, dagger_prob_distr=None,
+                        expert_action_log_prob=None, training_action_log_prob=None):
         self._rollout.insert(step, current_obs, states, action,
                              action_log_prob, value, reward, mask,
-                             action_log_prob_distr, dagger_prob_distr)
+                             action_log_prob_distr, dagger_prob_distr,
+                             expert_action_log_prob=None,
+                             training_action_log_prob=None)
 
 
     def reinforce(self, advantages, num_mini_batch, batch_size, num_steps,
                 max_grad_norm, action_space, anneal=False, lr=1e-4, eps=1e-5,
-                kl_factor=0):
+                kl_factor=0, use_is=False):
         pg_losses = []
         kl_losses = []
         kl_loss = None
@@ -151,7 +154,8 @@ class ReinforceAgent(ResearchAgent):
                 kl_factor):
             observations_batch, states_batch, actions_batch, return_batch, \
                 masks_batch, old_action_log_probs_batch, adv_targ, \
-                action_log_probs_distr_batch, dagger_probs_distr_batch = sample
+                action_log_probs_distr_batch, dagger_probs_distr_batch, \
+                expert_action_log_probs_batch, training_action_log_probs_batch = sample
 
             # Reshape to do in a single forward pass for all steps
             result = self._evaluate_actions(
@@ -161,13 +165,22 @@ class ReinforceAgent(ResearchAgent):
                 Variable(actions_batch))
             values, action_log_probs, dist_entropy, states = result
 
-            adv_targ = Variable(adv_targ)
-            ratio = action_log_probs
+            behavior_action_probs_batch = kl_factor * torch.exp(expert_action_log_probs_batch) + \
+                (1 - kl_factor) * torch.exp(training_action_log_probs_batcs)
+
+            # TODO: we don't need to multiply the entire advantage by that ratio but only the reward
+            if use_is:
+                adv_targ = Variable(adv_targ)
+                adv_targ *= torch.exp(training_action_log_probs_batch) / behavior_action_probs_batch
+                ratio = training_action_log_probs_batch
+            else:
+                adv_targ = Variable(adv_targ)
+                ratio = action_log_probs
 
             pg_loss = - (ratio * adv_targ).mean()
             total_loss = pg_loss
 
-            if kl_factor > 0:
+            if kl_factor > 0 and not use_is:
                 criterion = nn.KLDivLoss()
                 kl_loss = criterion(Variable(action_log_probs_distr_batch),
                                     Variable(dagger_probs_distr_batch))
@@ -177,7 +190,7 @@ class ReinforceAgent(ResearchAgent):
             lr = self._optimizer.param_groups[0]['lr']
 
             pg_losses.append(pg_loss.data[0])
-            if kl_factor > 0:
+            if kl_factor > 0 and not use_is:
                 kl_losses.append(kl_loss.data[0])
             total_losses.append(total_loss.data[0])
 

@@ -98,6 +98,10 @@ def get_args():
                         'disabled if set to 0.')
     parser.add_argument('--recurrent-policy', default=False, action='store_true',
                         help='whether to use recurrency in the policy networks')
+    parser.add_argument('--use-importance-sampling', default=False, action='store_true',
+                        help='whether to use importance weight for rewards collecting \
+                        using a behavior policy which is a combination of the \
+                        behaviorally cloned policy and a new one training with RL')
 
     # specific to Pommerman
     parser.add_argument('--agents',

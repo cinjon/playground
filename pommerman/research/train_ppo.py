@@ -392,8 +392,13 @@ def train():
     set_distill_kl = args.set_distill_kl
     distill_target = args.distill_target
     distill_epochs = args.distill_epochs
-    init_kl_factor = args.init_kl_factor
     distill_expert = args.distill_expert
+    use_importance_sampling = args.use_importance_sampling
+    if use_importance_sampling:
+        init_kl_factor = 1
+    else:
+        init_kl_factor = args.init_kl_factor
+
 
     if distill_expert is not None:
         assert(distill_epochs > training_agents[0].num_epoch), \
@@ -497,6 +502,10 @@ def train():
     def update_current_obs(obs):
         return torch.from_numpy(obs).float().transpose(0,1)
 
+    # TODO: find a way to keep track of both the action log prob of the \
+    # training agent's policy and that of the expert policy (which is a \
+    # combination between the expertally cloned policy and that of the\
+    # agent currently training)
     def update_actor_critic_results(result):
         value, action, action_log_prob, states, probs, log_probs = result
         value_agents.append(value)
@@ -717,6 +726,9 @@ def train():
             value_agents = []
             action_agents = []
             action_log_prob_agents = []
+            if use_importance_sampling:
+                action_log_prob_expert = []
+                action_log_prob_training = []
             states_agents = []
             episode_reward = []
             action_log_prob_distr = []
@@ -741,13 +753,38 @@ def train():
                         raise ValueError("We only support distilling from \
                             DaggerAgent, SimpleAgent, or ComplexAgent")
 
-                result = training_agent.actor_critic_act(
-                    step, 0, deterministic=args.eval_only)
+                if use_importance_sampling:
+                    import pdb; pdb.set_trace()
+
+                    data = training_agent.get_rollout_data(step, 0)
+                    bc_result = distill_agent.act_on_data(
+                        *data, deterministic=False)
+                    bc_action_prob = bc_result[2]
+
+                    reinf_result = training_agent.actor_critic_act(
+                        step, 0, deterministic=False)
+                    reinf_action_prob = reinf_result[2]
+
+                    # expert_action_log_prob = torch.log(distill_factor * torch.exp(bc_action_prob) + \
+                    #     (1 - distill_factor) * torch.exp(reinf_result))
+
+                    action_log_prob_expert.append(bc_action_prob)
+                    action_log_prob_training.append(reinf_action_prob)
+
+                if use_importance_sampling and random.random < distill_factor:
+                    data = training_agent.get_rollout_data(step, 0)
+                    result = distill_agent.act_on_data(
+                        *data, deterministic=False)
+                else:
+                    result = training_agent.actor_critic_act(
+                        step, 0, deterministic=args.eval_only)
+
                 # [num_processor,] ..., [num_processor, 6]
                 cpu_actions_agents, cpu_probs = update_actor_critic_results(result)
                 action_choices.extend(cpu_actions_agents)
                 for num in range(action_space.n):
                     action_probs[num].extend([p[num] for p in cpu_probs])
+
             elif how_train == 'backselfplay':
                 # Reshape to do computation once rather than four times.
                 cpu_actions_agents = [[] for _ in range(num_processes)]
@@ -1236,6 +1273,16 @@ def train():
             action_all = utils.torch_numpy_stack(action_agents)
             action_log_prob_all = utils.torch_numpy_stack(
                 action_log_prob_agents)
+
+            if use_importance_sampling:
+                expert_action_log_prob_all = utils.torch_numpy_stack(
+                    action_log_prob_expert)
+                training_action_log_prob_all = utils.torch_numpy_stack(
+                    action_log_prob_training)
+            else:
+                expert_action_log_prob_all = None
+                training_action_log_prob_all = None
+
             if do_distill:
                 if distill_expert == 'DaggerAgent':
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
@@ -1247,6 +1294,7 @@ def train():
                         DaggerAgent or SimpleAgent \n")
                 action_log_prob_distr = utils.torch_numpy_stack(
                     action_log_prob_distr)
+
                 if args.cuda:
                     dagger_prob_distr.cuda()
 
@@ -1262,7 +1310,8 @@ def train():
                 training_agents[0].insert_rollouts(
                     step, current_obs, states_all, action_all,
                     action_log_prob_all, value_all, reward_all, masks_all,
-                    action_log_prob_distr, dagger_prob_distr)
+                    action_log_prob_distr, dagger_prob_distr,
+                    expert_action_log_prob_all, training_action_log_prob_all)
 
         # Compute the advantage values.
         if not args.eval_only and how_train in ['simple', 'homogenous', 'grid', 'backselfplay', 'frobackselfplay']:
@@ -1289,7 +1338,8 @@ def train():
                                        num_steps,
                                        args.max_grad_norm,
                                        action_space,
-                                       kl_factor=distill_factor)
+                                       kl_factor=distill_factor,
+                                       use_is=use_importance_sampling)
                 pg_losses, kl_losses, total_losses, lr = result
 
                 final_pg_losses[num_agent].extend(pg_losses)
@@ -1314,7 +1364,8 @@ def train():
                                            action_space,
                                            kl_factor=distill_factor,
                                            only_value_loss=only_value_loss,
-                                           add_nonlin=add_nonlin)
+                                           add_nonlin=add_nonlin,
+                                           use_is=use_importance_sampling)
                     action_losses, value_losses, dist_entropies, \
                         kl_losses, total_losses, lr = result
 
