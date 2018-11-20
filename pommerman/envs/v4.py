@@ -189,7 +189,9 @@ class Grid(PommeV0):
                     for state in os.listdir(starts_dir)
                     if state.endswith('json')
                 ]
-                with open(os.path.join(starts_dir, random.choice(start_states))) as fp:
+                self._game_state_file = os.path.join(starts_dir,
+                                                     random.choice(start_states))
+                with open(self._game_state_file) as fp:
                     self.set_json_info(json.load(fp))
             else:
                 self._step_count = 0
@@ -208,6 +210,7 @@ class Grid(PommeV0):
                     agent.reset()
                 self._optimal_num_steps = self._compute_optimal(
                     self._board, self._agents[0].position, self._agents[0].goal_position)
+
         elif hasattr(self, '_applicable_games') and self._applicable_games:
             directory, step_count = random.choice(self._applicable_games)
             counter = 0

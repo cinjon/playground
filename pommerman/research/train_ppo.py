@@ -67,17 +67,18 @@ def populate_starts(args, envs, action_space, starts, starts_old):
             endgame = json.load(fp)
 
         final_step = endgame['step_count']
-        with open(os.path.join(args.state_directory, game, '{:03}.json'.format(final_step - 1))) as fp:
-            goal_state = json.load(fp)
+        goal_state_path = os.path.join(args.state_directory, game, '{:03}.json'.format(final_step - 1))
+        starts.append(goal_state_path)
+        starts_old.append(goal_state_path)
 
-        starts.append(goal_state)
-        starts_old.append(goal_state)
-
-    starts_new = list(starts)
+    starts_new_loaded = []
+    for path in starts:
+        with open(path, 'r') as fp:
+            starts_new_loaded.append(json.load(fp))
 
     # Sample new states by Brownian motion
-    while len(starts_new) < args.florensa_M:
-        s0 = random.choices(starts_new, k=envs.num_envs)
+    while len(starts_new_loaded) < args.florensa_M:
+        s0 = random.choices(starts_new_loaded, k=envs.num_envs)
         envs.set_json_info(s0)
 
         for _ in range(args.florensa_brownian_steps):
@@ -86,10 +87,13 @@ def populate_starts(args, envs, action_space, starts, starts_old):
 
             json_info = envs.get_json_info()
 
-            starts_new.extend(json_info)
+            starts_new_loaded.extend(json_info)
 
-    starts = random.choices(starts_new, k=args.florensa_num_new_starts)
-    starts.extend(random.choices(starts_old, k=args.florensa_num_old_starts))
+    starts_new_loaded = random.choices(starts_new_loaded,
+                                       k=args.florensa_num_new_starts)
+    for old_path in random.choices(starts_old, k=args.florensa_num_old_starts):
+        with open(old_path, 'r') as fp:
+            starts_new_loaded.append(json.load(fp))
 
     # Write to a directory
     starts_dir = os.path.join(os.path.dirname(args.state_directory), 'starts')
@@ -97,9 +101,12 @@ def populate_starts(args, envs, action_space, starts, starts_old):
       shutil.rmtree(starts_dir)
     os.makedirs(starts_dir, exist_ok=True)
 
-    for i, state in enumerate(starts):
-        with open(os.path.join(starts_dir, '{}.json'.format(i)), 'w') as f:
+    starts = []
+    for i, state in enumerate(starts_new_loaded):
+        start_path = os.path.join(starts_dir, '{}.json'.format(i))
+        with open(start_path, 'w') as f:
             json.dump(state, f)
+        starts.append(start_path)
 
     return starts, starts_old
 
@@ -679,11 +686,18 @@ def train():
 
     starts = []
     starts_old = []
+    rews = {}
+    ended_count = 0
 
     for num_epoch in range(start_epoch, num_epochs):
         if args.state_directory_distribution == 'florensa':
             starts, starts_old = populate_starts(args, envs, action_space,
                                                  starts, starts_old)
+            ended_count = 0
+            # Add new start states
+            for state_path in starts:
+                if state_path not in rews:
+                    rews[state_path] = 0
 
         if num_epoch < args.value_epochs:
             only_value_loss = args.only_value_loss
@@ -952,6 +966,10 @@ def train():
                     elif game_state_file:
                         optimal_by_file[game_state_file].append((0, is_win))
                     game_step_counts[num_process] = 0
+
+                    if args.state_directory_distribution == 'florensa':
+                        rews[game_state_file] += int(is_win)
+                        ended_count += 1
 
             if how_train == 'simple' or how_train == 'grid':
                 win, alive_win = get_win_alive(info, envs)
@@ -1330,6 +1348,16 @@ def train():
                     agent.halve_lr()
 
         total_steps += num_processes * num_steps
+
+        if args.state_directory_distribution == 'florensa':
+            starts = []
+            for state_path in list(rews.keys()):
+                R = float(rews[state_path]) / ended_count
+                if args.florensa_r_min <= R <= args.florensa_r_max:
+                    starts.append(state_path)
+                else:
+                    rews.pop(state_path)
+            starts_old.extend(starts)
 
         if args.eval_only:
             pass
