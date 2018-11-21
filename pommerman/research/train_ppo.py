@@ -511,7 +511,7 @@ def train():
         final_action_losses = [[] for agent in range(len(training_agents))]
         final_value_losses =  [[] for agent in range(len(training_agents))]
         final_dist_entropies = [[] for agent in range(len(training_agents))]
-    if do_distill and not use_importance_sampling:
+    if do_distill:# and not use_importance_sampling:
         final_kl_losses = [[] for agent in range(len(training_agents))]
     else:
         final_kl_losses = []
@@ -763,7 +763,7 @@ def train():
             if how_train == 'simple':
                 training_agent = training_agents[0]
 
-                if do_distill and not use_importance_sampling:
+                if do_distill:# and not use_importance_sampling:
                     if distill_expert == 'DaggerAgent':
                         data = training_agent.get_rollout_data(step, 0)
                         _, _, _, _, probs, _ = distill_agent.act_on_data(
@@ -901,7 +901,7 @@ def train():
                     num_processes * num_training_per_episode,
                     *masks.shape[2:]
                 ])
-                if do_distill and not use_importance_sampling:
+                if do_distill:# and not use_importance_sampling:
                     if distill_expert == 'DaggerAgent':
                         _, _, _, _, probs, _ = distill_agent.act_on_data(
                             observations, states, masks,
@@ -977,7 +977,7 @@ def train():
                             cpu_actions_agents[num_process].append(action)
             elif how_train == 'grid':
                 training_agent = training_agents[0]
-                if do_distill and not use_importance_sampling:
+                if do_distill:# and not use_importance_sampling:
                     if distill_expert == 'DaggerAgent':
                         data = training_agent.get_rollout_data(step, 0)
                         _, _, _, _, probs, _ = distill_agent.act_on_data(
@@ -1331,7 +1331,7 @@ def train():
                 expert_action_log_prob_all = None
                 training_action_log_prob_all = None
 
-            if do_distill and not use_importance_sampling:
+            if do_distill:# and not use_importance_sampling:
                 if distill_expert == 'DaggerAgent':
                     dagger_prob_distr = utils.torch_numpy_stack(dagger_prob_distr)
                 elif distill_expert in ['SimpleAgent', 'ComplexAgent']:
@@ -1393,7 +1393,7 @@ def train():
                 pg_losses, kl_losses, total_losses, lr = result
 
                 final_pg_losses[num_agent].extend(pg_losses)
-                if do_distill and not use_importance_sampling:
+                if do_distill:# and not use_importance_sampling:
                     final_kl_losses[num_agent].extend(kl_losses)
                 final_total_losses[num_agent].extend(total_losses)
 
@@ -1424,7 +1424,7 @@ def train():
                     final_action_losses[num_agent].extend(action_losses)
                     final_value_losses[num_agent].extend(value_losses)
                     final_dist_entropies[num_agent].extend(dist_entropies)
-                    if do_distill and not use_importance_sampling:
+                    if do_distill:# and not use_importance_sampling:
                         final_kl_losses[num_agent].extend(kl_losses)
                     final_total_losses[num_agent].extend(total_losses)
 
@@ -1518,7 +1518,7 @@ def train():
                             for _ in range(2)
                     ]
 
-            if do_distill and len(final_kl_losses) and not use_importance_sampling:
+            if do_distill and len(final_kl_losses):# and not use_importance_sampling:
                 mean_kl_loss = np.mean([
                     kl_loss for kl_loss in final_kl_losses])
                 std_kl_loss = np.std([
@@ -1628,7 +1628,7 @@ def train():
                 final_value_losses =  [[] for agent in range(len(training_agents))]
                 final_dist_entropies = [[] for agent in \
                                         range(len(training_agents))]
-            if do_distill and not use_importance_sampling:
+            if do_distill:# and not use_importance_sampling:
                 final_kl_losses = [[] for agent in range(len(training_agents))]
             else:
                 final_kl_losses = []

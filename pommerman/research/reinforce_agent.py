@@ -83,7 +83,7 @@ class ReinforceAgent(ResearchAgent):
     def _optimize(self, pg_loss, max_grad_norm, kl_loss=None, kl_factor=0, use_is=False):
         self._optimizer.zero_grad()
         loss = pg_loss
-        if kl_factor > 0 and not use_is:
+        if kl_factor > 0:# and not use_is:
             loss += kl_factor * kl_loss
         loss.backward()
         nn.utils.clip_grad_norm(self._actor_critic.parameters(), max_grad_norm)
@@ -205,7 +205,7 @@ class ReinforceAgent(ResearchAgent):
 
 
 
-            if kl_factor > 0 and not use_is:
+            if kl_factor > 0:# and not use_is:
                 criterion = nn.KLDivLoss()
                 kl_loss = criterion(Variable(action_log_probs_distr_batch),
                                     Variable(dagger_probs_distr_batch))
@@ -215,7 +215,7 @@ class ReinforceAgent(ResearchAgent):
             lr = self._optimizer.param_groups[0]['lr']
 
             pg_losses.append(pg_loss.data[0])
-            if kl_factor > 0 and not use_is:
+            if kl_factor > 0:# and not use_is:
                 kl_losses.append(kl_loss.data[0])
             total_losses.append(total_loss.data[0])
 
