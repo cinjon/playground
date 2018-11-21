@@ -92,7 +92,7 @@ def train_ppo_job(flags, jobname=None, is_fb=False,
 ### Running everything seeds 1,2 for everything except 4,5 for reg-grUBnB for the ICLR paper.
 ### Reg is the dataset being the optimal one.
 job = {
-    "how-train": "grid",  "log-interval": 10000, "save-interval": 100,
+    "how-train": "grid",  "log-interval": 100, "save-interval": 1000,
     "log-dir": os.path.join(directory, "logs"), "num-stack": 1,
     "save-dir": os.path.join(directory, "models"), "num-channels": 32,
     "config": "GridWalls-v4", "model-str": "GridCNNPolicy", "use-gae": "",
