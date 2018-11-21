@@ -165,29 +165,45 @@ class ReinforceAgent(ResearchAgent):
                 Variable(actions_batch))
             values, action_log_probs, dist_entropy, states = result
 
-            behavior_action_probs_batch = kl_factor * torch.exp(Variable(expert_action_log_probs_batch)) + \
-                (1 - kl_factor) * torch.exp(Variable(training_action_log_probs_batch))
-
-            training_action_probs_batch = torch.exp(Variable(training_action_log_probs_batch))
-
-            training_single_action_probs_batch = training_action_probs_batch.gather(1, Variable(actions_batch))
-            behavior_single_action_probs_batch = behavior_action_probs_batch.gather(1, Variable(actions_batch))
-
-            prob_ratio = training_single_action_probs_batch / behavior_single_action_probs_batch
-            if use_retrace:
-                truncated_ratio = np.array([min(1, p.data[0]) for p in prob_ratio])
-                truncated_ratio = Variable(torch.from_numpy(truncated_ratio).float().cuda().unsqueeze(1))
-                importance_weight = lambda_retrace * truncated_ratio
-            else:
-                importance_weight = prob_ratio
-
             adv_targ = Variable(adv_targ)
-            if use_is:
-                adv_targ *= importance_weight
-            ratio = action_log_probs
+            logprob = action_log_probs
 
-            pg_loss = - (ratio * adv_targ).mean()
+            if use_is:
+                behavior_action_probs_batch = kl_factor * torch.exp(Variable(expert_action_log_probs_batch)) + \
+                    (1 - kl_factor) * torch.exp(Variable(training_action_log_probs_batch))
+
+                training_action_probs_batch = torch.exp(Variable(training_action_log_probs_batch))
+
+                training_single_action_probs_batch = training_action_probs_batch.gather(1, Variable(actions_batch))
+                behavior_single_action_probs_batch = behavior_action_probs_batch.gather(1, Variable(actions_batch))
+
+                is_ratio = training_single_action_probs_batch / behavior_single_action_probs_batch
+                if use_retrace:
+                    truncated_ratio = np.array([max(1, p.data[0]) for p in is_ratio])
+                    truncated_ratio = Variable(torch.from_numpy(truncated_ratio).float().cuda().unsqueeze(1))
+                    importance_weight = lambda_retrace * truncated_ratio
+                else:
+                    importance_weight = is_ratio
+
+                pg_loss = - (logprob * adv_targ * importance_weight).mean()
+
+                print("\n#################################################\n")
+                print("action log probs ", logprob)
+                print("adv targ ", adv_targ)
+                print("training probs ", training_action_probs_batch)
+                print("behavior probs ", behavior_action_probs_batch)
+                print("ratio ", is_ratio)
+                print("IS ", importance_weight)
+                print("loss: ", pg_loss)
+                print("#################################################\n")
+
+
+            else:
+                pg_loss = - (logprob * adv_targ).mean()
+
             total_loss = pg_loss
+
+
 
             if kl_factor > 0 and not use_is:
                 criterion = nn.KLDivLoss()
