@@ -110,29 +110,29 @@ for state_directory in [
     for (name, distro) in [
             ("florensa", "florensa"),
     ]:
-    for seed in [1]:
-        if state_directory == "" and name == "grUBnB":
-            if seed < 4:
-                continue
-        else:
-            if seed > 2:
-                continue
-        for learning_rate in [1e-3]:
-            for step_loss in [.03]:
-                j = {k:v for k,v in job.items()}
-                j["run-name"] = "%s-%d" % (name, counter)
-                j["run-name"] = "iclr%d-florensa-%s" % (seed, j["run-name"])
-                j["run-name"] += state_directory
-                if state_directory == "":
-                    j["state-directory"] = os.path.join(
-                        directory, "astars110-s100", "train")
-                    j["log-dir"] += "-100"
-                else:
-                    j["state-directory"] += "%s/train" % state_directory
-                time = 24
-                j["seed"] = seed
-                j["step-loss"] = step_loss
-                j["state-directory-distribution"] = distro
-                j["lr"] = learning_rate
-                train_ppo_job(j, j["run-name"], is_fb=False, time=time)
-                counter += 1
+        for seed in [1]:
+            if state_directory == "" and name == "grUBnB":
+                if seed < 4:
+                    continue
+            else:
+                if seed > 2:
+                    continue
+            for learning_rate in [1e-3]:
+                for step_loss in [.03]:
+                    j = {k:v for k,v in job.items()}
+                    j["run-name"] = "%s-%d" % (name, counter)
+                    j["run-name"] = "iclr%d-florensa-%s" % (seed, j["run-name"])
+                    j["run-name"] += state_directory
+                    if state_directory == "":
+                        j["state-directory"] = os.path.join(
+                            directory, "astars110-s100", "train")
+                        j["log-dir"] += "-100"
+                    else:
+                        j["state-directory"] += "%s/train" % state_directory
+                    time = 24
+                    j["seed"] = seed
+                    j["step-loss"] = step_loss
+                    j["state-directory-distribution"] = distro
+                    j["lr"] = learning_rate
+                    train_ppo_job(j, j["run-name"], is_fb=False, time=time)
+                    counter += 1
