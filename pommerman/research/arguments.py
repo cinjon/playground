@@ -177,6 +177,9 @@ def get_args():
     parser.add_argument('--begin-selfbombing-epoch', default=0, type=int,
                         help='the epoch at which to begin dying from your own '
                         'bombs. this applies to all agents, even simple ones. ')
+    parser.add_argument('--genesis-epoch', default=1750, type=int,
+                        help='the epoch at which to begin training using genesis-epoch\
+                        state distribution only (i.e. initial state). ')
 
     ### Florensa Specific
     parser.add_argument('--florensa-M', default=int(1e4), type=int,
