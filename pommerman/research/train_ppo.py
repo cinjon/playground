@@ -53,23 +53,18 @@ from statistics import mean as mean
 
 
 def populate_starts(args, envs, action_space, starts, starts_old):
-    if len(starts) < 1:
-        # Bootstrap with some Goal States
-        # TODO: This probably doesn't make sense because in our case grids with
-        # different goals state means a completely different environments.
-        # For now picking a random game's goal into starts
+    # Bootstrap with possibly new game every time
+    games = [d for d in os.listdir(args.state_directory)
+             if os.path.isdir(os.path.join(args.state_directory, d))]
+    game = random.choice(games)
 
-        games = [d for d in os.listdir(args.state_directory)
-                 if os.path.isdir(os.path.join(args.state_directory, d))]
-        game = random.choice(games)
+    with open(os.path.join(args.state_directory, game, 'endgame.json'), 'r') as fp:
+        endgame = json.load(fp)
 
-        with open(os.path.join(args.state_directory, game, 'endgame.json'), 'r') as fp:
-            endgame = json.load(fp)
-
-        final_step = endgame['step_count']
-        goal_state_path = os.path.join(args.state_directory, game, '{:03}.json'.format(final_step - 1))
-        starts.append(goal_state_path)
-        starts_old.append(goal_state_path)
+    final_step = endgame['step_count']
+    goal_state_path = os.path.join(args.state_directory, game, '{:03}.json'.format(final_step - 1))
+    starts.append(goal_state_path)
+    starts_old.append(goal_state_path)
 
     starts_new_loaded = []
     for path in starts:
