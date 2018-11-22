@@ -396,6 +396,9 @@ class WrapPomme(gym.ObservationWrapper):
                                   for id_ in agent_ids if id_ in self.env.training_agents]
         return training_agent_indices
 
+    def change_game_state_distribution(self):
+        self.env.change_game_state_distribution()
+
     def set_bomb_penalty_lambda(self, l):
         self.env.set_bomb_penalty_lambda(l)
 

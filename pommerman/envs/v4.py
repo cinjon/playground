@@ -97,6 +97,9 @@ class Grid(PommeV0):
             ret['game_state_step_start_beg'] = self._game_state_step_start_beg
         return ret
 
+    def change_game_state_distribution(self):
+        self._game_state_distribution = 'genesis'
+
     def reset(self):
         self._optimal_num_steps = 0
         assert (self._agents is not None)

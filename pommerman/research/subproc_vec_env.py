@@ -62,6 +62,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send(env.get_init_states_json(data))
         elif cmd == 'get_actions':
             remote.send((env.get_actions()))
+        elif cmd == 'change_game_state_distribution':
+            remote.send((env.change_game_state_distribution()))
         elif cmd == 'get_global_obs':
             remote.send((env.get_global_obs()))
         elif cmd == 'get_non_training_obs':
@@ -311,6 +313,11 @@ class SubprocVecEnv(_VecEnv):
     def get_actions(self):
         for remote in self.remotes:
             remote.send(('get_actions', None))
+        return [remote.recv() for remote in self.remotes]
+
+    def change_game_state_distribution(self):
+        for remote in self.remotes:
+            remote.send(('change_game_state_distribution', None))
         return [remote.recv() for remote in self.remotes]
 
     def get_global_obs(self):

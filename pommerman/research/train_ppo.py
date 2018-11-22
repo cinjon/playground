@@ -712,8 +712,10 @@ def train():
     ended_count = 0
 
     for num_epoch in range(start_epoch, num_epochs):
-        if num_epoch >= args.genesis_epoch:
-            envs._game_state_distribution = 'genesis'
+        if num_epoch >= args.genesis_epoch and \
+        args.state_directory_distribution != 'genesis':
+            envs.change_game_state_distribution()
+            args.state_directory_distribution = 'genesis'
 
         if args.state_directory_distribution == 'florensa':
             starts, starts_old = populate_starts(args, envs, action_space,
