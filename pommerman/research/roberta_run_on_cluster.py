@@ -92,25 +92,27 @@ def train_ppo_job(flags, jobname=None, is_fb=False,
 ### Running everything seeds 1,2 for everything except 4,5 for reg-grUBnB for the ICLR paper.
 ### Reg is the dataset being the optimal one.
 job = {
-    "how-train": "grid",  "log-interval": 100, "save-interval": 1000,
+    "how-train": "grid",  "log-interval": 10, "save-interval": 1000,
     "log-dir": os.path.join(directory, "logs"), "num-stack": 1,
     "save-dir": os.path.join(directory, "models"), "num-channels": 32,
     "config": "GridWalls-v4", "model-str": "GridCNNPolicy", "use-gae": "",
     "num-processes": 8, "gamma": 0.99, "board-size": 24,
     "state-directory": os.path.join(directory, "astars110-s100"),
     "batch-size": 102400, "num-mini-batch": 20, "num-frames": 2000000000,
-    "state-directory-distribution": "florensa",
+    "state-directory-distribution": "florensa", "genesis-epoch": 1750,
+    "florensa-starts-dir": os.path.join(directory, "starts"),
+    "step-loss": 0.03,
 }
 counter = 0
 for state_directory in [
         "",
-        # "-5opt",
-        # "-10opt",
+        "-5opt",
+        "-10opt",
 ]:
     for (name, distro) in [
             ("florensa", "florensa"),
     ]:
-        for seed in [1]:
+        for seed in [4,5]:
             if state_directory == "" and name == "grUBnB":
                 if seed < 4:
                     continue
