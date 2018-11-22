@@ -660,6 +660,12 @@ def train():
 
     # Start the environment and set the current_obs appropriately.
     current_obs = update_current_obs(envs.reset())
+
+    # Bootstrap the directory so that the first reset is valid
+    if args.state_directory_distribution == 'florensa':
+      populate_starts(args, envs, action_space, [], [])
+      current_obs = update_current_obs(envs.reset())
+
     if how_train in ['simple', 'homogenous', 'grid', 'backselfplay', 'frobackselfplay']:
         # NOTE: Here, we put the first observation into the rollouts.
         training_agents[0].update_rollouts(obs=current_obs, timestep=0)
