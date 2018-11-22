@@ -131,7 +131,7 @@ for state_directory in [
                         j["log-dir"] += "-100"
                     else:
                         j["state-directory"] += "%s/train" % state_directory
-                    time = 24
+                    time = 48
                     j["seed"] = seed
                     j["step-loss"] = step_loss
                     j["state-directory-distribution"] = distro
