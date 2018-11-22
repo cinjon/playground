@@ -52,6 +52,9 @@ class Grid(PommeV0):
                            item_reward=None, use_second_place=False):
         self._step_loss = step_loss
 
+    def set_florensa_starts_dir(self, dir):
+        self._florensa_starts_dir = dir
+
     def make_board(self):
         self._board = utility.make_board_grid(
             size=self._board_size, num_rigid=self._num_rigid, min_length=10)
@@ -182,7 +185,7 @@ class Grid(PommeV0):
             agent.reset(info['step_count'])
             self._optimal_num_steps = len(path)
         elif self._game_state_distribution == 'florensa':
-            starts_dir = os.path.join(os.path.dirname(self._init_game_state_directory), 'starts')
+            starts_dir = self._florensa_starts_dir
             if os.path.isdir(starts_dir):
                 start_states = [
                     state

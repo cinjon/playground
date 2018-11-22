@@ -20,7 +20,8 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
                     state_directory=None, state_directory_distribution=None,
                     step_loss=0.0, bomb_reward=0.0, item_reward=0.0,
                     use_second_place=False, use_both_places=False,
-                    frozen_agent=None, mix_frozen_complex=False):
+                    frozen_agent=None, mix_frozen_complex=False,
+                    florensa_starts_dir=None):
     """Makes an environment callable for multithreading purposes.
     Args:
       config: See the arguments module's config options.
@@ -158,6 +159,8 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
                                 state_directory_distribution,
                                 use_second_place=usp,
                                 use_both_places=ubp)
+        if florensa_starts_dir:
+            env.set_florensa_starts_dir(florensa_starts_dir)
         env.set_is_frozen_complex(is_frozen_complex)
         env.set_reward_shaping(step_loss, bomb_reward, item_reward)
         env.frozen_agent_id = frozen_agent_id
@@ -203,7 +206,8 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
                     state_directory=None, state_directory_distribution=None,
                     step_loss=None, bomb_reward=None, item_reward=None,
                     use_second_place=False, use_both_places=False, frozen_agent=None,
-                    mix_frozen_complex=False
+                    mix_frozen_complex=False,
+                    florensa_starts_dir=None,
 ):
     envs = [
         _make_train_env(
@@ -214,7 +218,8 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
             state_directory_distribution=state_directory_distribution,
             step_loss=step_loss, bomb_reward=bomb_reward, item_reward=item_reward,
             use_second_place=use_second_place, use_both_places=use_both_places,
-            frozen_agent=frozen_agent, mix_frozen_complex=mix_frozen_complex
+            frozen_agent=frozen_agent, mix_frozen_complex=mix_frozen_complex,
+            florensa_starts_dir=florensa_starts_dir
         )
         for rank in range(num_processes)
     ]
@@ -396,6 +401,9 @@ class WrapPomme(gym.ObservationWrapper):
 
     def set_uniform_v(self, v):
         self.env.set_uniform_v(v)
+
+    def set_florensa_starts_dir(self, d):
+        self.env.set_florensa_starts_dir(d)
 
     def get_training_ids(self):
         return self.env.training_agents

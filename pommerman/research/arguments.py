@@ -182,6 +182,8 @@ def get_args():
                         state distribution only (i.e. initial state). ')
 
     ### Florensa Specific
+    parser.add_argument('--florensa-starts-dir', type=str,
+                        help='Directory to write start states')
     parser.add_argument('--florensa-M', default=int(1e4), type=int,
                         help='Number of rollout states for nearby sampling')
     parser.add_argument('--florensa-brownian-steps', default=50, type=int,

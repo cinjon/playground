@@ -91,14 +91,13 @@ def populate_starts(args, envs, action_space, starts, starts_old):
             starts_new_loaded.append(json.load(fp))
 
     # Write to a directory
-    starts_dir = os.path.join(os.path.dirname(args.state_directory), 'starts')
-    if os.path.isdir(starts_dir):
-      shutil.rmtree(starts_dir)
-    os.makedirs(starts_dir, exist_ok=True)
+    if os.path.isdir(args.florensa_starts_dir):
+      shutil.rmtree(args.florensa_starts_dir)
+    os.makedirs(args.florensa_starts_dir, exist_ok=True)
 
     starts = []
     for i, state in enumerate(starts_new_loaded):
-        start_path = os.path.join(starts_dir, '{}.json'.format(i))
+        start_path = os.path.join(args.florensa_starts_dir, '{}.json'.format(i))
         with open(start_path, 'w') as f:
             json.dump(state, f)
         starts.append(start_path)
@@ -199,7 +198,8 @@ def train():
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
         item_reward=args.item_reward, use_second_place=args.use_second_place,
         use_both_places=args.use_both_places, frozen_agent=frozen_agent,
-        mix_frozen_complex=args.mix_frozen_complex
+        mix_frozen_complex=args.mix_frozen_complex,
+        florensa_starts_dir=args.florensa_starts_dir
     )
     game_type = envs.get_game_type()
 
