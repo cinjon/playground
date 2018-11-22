@@ -7,7 +7,7 @@ import sys
 import itertools
 import local_config
 
-directory = os.path.join(local_config.cluster_directory, 'grid')
+directory = os.path.join(local_config.cluster_directory, 'florensa')
 email = local_config.email
 
 slurm_logs = os.path.join(directory, "slurm_logs")
