@@ -100,7 +100,6 @@ job = {
     "state-directory": os.path.join(directory, "astars110-s100"),
     "batch-size": 102400, "num-mini-batch": 20, "num-frames": 2000000000,
     "state-directory-distribution": "florensa", "genesis-epoch": 1750,
-    "florensa-starts-dir": os.path.join(directory, "starts"),
     "step-loss": 0.03,
 }
 counter = 0
@@ -130,5 +129,8 @@ for state_directory in [
                     j["step-loss"] = step_loss
                     j["state-directory-distribution"] = distro
                     j["lr"] = learning_rate
+                    j["florensa-starts-dir"] = os.path.join(directory, \
+                                                "starts-%s-seed%d" % \
+                                                (state_directory, seed))
                     train_ppo_job(j, j["run-name"], is_fb=False, time=time)
                     counter += 1
