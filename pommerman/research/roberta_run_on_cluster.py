@@ -113,12 +113,6 @@ for state_directory in [
             ("florensa", "florensa"),
     ]:
         for seed in [4,5]:
-            if state_directory == "" and name == "grUBnB":
-                if seed < 4:
-                    continue
-            else:
-                if seed > 2:
-                    continue
             for learning_rate in [1e-3]:
                 for step_loss in [.03]:
                     j = {k:v for k,v in job.items()}
