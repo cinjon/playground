@@ -405,6 +405,9 @@ class WrapPomme(gym.ObservationWrapper):
     def set_florensa_starts(self, starts):
         self.env.set_florensa_starts(starts)
 
+    def get_florensa_start(self):
+        self.env.get_florensa_start()
+
     def get_training_ids(self):
         return self.env.training_agents
 

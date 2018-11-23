@@ -1447,13 +1447,15 @@ def train():
         total_steps += num_processes * num_steps
 
         if args.state_directory_distribution == 'florensa':
+            active_starts = envs.get_florensa_start()
             for k in list(starts.keys()):
+                R = 0.0
                 if starts_count[k]:
                     R = float(starts_rews[k]) / starts_count[k]
-                    if not args.florensa_r_min <= R <= args.florensa_r_max:
-                        starts.pop(k)
-                        starts_rews.pop(k)
-                        starts_count.pop(k)
+                if k not in active_starts and not (args.florensa_r_min <= R <= args.florensa_r_max):
+                    starts.pop(k)
+                    starts_rews.pop(k)
+                    starts_count.pop(k)
 
             starts_old.update(starts)
 

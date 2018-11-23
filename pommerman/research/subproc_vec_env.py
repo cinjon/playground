@@ -89,6 +89,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.send((env.set_json_info(data)))
         elif cmd == 'set_florensa_starts':
             remote.send((env.set_florensa_starts(data)))
+        elif cmd == 'get_florensa_start':
+            remote.send((env.get_florensa_start()))
         else:
             raise NotImplementedError
 
@@ -299,6 +301,11 @@ class SubprocVecEnv(_VecEnv):
     def set_florensa_starts(self, starts):
         for remote in self.remotes:
             remote.send(('set_florensa_starts', starts))
+        return [remote.recv() for remote in self.remotes]
+
+    def get_florensa_start(self):
+        for remote in self.remotes:
+            remote.send(('get_florensa_start', None))
         return [remote.recv() for remote in self.remotes]
 
     def get_all_state_files(self):

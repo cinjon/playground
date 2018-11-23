@@ -55,6 +55,9 @@ class Grid(PommeV0):
     def set_florensa_starts(self, starts):
         self._florensa_starts = starts
 
+    def get_florensa_start(self):
+        return self._florensa_start_id
+
     def make_board(self):
         self._board = utility.make_board_grid(
             size=self._board_size, num_rigid=self._num_rigid, min_length=10)
