@@ -200,7 +200,7 @@ class Grid(PommeV0):
 
             if self._florensa_starts:
                 self._florensa_start_id = random.choice(list(self._florensa_starts.keys()))
-                self.set_json_info(self._florensa_starts[self._florensa_start_id])
+                self.set_json_info(self._florensa_starts[self._florensa_start_id]['json'])
             else:
                 self._step_count = 0
                 self.make_board()

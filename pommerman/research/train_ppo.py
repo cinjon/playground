@@ -52,7 +52,7 @@ import pommerman.constants as constants
 from statistics import mean as mean
 
 
-def populate_starts(args, envs, action_space, starts, starts_old):
+def populate_starts(args, envs, action_space, starts, starts_old, active_starts=None):
     next_free_id = 0
     if starts:
         next_free_id = max(starts.keys()) + 1
@@ -71,15 +71,15 @@ def populate_starts(args, envs, action_space, starts, starts_old):
     with open(goal_state_path, 'r') as fp:
         goal_state = json.load(fp)
 
-    starts[next_free_id] = goal_state
-    starts_old[next_free_id] = goal_state
+    starts[next_free_id] = {'json': goal_state, 'count': 0, 'rew': 0}
+    starts_old[next_free_id] = {'json': goal_state, 'count': 0, 'rew': 0}
     next_free_id += 1
 
     # Sample new states by Brownian motion
     brownian_samples = 0
     while brownian_samples < args.florensa_M:
         s0 = random.choices(list(starts.keys()), k=envs.num_envs)
-        start_states = [starts[k] for k in s0]
+        start_states = [starts[k]['json'] for k in s0]
         envs.set_json_info(start_states)
 
         for _ in range(args.florensa_brownian_steps):
@@ -89,7 +89,7 @@ def populate_starts(args, envs, action_space, starts, starts_old):
             json_infos = envs.get_json_info()
 
             for info in json_infos:
-                starts[next_free_id] = info
+                starts[next_free_id] = {'json': info, 'count': 0, 'rew': 0}
                 next_free_id += 1
 
             brownian_samples += len(json_infos)
@@ -98,11 +98,14 @@ def populate_starts(args, envs, action_space, starts, starts_old):
     old_keys = random.sample(list(starts_old.keys()), k=min(args.florensa_num_old_starts, len(starts_old.keys())))
 
     starts_new = {}
-    for k in new_keys:
-        starts_new[k] = starts[k]
+    for nk in new_keys:
+        starts_new[nk] = starts[nk]
 
-    for k in old_keys:
-        starts_new[k] = starts_old[k]
+    for ak in (active_starts or []):
+        starts_new[ak] = starts[ak]
+
+    for ok in old_keys:
+        starts_new[ok] = starts_old[ok]
 
     return starts_new, starts_old
 
@@ -666,19 +669,10 @@ def train():
     starts = {}
     starts_old = {}
 
-    starts_count = {}
-    starts_rews = {}
-
     # NOTE: Needed to bootstrap the Florensa related variables
     if args.state_directory_distribution == 'florensa':
         starts, starts_old = populate_starts(args, envs, action_space,
                                              starts, starts_old)
-
-        for k in starts.keys():
-            if k not in starts_count or k not in starts_rews:
-                starts_count[k] = 0
-                starts_rews[k] = 0
-
         envs.set_florensa_starts(starts)
 
         current_obs = update_current_obs(envs.reset())
@@ -1047,8 +1041,8 @@ def train():
 
                     if args.state_directory_distribution == 'florensa':
                         start_id = info_.get('florensa_start_id')
-                        starts_rews[start_id] += int(is_win)
-                        starts_count[start_id] += 1
+                        starts[start_id]['rew'] += int(is_win)
+                        starts[start_id]['count'] += 1
 
             if how_train == 'simple' or how_train == 'grid':
                 win, alive_win = get_win_alive(info, envs)
@@ -1449,24 +1443,19 @@ def train():
         if args.state_directory_distribution == 'florensa':
             active_starts = envs.get_florensa_start()
             for k in list(starts.keys()):
-                R = 0.0
-                if starts_count[k]:
-                    R = float(starts_rews[k]) / starts_count[k]
-                if k not in active_starts and not (args.florensa_r_min <= R <= args.florensa_r_max):
+                if k in active_starts:
+                    continue
+
+                R = float(starts[k]['rew']) / starts[k]['count'] if starts[k]['count'] else 0.0
+                if args.florensa_r_min <= R <= args.florensa_r_max:
                     starts.pop(k)
-                    starts_rews.pop(k)
-                    starts_count.pop(k)
 
             starts_old.update(starts)
 
             # Update for next epoch
             starts, starts_old = populate_starts(args, envs, action_space,
-                                                 starts, starts_old)
-
-            for k in starts.keys():
-                if k not in starts_count or k not in starts_rews:
-                    starts_count[k] = 0
-                    starts_rews[k] = 0
+                                                 starts, starts_old,
+                                                 active_starts=active_starts)
 
             envs.set_florensa_starts(starts)
 
