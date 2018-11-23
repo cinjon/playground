@@ -94,8 +94,8 @@ def populate_starts(args, envs, action_space, starts, starts_old):
 
             brownian_samples += len(json_infos)
 
-    new_keys = random.choices(list(starts.keys()), k=args.florensa_num_new_starts)
-    old_keys = random.choices(list(starts_old.keys()), k=min(args.florensa_num_old_starts, len(starts_old.keys())))
+    new_keys = random.sample(list(starts.keys()), k=args.florensa_num_new_starts)
+    old_keys = random.sample(list(starts_old.keys()), k=min(args.florensa_num_old_starts, len(starts_old.keys())))
 
     starts_new = {}
     for k in new_keys:
