@@ -1041,8 +1041,9 @@ def train():
 
                     if args.state_directory_distribution == 'florensa':
                         start_id = info_.get('florensa_start_id')
-                        starts[start_id]['rew'] += int(is_win)
-                        starts[start_id]['count'] += 1
+                        if start_id in starts:
+                            starts[start_id]['rew'] += int(is_win)
+                            starts[start_id]['count'] += 1
 
             if how_train == 'simple' or how_train == 'grid':
                 win, alive_win = get_win_alive(info, envs)
@@ -1447,7 +1448,7 @@ def train():
                     continue
 
                 R = float(starts[k]['rew']) / starts[k]['count'] if starts[k]['count'] else 0.0
-                if args.florensa_r_min <= R <= args.florensa_r_max:
+                if not args.florensa_r_min <= R <= args.florensa_r_max:
                     starts.pop(k)
 
             starts_old.update(starts)
