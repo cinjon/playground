@@ -53,6 +53,12 @@ from statistics import mean as mean
 
 
 def populate_starts(args, envs, action_space, starts, starts_old):
+    next_free_id = 0
+    if starts:
+        next_free_id = max(starts.keys()) + 1
+    if starts_old:
+        next_free_id = max(max(starts_old.keys()) + 1, next_free_id)
+
     # Bootstrap with possibly new game every time
     games = [d for d in os.listdir(args.state_directory)
              if os.path.isdir(os.path.join(args.state_directory, d))]
@@ -60,49 +66,45 @@ def populate_starts(args, envs, action_space, starts, starts_old):
 
     with open(os.path.join(args.state_directory, game, 'endgame.json'), 'r') as fp:
         endgame = json.load(fp)
-
     final_step = endgame['step_count']
     goal_state_path = os.path.join(args.state_directory, game, '{:03}.json'.format(final_step - 1))
-    starts.append(goal_state_path)
-    starts_old.append(goal_state_path)
+    with open(goal_state_path, 'r') as fp:
+        goal_state = json.load(fp)
 
-    starts_new_loaded = []
-    for path in starts:
-        with open(path, 'r') as fp:
-            starts_new_loaded.append(json.load(fp))
+    starts[next_free_id] = goal_state
+    starts_old[next_free_id] = goal_state
+    next_free_id += 1
 
     # Sample new states by Brownian motion
-    while len(starts_new_loaded) < args.florensa_M:
-        s0 = random.choices(starts_new_loaded, k=envs.num_envs)
-        envs.set_json_info(s0)
+    brownian_samples = 0
+    while brownian_samples < args.florensa_M:
+        s0 = random.choices(list(starts.keys()), k=envs.num_envs)
+        start_states = [starts[k] for k in s0]
+        envs.set_json_info(start_states)
 
         for _ in range(args.florensa_brownian_steps):
             actions = [[action_space.sample()] for _ in range(envs.num_envs)]
             envs.step(actions)
 
-            json_info = envs.get_json_info()
+            json_infos = envs.get_json_info()
 
-            starts_new_loaded.extend(json_info)
+            for info in json_infos:
+                starts[next_free_id] = info
+                next_free_id += 1
 
-    starts_new_loaded = random.choices(starts_new_loaded,
-                                       k=args.florensa_num_new_starts)
-    for old_path in random.choices(starts_old, k=args.florensa_num_old_starts):
-        with open(old_path, 'r') as fp:
-            starts_new_loaded.append(json.load(fp))
+            brownian_samples += len(json_infos)
 
-    # Write to a directory
-    if os.path.isdir(args.florensa_starts_dir):
-      shutil.rmtree(args.florensa_starts_dir)
-    os.makedirs(args.florensa_starts_dir, exist_ok=True)
+    new_keys = random.choices(list(starts.keys()), k=args.florensa_num_new_starts)
+    old_keys = random.choices(list(starts_old.keys()), k=min(args.florensa_num_old_starts, len(starts_old.keys())))
 
-    starts = []
-    for i, state in enumerate(starts_new_loaded):
-        start_path = os.path.join(args.florensa_starts_dir, '{}.json'.format(i))
-        with open(start_path, 'w') as f:
-            json.dump(state, f)
-        starts.append(start_path)
+    starts_new = {}
+    for k in new_keys:
+        starts_new[k] = starts[k]
 
-    return starts, starts_old
+    for k in old_keys:
+        starts_new[k] = starts_old[k]
+
+    return starts_new, starts_old
 
 
 def train():
@@ -198,8 +200,7 @@ def train():
         step_loss=args.step_loss, bomb_reward=args.bomb_reward,
         item_reward=args.item_reward, use_second_place=args.use_second_place,
         use_both_places=args.use_both_places, frozen_agent=frozen_agent,
-        mix_frozen_complex=args.mix_frozen_complex,
-        florensa_starts_dir=args.florensa_starts_dir
+        mix_frozen_complex=args.mix_frozen_complex
     )
     game_type = envs.get_game_type()
 
@@ -661,10 +662,27 @@ def train():
     # Start the environment and set the current_obs appropriately.
     current_obs = update_current_obs(envs.reset())
 
-    # Bootstrap the directory so that the first reset is valid
+    ############ Florensa Related
+    starts = {}
+    starts_old = {}
+
+    starts_count = {}
+    starts_rews = {}
+
+    # NOTE: Needed to bootstrap the Florensa related variables
     if args.state_directory_distribution == 'florensa':
-      populate_starts(args, envs, action_space, [], [])
-      current_obs = update_current_obs(envs.reset())
+        starts, starts_old = populate_starts(args, envs, action_space,
+                                             starts, starts_old)
+
+        for k in starts.keys():
+            if k not in starts_count or k not in starts_rews:
+                starts_count[k] = 0
+                starts_rews[k] = 0
+
+        envs.set_florensa_starts(starts)
+
+        current_obs = update_current_obs(envs.reset())
+    #############
 
     if how_train in ['simple', 'homogenous', 'grid', 'backselfplay', 'frobackselfplay']:
         # NOTE: Here, we put the first observation into the rollouts.
@@ -706,25 +724,11 @@ def train():
     else:
         add_nonlin = False
 
-    starts = []
-    starts_old = []
-    rews = {}
-    ended_count = 0
-
     for num_epoch in range(start_epoch, num_epochs):
         if num_epoch >= args.genesis_epoch and \
         args.state_directory_distribution != 'genesis':
             envs.change_game_state_distribution()
             args.state_directory_distribution = 'genesis'
-
-        if args.state_directory_distribution == 'florensa':
-            starts, starts_old = populate_starts(args, envs, action_space,
-                                                 starts, starts_old)
-            ended_count = 0
-            # Add new start states
-            for state_path in starts:
-                if state_path not in rews:
-                    rews[state_path] = 0
 
         if num_epoch < args.value_epochs:
             only_value_loss = args.only_value_loss
@@ -1042,8 +1046,9 @@ def train():
                     game_step_counts[num_process] = 0
 
                     if args.state_directory_distribution == 'florensa':
-                        rews[game_state_file] += int(is_win)
-                        ended_count += 1
+                        start_id = info_.get('florensa_start_id')
+                        starts_rews[start_id] += int(is_win)
+                        starts_count[start_id] += 1
 
             if how_train == 'simple' or how_train == 'grid':
                 win, alive_win = get_win_alive(info, envs)
@@ -1442,14 +1447,25 @@ def train():
         total_steps += num_processes * num_steps
 
         if args.state_directory_distribution == 'florensa':
-            starts = []
-            for state_path in list(rews.keys()):
-                R = float(rews[state_path]) / ended_count
-                if args.florensa_r_min <= R <= args.florensa_r_max:
-                    starts.append(state_path)
-                else:
-                    rews.pop(state_path)
-            starts_old.extend(starts)
+            for k in list(starts.keys()):
+                R = float(starts_rews[k]) / starts_count[k]
+                if not args.florensa_r_min <= R <= args.florensa_r_max:
+                    starts.pop(k)
+                    starts_rews.pop(k)
+                    starts_count.pop(k)
+
+            starts_old.update(starts)
+
+            # Update for next epoch
+            starts, starts_old = populate_starts(args, envs, action_space,
+                                                 starts, starts_old)
+
+            for k in starts.keys():
+                if k not in starts_count or k not in starts_rews:
+                    starts_count[k] = 0
+                    starts_rews[k] = 0
+
+            envs.set_florensa_starts(starts)
 
         if args.eval_only:
             pass

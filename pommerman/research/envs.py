@@ -159,8 +159,6 @@ def _make_train_env(config, how_train, seed, rank, game_state_file,
                                 state_directory_distribution,
                                 use_second_place=usp,
                                 use_both_places=ubp)
-        if florensa_starts_dir:
-            env.set_florensa_starts_dir(florensa_starts_dir)
         env.set_is_frozen_complex(is_frozen_complex)
         env.set_reward_shaping(step_loss, bomb_reward, item_reward)
         env.frozen_agent_id = frozen_agent_id
@@ -218,8 +216,7 @@ def make_train_envs(config, how_train, seed, game_state_file, training_agents,
             state_directory_distribution=state_directory_distribution,
             step_loss=step_loss, bomb_reward=bomb_reward, item_reward=item_reward,
             use_second_place=use_second_place, use_both_places=use_both_places,
-            frozen_agent=frozen_agent, mix_frozen_complex=mix_frozen_complex,
-            florensa_starts_dir=florensa_starts_dir
+            frozen_agent=frozen_agent, mix_frozen_complex=mix_frozen_complex
         )
         for rank in range(num_processes)
     ]
@@ -405,8 +402,8 @@ class WrapPomme(gym.ObservationWrapper):
     def set_uniform_v(self, v):
         self.env.set_uniform_v(v)
 
-    def set_florensa_starts_dir(self, d):
-        self.env.set_florensa_starts_dir(d)
+    def set_florensa_starts(self, starts):
+        self.env.set_florensa_starts(starts)
 
     def get_training_ids(self):
         return self.env.training_agents

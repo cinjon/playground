@@ -52,8 +52,8 @@ class Grid(PommeV0):
                            item_reward=None, use_second_place=False):
         self._step_loss = step_loss
 
-    def set_florensa_starts_dir(self, dir):
-        self._florensa_starts_dir = dir
+    def set_florensa_starts(self, starts):
+        self._florensa_starts = starts
 
     def make_board(self):
         self._board = utility.make_board_grid(
@@ -95,6 +95,10 @@ class Grid(PommeV0):
         if hasattr(self, '_game_state_step_start'):
             ret['game_state_step_start'] = self._game_state_step_start
             ret['game_state_step_start_beg'] = self._game_state_step_start_beg
+
+        if hasattr(self, '_florensa_start_id'):
+          ret['florensa_start_id'] = self._florensa_start_id
+
         return ret
 
     def change_game_state_distribution(self):
@@ -188,17 +192,12 @@ class Grid(PommeV0):
             agent.reset(info['step_count'])
             self._optimal_num_steps = len(path)
         elif self._game_state_distribution == 'florensa':
-            starts_dir = self._florensa_starts_dir
-            if os.path.isdir(starts_dir):
-                start_states = [
-                    state
-                    for state in os.listdir(starts_dir)
-                    if state.endswith('json')
-                ]
-                self._game_state_file = os.path.join(starts_dir,
-                                                     random.choice(start_states))
-                with open(self._game_state_file) as fp:
-                    self.set_json_info(json.load(fp))
+            if not hasattr(self, '_florensa_starts'):
+                self._florensa_starts = None
+
+            if self._florensa_starts:
+                self._florensa_start_id = random.choice(list(self._florensa_starts.keys()))
+                self.set_json_info(self._florensa_starts[self._florensa_start_id])
             else:
                 self._step_count = 0
                 self.make_board()
@@ -216,7 +215,6 @@ class Grid(PommeV0):
                     agent.reset()
                 self._optimal_num_steps = self._compute_optimal(
                     self._board, self._agents[0].position, self._agents[0].goal_position)
-
         elif hasattr(self, '_applicable_games') and self._applicable_games:
             directory, step_count = random.choice(self._applicable_games)
             counter = 0
