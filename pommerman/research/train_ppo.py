@@ -1448,7 +1448,9 @@ def train():
 
         if args.state_directory_distribution == 'florensa':
             for k in list(starts.keys()):
-                R = float(starts_rews[k]) / starts_count[k]
+                R = 0.0
+                if starts_count[k]:
+                    R = float(starts_rews[k]) / starts_count[k]
                 if not args.florensa_r_min <= R <= args.florensa_r_max:
                     starts.pop(k)
                     starts_rews.pop(k)
