@@ -1128,7 +1128,7 @@ def train():
                                            if k[2] == 0])
                         avg_over = np.mean([k[2] for k in running_optimal_info])
                         std_over = np.std([k[2] for k in running_optimal_info])
-                    if running_num_episodes >= 5000:
+                    if running_num_episodes >= 2500:
                         print("Num completed %d --> %d success." % (
                             running_num_episodes, success_rate))
                         if using_opt:
@@ -1136,7 +1136,10 @@ def train():
                                 num_optimal, avg_over, std_over))
                         if optimal_by_file:
                             print("\n")
-                            means = {f: np.mean([k[0] for k in lst])
+                            # means = {f: np.mean([k[0] for k in lst])
+                            #          for f, lst in sorted(optimal_by_file.items())}
+                            # NOTE: Keeping min for Florensa.
+                            means = {f: np.min([k[0] for k in lst])
                                      for f, lst in sorted(optimal_by_file.items())}
                             is_wins = {f: 1.0*sum([k[1] for k in lst])/len(lst)
                                        for f, lst in sorted(optimal_by_file.items())}

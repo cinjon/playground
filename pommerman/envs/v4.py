@@ -216,8 +216,8 @@ class Grid(PommeV0):
                     agent.set_goal_position((row_goal, col_goal))
 
                     agent.reset()
-                self._optimal_num_steps = self._compute_optimal(
-                    self._board, self._agents[0].position, self._agents[0].goal_position)
+            self._optimal_num_steps = self._compute_optimal(
+                self._board, self._agents[0].position, self._agents[0].goal_position)
         elif hasattr(self, '_applicable_games') and self._applicable_games:
             directory, step_count = random.choice(self._applicable_games)
             counter = 0
